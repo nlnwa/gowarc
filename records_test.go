@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package warc
+package gowarc
 
 import (
 	"reflect"
@@ -93,7 +93,7 @@ func TestLoader_Get(t *testing.T) {
 				return
 			}
 			if !reflect.DeepEqual(gotRecord, tt.wantRecord) {
-				t.Errorf("Loader.Get() = %v, want %v", gotRecord, tt.wantRecord)
+				t.Errorf("Loader.Get() = \n%v, want %v", gotRecord, tt.wantRecord)
 			}
 		})
 	}

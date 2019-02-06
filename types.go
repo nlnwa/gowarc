@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package warc
+package gowarc
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -157,6 +159,18 @@ func (wr *WarcRecord) ExtensionField(name string) []string   { return wr.extensi
 func (wr *WarcRecord) HasExtensionField(name string) bool    { return wr.extensionHeaders.Has(name) }
 func (wr *WarcRecord) ExtensionFieldnames() []string         { return wr.extensionHeaders.Names() }
 func (wr *WarcRecord) AddExtensionField(nameVal namedValues) { wr.extensionHeaders.AddAll(nameVal) }
+func (wr *WarcRecord) String() string {
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "Type: %v\n", wr.typeString)
+	fmt.Fprintf(&sb, "Version: %v\n", wr.version.txt)
+	exNames := wr.ExtensionFieldnames()
+	if len(exNames) > 0 {
+		for _, k := range exNames {
+			fmt.Fprintf(&sb, "Extensions: %v = %v\n", k, wr.ExtensionField(k))
+		}
+	}
+	return sb.String()
+}
 
 type HttpPayload struct {
 }

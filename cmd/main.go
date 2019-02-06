@@ -19,7 +19,7 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"github.com/nlnwa/warc"
+	"github.com/nlnwa/gowarc"
 	"io"
 	"os"
 	"strconv"
@@ -29,7 +29,7 @@ func main() {
 	args := os.Args[1:]
 	fileName := args[0]
 	var offset int64
-	var record *warc.WarcRecord
+	var record *gowarc.WarcRecord
 	var err error
 	one := false
 	if len(args) > 1 {
@@ -45,7 +45,7 @@ func main() {
 	}
 	b := bufio.NewReaderSize(file, 64*1024)
 
-	wr := warc.NewWarcReader(false)
+	wr := gowarc.NewWarcReader(false)
 	count := 0
 	//record, offset, err = wr.GetRecordFile(file, offset)
 	record, err = wr.GetRecord(b)
@@ -78,9 +78,9 @@ func main() {
 				}
 			}
 			switch t := record.Block().(type) {
-			case *warc.HttpRequestBlock:
+			case *gowarc.HttpRequestBlock:
 				//fmt.Println("HEADER: ", t.HttpHeader())
-			case *warc.WarcFieldsBlock:
+			case *gowarc.WarcFieldsBlock:
 				fmt.Printf("%v %T %v\n", t.WarcFields, t, record.Type())
 			}
 

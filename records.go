@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package warc
+package gowarc
 
 import (
 	"fmt"
@@ -57,7 +57,7 @@ func FileStorageLoader(storageRef string) (record *WarcRecord, err error) {
 	fmt.Printf("File: %s, Offset: %v\n", filename, offset)
 
 	var n int64
-	record, n, err = NewWarcReader(false).GetRecordFilename(filename, offset)
+	record, n, err = NewWarcReader(true).GetRecordFilename(filename, offset)
 	fmt.Printf("Next offset: %v\n", n)
 	return
 }
