@@ -108,6 +108,7 @@ func init() {
 type WarcReader struct {
 	strict           bool
 	warcFieldsParser *warcFieldsParser
+	LastOffset       int64
 }
 
 func NewWarcReader(strict bool) *WarcReader {
@@ -128,6 +129,7 @@ func (wr *WarcReader) GetRecordFilename(filename string, offset int64) (record *
 }
 
 func (wr *WarcReader) GetRecordFile(file *os.File, offset int64) (record *WarcRecord, nextOffset int64, err error) {
+	wr.LastOffset = offset
 	file.Seek(offset, 0)
 
 	c := NewCountingReader(file)
@@ -277,10 +279,15 @@ func (wr *WarcReader) parseWarcHeader(record *WarcRecord) (err error) {
 	}
 
 	for k, v := range record.headers {
+		var ux = ""
 		headerFieldDef := lcHdrNameToDef[k]
+		if headerFieldDef.converterFunc == nil {
+			headerFieldDef = fieldDefs[0]
+		}
+
 		switch headerFieldDef.id {
 		case HdrUnknown:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, nil, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &ux, wr.strict)
 		case StdHdrIdContentLength:
 			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.contentLength, wr.strict)
 		case StdHdrIdContentType:
@@ -320,6 +327,8 @@ func (wr *WarcReader) parseWarcHeader(record *WarcRecord) (err error) {
 		case StdHdrIdType:
 			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.typeString, wr.strict)
 		case StdHdrIdWarcinfoID:
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.warcinfoID, wr.strict)
+		case StdHdrIdTruncated:
 			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.warcinfoID, wr.strict)
 		default:
 			panic("Unhandled standard field: " + headerFieldDef.name)
