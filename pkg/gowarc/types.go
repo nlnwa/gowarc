@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 National Library of Norway.
+ * Copyright 2020 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -171,6 +171,8 @@ func (wr *WarcRecord) String() string {
 	}
 	return sb.String()
 }
+
+func (wr *WarcRecord) GF() WarcFields { return wr.headers }
 
 type HttpPayload struct {
 }

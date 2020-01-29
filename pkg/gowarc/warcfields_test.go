@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 National Library of Norway.
+ * Copyright 2020 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ func Test_parseLine(t *testing.T) {
 		{"unknown", []byte("foo:  bar"), "foo", "bar", nil},
 		{"known", []byte("WARC-Type:  response"), "WARC-Type", "response", nil},
 		{"case", []byte("warc-Type:  response"), "warc-Type", "response", nil},
-		{"nonfield", []byte("WARC/1.0  "), "", "", errors.New("Could not parse header line. Missing ':' in WARC/1.0")},
+		{"nonfield", []byte("WARC/1.0  "), "", "", errors.New("could not parse header line. Missing ':' in WARC/1.0")},
 		{"version", []byte("WARC-Concurrent-To:foo\n"), "WARC-Concurrent-To", "foo", nil},
 		{"utf8", []byte("WARC-Target-URI:Hello, 世界\n"), "WARC-Target-URI", "Hello, 世界", nil},
 		{"encoded", []byte("WARC-Target-URI: =?utf-8?q?Hello,_=E4=B8=96=E7=95=8C?=\n"), "WARC-Target-URI", "Hello, 世界", nil},
@@ -75,7 +75,7 @@ func Test_parseWarcHeader(t *testing.T) {
 			"missingCR",
 			newReader("WARC-Type:  response\n\r\n"),
 			NewWarcFields(),
-			errors.New("Missing carriage return on line 'WARC-Type:  response'"),
+			errors.New("missing carriage return on line 'WARC-Type:  response'"),
 		},
 		{
 			"multiline",
