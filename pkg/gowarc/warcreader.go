@@ -22,8 +22,6 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
-	"io"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -105,43 +103,21 @@ func init() {
 	}
 }
 
+type WarcReaderOpts struct {
+	Strict bool
+}
+
 type WarcReader struct {
-	strict           bool
+	opts             *WarcReaderOpts
 	warcFieldsParser *warcFieldsParser
 	LastOffset       int64
 }
 
-func NewWarcReader(strict bool) *WarcReader {
+func NewWarcReader(opts *WarcReaderOpts) *WarcReader {
 	return &WarcReader{
-		strict:           strict,
-		warcFieldsParser: newWarcfieldParser(strict),
+		opts:             opts,
+		warcFieldsParser: newWarcfieldParser(opts),
 	}
-}
-
-func (wr *WarcReader) GetRecordFilename(filename string, offset int64) (record *WarcRecord, nextOffset int64, err error) {
-	file, err := os.Open(filename) // For read access.
-	defer file.Close()
-	if err != nil {
-		return
-	}
-
-	return wr.GetRecordFile(file, offset)
-}
-
-func (wr *WarcReader) GetRecordFile(file *os.File, offset int64) (record *WarcRecord, nextOffset int64, err error) {
-	wr.LastOffset = offset
-	file.Seek(offset, 0)
-
-	c := NewCountingReader(file)
-	b := bufio.NewReaderSize(c, 8*1024)
-
-	record, err = wr.GetRecord(b)
-	nextOffset = offset + c.N() - int64(b.Buffered())
-	fs, _ := file.Stat()
-	if fs.Size() <= nextOffset {
-		nextOffset = 0
-	}
-	return
 }
 
 func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error) {
@@ -177,7 +153,7 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 	if err != nil {
 		return nil, err
 	}
-	if wr.strict && l[len(l)-2] != '\r' {
+	if wr.opts.Strict && l[len(l)-2] != '\r' {
 		return nil, fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
 	}
 	version := &version{txt: string(bytes.Trim(l, SPHTCRLF))}
@@ -194,7 +170,7 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 		version:          version,
 	}
 
-	if wr.strict && version.id == V_UNSUPPORTED {
+	if wr.opts.Strict && version.id == V_UNSUPPORTED {
 		return record, fmt.Errorf("unsupported WARC version: " + version.txt)
 	}
 
@@ -204,13 +180,12 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 	}
 
 	length := record.contentLength
+	if record.RecordType&(REVISIT) != 0 {
+		length = 0
+	}
 
 	c2 := NewLimitedReader(r, length)
-	record.block = &genericBlock{make([]byte, length)}
-	_, err = io.ReadFull(c2, record.block.RawBytes())
-	if err != nil {
-		return nil, err
-	}
+	record.block = &genericBlock{bufio.NewReader(c2)}
 
 	err = wr.parseBlock(record)
 
@@ -265,7 +240,7 @@ func (wr *WarcReader) parseBlock(record *WarcRecord) (err error) {
 		wb := &WarcFieldsBlock{
 			Block: record.block,
 		}
-		wb.WarcFields, err = wr.warcFieldsParser.parse(bufio.NewReader(bytes.NewBuffer(record.block.RawBytes())))
+		wb.WarcFields, err = wr.warcFieldsParser.parse(bufio.NewReader(record.block.RawBytes()))
 		record.block = wb
 		return
 	}
@@ -273,7 +248,7 @@ func (wr *WarcReader) parseBlock(record *WarcRecord) (err error) {
 }
 
 func (wr *WarcReader) parseWarcHeader(record *WarcRecord) (err error) {
-	record.RecordType, err = resolveRecordType(record, wr.strict)
+	record.RecordType, err = resolveRecordType(record, wr.opts.Strict)
 	if err != nil {
 		return
 	}
@@ -287,49 +262,49 @@ func (wr *WarcReader) parseWarcHeader(record *WarcRecord) (err error) {
 
 		switch headerFieldDef.id {
 		case HdrUnknown:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &ux, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &ux, wr.opts.Strict)
 		case StdHdrIdContentLength:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.contentLength, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.contentLength, wr.opts.Strict)
 		case StdHdrIdContentType:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.contentType, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.contentType, wr.opts.Strict)
 		case StdHdrIdBlockDigest:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.blockDigest, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.blockDigest, wr.opts.Strict)
 		case StdHdrIdConcurrentTo:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.concurrentTo, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.concurrentTo, wr.opts.Strict)
 		case StdHdrIdDate:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.date, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.date, wr.opts.Strict)
 		case StdHdrIdFilename:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.filename, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.filename, wr.opts.Strict)
 		case StdHdrIdIPAddress:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.iPAddress, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.iPAddress, wr.opts.Strict)
 		case StdHdrIdIdentifiedPayloadType:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.identifiedPayloadType, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.identifiedPayloadType, wr.opts.Strict)
 		case StdHdrIdPayloadDigest:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.payloadDigest, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.payloadDigest, wr.opts.Strict)
 		case StdHdrIdProfile:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.profile, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.profile, wr.opts.Strict)
 		case StdHdrIdRecordID:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.recordID, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.recordID, wr.opts.Strict)
 		case StdHdrIdRefersTo:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.refersTo, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.refersTo, wr.opts.Strict)
 		case StdHdrIdRefersToDate:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.refersToDate, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.refersToDate, wr.opts.Strict)
 		case StdHdrIdRefersToTargetUri:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.refersToTargetUri, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.refersToTargetUri, wr.opts.Strict)
 		case StdHdrIdSegmentNumber:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.segmentNumber, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.segmentNumber, wr.opts.Strict)
 		case StdHdrIdSegmentOriginId:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.segmentOriginId, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.segmentOriginId, wr.opts.Strict)
 		case StdHdrIdSegmentTotalLength:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.segmentTotalLength, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.segmentTotalLength, wr.opts.Strict)
 		case StdHdrIdTargetUri:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.targetUri, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.targetUri, wr.opts.Strict)
 		case StdHdrIdType:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.typeString, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.typeString, wr.opts.Strict)
 		case StdHdrIdWarcinfoID:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.warcinfoID, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.warcinfoID, wr.opts.Strict)
 		case StdHdrIdTruncated:
-			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.warcinfoID, wr.strict)
+			err = headerFieldDef.converterFunc(record, headerFieldDef, v, &record.warcinfoID, wr.opts.Strict)
 		default:
 			panic("Unhandled standard field: " + headerFieldDef.name)
 		}

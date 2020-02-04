@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/cat"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/ls"
+	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/serve"
 	"github.com/spf13/cobra"
 	"os"
 
@@ -55,6 +56,7 @@ to quickly create a Cobra application.`,
 	// Subcommands
 	cmd.AddCommand(ls.NewCommand())
 	cmd.AddCommand(cat.NewCommand())
+	cmd.AddCommand(serve.NewCommand())
 
 	return cmd
 }

@@ -86,11 +86,11 @@ func NewWarcFields() WarcFields {
 }
 
 type warcFieldsParser struct {
-	strict bool
+	opts *WarcReaderOpts
 }
 
-func newWarcfieldParser(strict bool) *warcFieldsParser {
-	return &warcFieldsParser{strict}
+func newWarcfieldParser(opts *WarcReaderOpts) *warcFieldsParser {
+	return &warcFieldsParser{opts}
 }
 
 func (wfp *warcFieldsParser) parseLine(line []byte) (name string, value string, err error) {
@@ -121,7 +121,7 @@ func (wfp *warcFieldsParser) readLine(r *bufio.Reader) (line []byte, next byte, 
 		}
 		return
 	}
-	if wfp.strict && l[len(l)-2] != '\r' {
+	if wfp.opts.Strict && l[len(l)-2] != '\r' {
 		err = fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
 		return
 	}

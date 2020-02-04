@@ -17,7 +17,9 @@
 package gowarc
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -174,77 +176,60 @@ func (wr *WarcRecord) String() string {
 
 func (wr *WarcRecord) GF() WarcFields { return wr.headers }
 
+func (wr *WarcRecord) Close() {
+	remaining := wr.contentLength
+	for remaining > 0 {
+		n, err := wr.Block().RawBytes().Discard(int(remaining))
+		if err != nil {
+			break
+		}
+		remaining = remaining - int64(n)
+	}
+}
+
 type HttpPayload struct {
 }
 
 type Block interface {
-	RawBytes() []byte
+	RawBytes() *bufio.Reader
 }
 
 type genericBlock struct {
-	rawBytes []byte
+	rawBytes *bufio.Reader
 }
 
-func (p *genericBlock) RawBytes() []byte {
+func (p *genericBlock) RawBytes() *bufio.Reader {
 	return p.rawBytes
 }
 
 type PayloadBlock interface {
-	RawBytes() []byte
-	PayloadBytes() []byte
-}
-
-type HttpRequestBlock struct {
 	Block
-	request          *HttpRequestLine
-	httpHeader       http.Header
-	httpPayloadBytes []byte
+	PayloadBytes() (io.ReadCloser, error)
 }
 
-func (p *HttpRequestBlock) PayloadBytes() []byte {
-	return p.httpPayloadBytes
+type HttpRequestBlock interface {
+	PayloadBlock
+	Request() (*http.Request, error)
 }
 
-func (p *HttpRequestBlock) HttpHeader() http.Header {
-	return p.httpHeader
+type HttpResponseBlock interface {
+	PayloadBlock
+	Response() (*http.Response, error)
 }
 
-func (p *HttpRequestBlock) Request() (line *HttpRequestLine) {
-	return p.request
-}
-
-type HttpResponseBlock struct {
-	Block
-	status           *HttpStatusLine
-	httpHeader       http.Header
-	httpPayloadBytes []byte
-}
-
-func (p *HttpResponseBlock) PayloadBytes() []byte {
-	return p.httpPayloadBytes
-}
-
-func (p *HttpResponseBlock) HttpHeader() http.Header {
-	return p.httpHeader
-}
-
-func (p *HttpResponseBlock) Status() *HttpStatusLine {
-	return p.status
-}
-
-type HttpStatusLine struct {
-	Status     string
-	StatusCode int
-	Proto      string
-	ProtoMajor int
-	ProtoMinor int
-}
-
-type HttpRequestLine struct {
-	Method     string
-	RequestURI string
-	Proto      string
-}
+//type HttpStatusLine struct {
+//	Status     string
+//	StatusCode int
+//	Proto      string
+//	ProtoMajor int
+//	ProtoMinor int
+//}
+//
+//type HttpRequestLine struct {
+//	Method     string
+//	RequestURI string
+//	Proto      string
+//}
 
 type WarcFieldsBlock struct {
 	Block

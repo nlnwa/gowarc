@@ -13,16 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ls
+package serve
 
 import (
-	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/pkg/server"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
-	"sort"
 	"strconv"
 )
 
@@ -38,7 +37,7 @@ type conf struct {
 func NewCommand() *cobra.Command {
 	c := &conf{}
 	var cmd = &cobra.Command{
-		Use:   "ls",
+		Use:   "serve",
 		Short: "A brief description of your command",
 		Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -47,17 +46,17 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) == 0 {
-				return errors.New("missing file name")
-			}
-			c.fileName = args[0]
-			if c.offset >= 0 && c.recordCount == 0 {
-				c.recordCount = 1
-			}
-			if c.offset < 0 {
-				c.offset = 0
-			}
-			sort.Strings(c.id)
+			//if len(args) == 0 {
+			//	return errors.New("missing file name")
+			//}
+			//c.fileName = args[0]
+			//if c.offset >= 0 && c.recordCount == 0 {
+			//	c.recordCount = 1
+			//}
+			//if c.offset < 0 {
+			//	c.offset = 0
+			//}
+			//sort.Strings(c.id)
 			return runE(c)
 		},
 	}
@@ -72,7 +71,7 @@ to quickly create a Cobra application.`,
 }
 
 func runE(c *conf) error {
-	readFile(c, c.fileName)
+	server.Serve()
 	return nil
 }
 

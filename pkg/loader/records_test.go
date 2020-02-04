@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-package gowarc
+package loader
 
 import (
+	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"reflect"
 	"testing"
 )
@@ -24,7 +25,7 @@ import (
 func TestLoader_Get(t *testing.T) {
 	type fields struct {
 		StorageRefResolver func(warcId string) (storageRef string, err error)
-		StorageLoader      func(storageRef string) (record *WarcRecord, err error)
+		StorageLoader      func(storageRef string) (record *gowarc.WarcRecord, err error)
 		NoUnpack           bool
 	}
 	type args struct {
@@ -34,7 +35,7 @@ func TestLoader_Get(t *testing.T) {
 		name       string
 		fields     fields
 		args       args
-		wantRecord *WarcRecord
+		wantRecord *gowarc.WarcRecord
 		wantErr    bool
 	}{
 		{
@@ -102,17 +103,17 @@ func TestLoader_Get(t *testing.T) {
 func mockStorageRefResolver(warcId string) (storageRef string, err error) {
 	switch warcId {
 	case "urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008":
-		storageRef = "warcfile:testdata/example.warc:0"
+		storageRef = "warcfile:../../testdata/example.warc:0"
 	case "urn:uuid:e9a0ee48-0221-11e7-adb1-0242ac120008":
-		storageRef = "warcfile:testdata/example.warc:488"
+		storageRef = "warcfile:../../testdata/example.warc:488"
 	case "urn:uuid:a9c51e3e-0221-11e7-bf66-0242ac120005":
-		storageRef = "warcfile:testdata/example.warc:1197"
+		storageRef = "warcfile:../../testdata/example.warc:1197"
 	case "urn:uuid:a9c5c23a-0221-11e7-8fe3-0242ac120007":
-		storageRef = "warcfile:testdata/example.warc:2566"
+		storageRef = "warcfile:../../testdata/example.warc:2566"
 	case "urn:uuid:e6e395ca-0221-11e7-a18d-0242ac120005":
-		storageRef = "warcfile:testdata/example.warc:3370"
+		storageRef = "warcfile:../../testdata/example.warc:3370"
 	case "urn:uuid:e6e41fea-0221-11e7-8fe3-0242ac120007":
-		storageRef = "warcfile:testdata/example.warc:4316"
+		storageRef = "warcfile:../../testdata/example.warc:4316"
 	}
 	return
 }

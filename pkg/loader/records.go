@@ -14,21 +14,24 @@
  * limitations under the License.
  */
 
-package gowarc
+package loader
 
 import (
 	"fmt"
+	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
 
 type Loader struct {
 	StorageRefResolver func(warcId string) (storageRef string, err error)
-	StorageLoader      func(storageRef string) (record *WarcRecord, err error)
+	StorageLoader      func(storageRef string) (record *gowarc.WarcRecord, err error)
 	NoUnpack           bool
 }
 
-func (l *Loader) Get(warcId string) (record *WarcRecord, err error) {
+func (l *Loader) Get(warcId string) (record *gowarc.WarcRecord, err error) {
 	storageRef, err := l.StorageRefResolver(warcId)
 	if err != nil {
 		return
@@ -46,18 +49,34 @@ func (l *Loader) Get(warcId string) (record *WarcRecord, err error) {
 	return
 }
 
-func FileStorageLoader(storageRef string) (record *WarcRecord, err error) {
+func FileStorageLoader(storageRef string) (record *gowarc.WarcRecord, err error) {
 	p := strings.SplitN(storageRef, ":", 3)
 	if len(p) != 3 || p[0] != "warcfile" {
 		err = fmt.Errorf("storage ref '%s' can't be handled by FileStorageLoader", storageRef)
 	}
+	fmt.Printf("!!!!!!!!!!!! %v %v\n", p, storageRef)
 
 	filename := p[1]
+	x, y := filepath.Abs(filename)
+	fmt.Printf("!!!!!!!!!!!! %v %v\n", x, y)
+
 	offset, err := strconv.ParseInt(p[2], 0, 64)
 	fmt.Printf("File: %s, Offset: %v\n", filename, offset)
 
-	var n int64
-	record, n, err = NewWarcReader(true).GetRecordFilename(filename, offset)
-	fmt.Printf("Next offset: %v\n", n)
+	opts := &gowarc.WarcReaderOpts{Strict: false}
+	wf, err := gowarc.NewWarcFilename(filename, offset, opts)
+	if err != nil {
+		return
+	}
+	defer wf.Close()
+
+	var currentOffset int64
+	record, currentOffset, err = wf.Next()
+	if err != nil {
+		_, _ = fmt.Fprintf(os.Stderr, "Error: %v, Offset %v\n", err.Error(), offset)
+		return nil, err
+	}
+
+	fmt.Printf("Offset: %v\n", currentOffset)
 	return
 }

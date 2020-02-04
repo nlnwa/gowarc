@@ -16,7 +16,7 @@
 package cat
 
 import (
-	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/gowarc"
@@ -29,12 +29,12 @@ import (
 )
 
 type conf struct {
-	offset    int64
-	endOffset int64
-	header    bool
-	strict    bool
-	fileName  string
-	id        []string
+	offset      int64
+	recordCount int
+	header      bool
+	strict      bool
+	fileName    string
+	id          []string
 }
 
 func NewCommand() *cobra.Command {
@@ -53,13 +53,19 @@ to quickly create a Cobra application.`,
 				return errors.New("missing file name")
 			}
 			c.fileName = args[0]
+			if c.offset >= 0 && c.recordCount == 0 {
+				c.recordCount = 1
+			}
+			if c.offset < 0 {
+				c.offset = 0
+			}
 			sort.Strings(c.id)
 			return runE(c)
 		},
 	}
 
 	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
-	cmd.Flags().Int64VarP(&c.endOffset, "offset-end", "e", -1, "record offset")
+	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
 	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
 	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
 	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
@@ -73,62 +79,18 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	var currentOffset int64 = 0
-	if c.offset >= 0 {
-		currentOffset = c.offset
-	}
-	var record *gowarc.WarcRecord
-	var err error
-
-	var nextOffset int64
-
-	file, err := os.Open(fileName) // For read access.
-	defer file.Close()
+	opts := &gowarc.WarcReaderOpts{Strict: c.strict}
+	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
+	defer wf.Close()
 	if err != nil {
+		fmt.Printf("Error opening file: %v\n", err)
 		return
 	}
 
-	if c.offset >= 0 {
-		file.Seek(c.offset, 0)
-	}
-
-	r := gowarc.NewCountingReader(file)
-	b := bufio.NewReaderSize(r, 64*1024)
-
-	wr := gowarc.NewWarcReader(c.strict)
 	count := 0
 
-	record, err = wr.GetRecord(b)
-	if err != nil {
-		panic(err)
-	}
-
-	nextOffset = c.offset + r.N() - int64(b.Buffered())
-
-	for true {
-		if c.endOffset >= 0 && currentOffset > c.endOffset {
-			return
-		}
-
-		if len(c.id) == 0 || contains(c.id, record.RecordID()) {
-			printRecord(currentOffset, record)
-		}
-		//fmt.Fprint(os.Stderr, ".")
-		//fmt.Printf("%v %v %v %T\n", record.Type(), record.RecordID(), record.ContentType(), record.Block())
-		//fmt.Printf("%v\n", record.Version())
-		//fmt.Printf("%v\t%s\t%s\n", offset, record.Header.RecordID, record.Header.ContentType)
-		//fmt.Printf("%s\t%v\t%s\t%v\n", fileName, offset, record.TargetUri(), record.Type())
-
-		//switch t := record.Block().(type) {
-		//case *gowarc.HttpRequestBlock:
-		//	//fmt.Println("HEADER: ", t.HttpHeader())
-		//case *gowarc.WarcFieldsBlock:
-		//	//fmt.Printf("%v %T %v\n", t.WarcFields, t, record.Type())
-		//}
-
-		count++
-
-		record, err = wr.GetRecord(b)
+	for {
+		wr, currentOffset, err := wf.Next()
 		if err == io.EOF {
 			break
 		}
@@ -136,8 +98,13 @@ func readFile(c *conf, fileName string) {
 			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), c.offset)
 			break
 		}
-		currentOffset = nextOffset
-		nextOffset = c.offset + r.N() - int64(b.Buffered())
+		count++
+
+		printRecord(currentOffset, wr)
+
+		if c.recordCount > 0 && count >= c.recordCount {
+			break
+		}
 	}
 	fmt.Fprintln(os.Stderr, "Count: ", count)
 }
@@ -168,9 +135,23 @@ func printRecord(offset int64, record *gowarc.WarcRecord) {
 
 	b := record.Block()
 	switch v := b.(type) {
-	case *gowarc.HttpResponseBlock:
-		fmt.Printf("%v\n%v\n", v.Status(), v.HttpHeader())
-		fmt.Printf("\n%v\n", v.RawBytes())
+	case gowarc.HttpResponseBlock:
+		fmt.Printf("????????????? %T\n", v)
+		buf := &bytes.Buffer{}
+		v.RawBytes().WriteTo(buf)
+		//fmt.Printf("\n%s\n", buf.String())
+		//x, err := v.Response()
+		//fmt.Printf("????????????? %v -- %v\n", x, err)
+	case gowarc.HttpRequestBlock:
+		fmt.Printf("????????????? %T\n", v)
+		//x, err := v.Response()
+		//fmt.Printf("????????????? %v -- %v\n", x, err)
+		//fmt.Printf("%v\n%v\n", v.Status(), v.HttpHeader())
+
+		buf := &bytes.Buffer{}
+		v.RawBytes().WriteTo(buf)
+		fmt.Printf("\n-----------\n%s\n------------------\n", buf.String())
+		//fmt.Printf("\n%v\n", v.RawBytes())
 	default:
 		fmt.Printf("%T\n", v)
 	}
