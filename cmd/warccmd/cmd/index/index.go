@@ -13,32 +13,27 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ls
+package index
 
 import (
 	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
-	"sort"
 	"strconv"
 )
 
 type conf struct {
-	offset      int64
-	recordCount int
-	header      bool
-	strict      bool
-	fileName    string
-	id          []string
+	fileName string
 }
 
 func NewCommand() *cobra.Command {
 	c := &conf{}
 	var cmd = &cobra.Command{
-		Use:   "ls",
+		Use:   "index",
 		Short: "A brief description of your command",
 		Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -51,34 +46,27 @@ to quickly create a Cobra application.`,
 				return errors.New("missing file name")
 			}
 			c.fileName = args[0]
-			if c.offset >= 0 && c.recordCount == 0 {
-				c.recordCount = 1
-			}
-			if c.offset < 0 {
-				c.offset = 0
-			}
-			sort.Strings(c.id)
 			return runE(c)
 		},
 	}
-
-	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
-	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
-	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
-	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
-	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
 
 	return cmd
 }
 
 func runE(c *conf) error {
-	readFile(c, c.fileName)
+	// TODO: make configurable
+	db, err := index.NewIndexDb("/tmp/cdx")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+	readFile(c, db)
 	return nil
 }
 
-func readFile(c *conf, fileName string) {
-	opts := &gowarc.WarcReaderOpts{Strict: c.strict}
-	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
+func readFile(c *conf, db *index.Db) {
+	opts := &gowarc.WarcReaderOpts{Strict: false}
+	wf, err := gowarc.NewWarcFilename(c.fileName, 0, opts)
 	defer wf.Close()
 	if err != nil {
 		return
@@ -92,41 +80,12 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), c.offset)
+			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), currentOffset)
 			break
-		}
-		if len(c.id) > 0 {
-			if !contains(c.id, wr.RecordID()) {
-				continue
-			}
 		}
 		count++
 
-		printRecord(currentOffset, wr)
-
-		if c.recordCount > 0 && count >= c.recordCount {
-			break
-		}
+		db.Add(wr.RecordID(), c.fileName, currentOffset)
 	}
 	fmt.Fprintln(os.Stderr, "Count: ", count)
-}
-
-func printRecord(offset int64, record *gowarc.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, record.RecordID(), record.Type(), cropString(record.TargetUri(), 100))
-}
-
-func cropString(s string, size int) string {
-	if len(s) > size {
-		s = s[:size-3] + "..."
-	}
-	return s
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }

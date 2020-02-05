@@ -18,6 +18,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/cat"
+	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/index"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/ls"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/serve"
 	"github.com/spf13/cobra"
@@ -57,6 +58,7 @@ to quickly create a Cobra application.`,
 	cmd.AddCommand(ls.NewCommand())
 	cmd.AddCommand(cat.NewCommand())
 	cmd.AddCommand(serve.NewCommand())
+	cmd.AddCommand(index.NewCommand())
 
 	return cmd
 }

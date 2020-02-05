@@ -180,9 +180,6 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 	}
 
 	length := record.contentLength
-	if record.RecordType&(REVISIT) != 0 {
-		length = 0
-	}
 
 	c2 := NewLimitedReader(r, length)
 	record.block = &genericBlock{bufio.NewReader(c2)}
@@ -226,7 +223,11 @@ func resolveRecordType(record *WarcRecord, strict bool) (recordType recordTypeMa
 }
 
 func (wr *WarcReader) parseBlock(record *WarcRecord) (err error) {
-	if record.RecordType&(RESPONSE|RESOURCE|REQUEST|REVISIT|CONVERSION|CONTINUATION) != 0 {
+	if record.RecordType&(REVISIT) != 0 {
+		record.block, err = NewRevisitBlock(record.block)
+		return
+	}
+	if record.RecordType&(RESPONSE|RESOURCE|REQUEST|CONVERSION|CONTINUATION) != 0 {
 		if strings.HasPrefix(strings.ToLower(record.contentType), "application/http") {
 			httpBlock, err := NewHttpBlock(record.block)
 			if err != nil {
@@ -240,7 +241,12 @@ func (wr *WarcReader) parseBlock(record *WarcRecord) (err error) {
 		wb := &WarcFieldsBlock{
 			Block: record.block,
 		}
-		wb.WarcFields, err = wr.warcFieldsParser.parse(bufio.NewReader(record.block.RawBytes()))
+		var rb *bufio.Reader
+		rb, err = record.block.RawBytes()
+		if err != nil {
+			return
+		}
+		wb.WarcFields, err = wr.warcFieldsParser.parse(bufio.NewReader(rb))
 		record.block = wb
 		return
 	}

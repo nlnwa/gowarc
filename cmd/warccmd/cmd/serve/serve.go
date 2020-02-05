@@ -16,13 +16,8 @@
 package serve
 
 import (
-	"fmt"
-	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/server"
 	"github.com/spf13/cobra"
-	"io"
-	"os"
-	"strconv"
 )
 
 type conf struct {
@@ -73,54 +68,4 @@ to quickly create a Cobra application.`,
 func runE(c *conf) error {
 	server.Serve()
 	return nil
-}
-
-func readFile(c *conf, fileName string) {
-	opts := &gowarc.WarcReaderOpts{Strict: c.strict}
-	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
-	defer wf.Close()
-	if err != nil {
-		return
-	}
-
-	count := 0
-
-	for {
-		wr, currentOffset, err := wf.Next()
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), c.offset)
-			break
-		}
-		count++
-
-		printRecord(currentOffset, wr)
-
-		if c.recordCount > 0 && count >= c.recordCount {
-			break
-		}
-	}
-	fmt.Fprintln(os.Stderr, "Count: ", count)
-}
-
-func printRecord(offset int64, record *gowarc.WarcRecord) {
-	//fmt.Printf("%v\t%s\t%s\n", offset, record.RecordID(), record.Type())
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, record.RecordID(), record.Type(), cropString(record.TargetUri(), 100))
-
-	//exNames := record.ExtensionFieldnames()
-	//if len(exNames) > 0 {
-	//	fmt.Println("--")
-	//	for _, k := range exNames {
-	//		fmt.Fprintln(os.Stderr, "Extensions: ", k, " = ", record.ExtensionField(k))
-	//	}
-	//}
-}
-
-func cropString(s string, size int) string {
-	if len(s) > size {
-		s = s[:size-3] + "..."
-	}
-	return s
 }

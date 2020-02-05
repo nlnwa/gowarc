@@ -177,9 +177,14 @@ func (wr *WarcRecord) String() string {
 func (wr *WarcRecord) GF() WarcFields { return wr.headers }
 
 func (wr *WarcRecord) Close() {
+	rb, err := wr.Block().RawBytes()
+	if err != nil {
+		return
+	}
+
 	remaining := wr.contentLength
 	for remaining > 0 {
-		n, err := wr.Block().RawBytes().Discard(int(remaining))
+		n, err := rb.Discard(int(remaining))
 		if err != nil {
 			break
 		}
@@ -191,15 +196,15 @@ type HttpPayload struct {
 }
 
 type Block interface {
-	RawBytes() *bufio.Reader
+	RawBytes() (*bufio.Reader, error)
 }
 
 type genericBlock struct {
 	rawBytes *bufio.Reader
 }
 
-func (p *genericBlock) RawBytes() *bufio.Reader {
-	return p.rawBytes
+func (p *genericBlock) RawBytes() (*bufio.Reader, error) {
+	return p.rawBytes, nil
 }
 
 type PayloadBlock interface {
@@ -216,20 +221,6 @@ type HttpResponseBlock interface {
 	PayloadBlock
 	Response() (*http.Response, error)
 }
-
-//type HttpStatusLine struct {
-//	Status     string
-//	StatusCode int
-//	Proto      string
-//	ProtoMajor int
-//	ProtoMinor int
-//}
-//
-//type HttpRequestLine struct {
-//	Method     string
-//	RequestURI string
-//	Proto      string
-//}
 
 type WarcFieldsBlock struct {
 	Block

@@ -98,6 +98,11 @@ func readFile(c *conf, fileName string) {
 			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), c.offset)
 			break
 		}
+		if len(c.id) > 0 {
+			if !contains(c.id, wr.RecordID()) {
+				continue
+			}
+		}
 		count++
 
 		printRecord(currentOffset, wr)
@@ -136,22 +141,20 @@ func printRecord(offset int64, record *gowarc.WarcRecord) {
 	b := record.Block()
 	switch v := b.(type) {
 	case gowarc.HttpResponseBlock:
-		fmt.Printf("????????????? %T\n", v)
+		rb, err := v.RawBytes()
+		if err != nil {
+			return
+		}
 		buf := &bytes.Buffer{}
-		v.RawBytes().WriteTo(buf)
-		//fmt.Printf("\n%s\n", buf.String())
-		//x, err := v.Response()
-		//fmt.Printf("????????????? %v -- %v\n", x, err)
+		rb.WriteTo(buf)
 	case gowarc.HttpRequestBlock:
-		fmt.Printf("????????????? %T\n", v)
-		//x, err := v.Response()
-		//fmt.Printf("????????????? %v -- %v\n", x, err)
-		//fmt.Printf("%v\n%v\n", v.Status(), v.HttpHeader())
+		rb, err := v.RawBytes()
+		if err != nil {
+			return
+		}
 
 		buf := &bytes.Buffer{}
-		v.RawBytes().WriteTo(buf)
-		fmt.Printf("\n-----------\n%s\n------------------\n", buf.String())
-		//fmt.Printf("\n%v\n", v.RawBytes())
+		rb.WriteTo(buf)
 	default:
 		fmt.Printf("%T\n", v)
 	}

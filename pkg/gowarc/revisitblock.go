@@ -17,37 +17,43 @@
 package gowarc
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
 	"net/http"
 )
 
-type httpRequestBlock struct {
-	Block
+const CRLF = "\r\n"
+
+type RevisitBlock struct {
+	rawBytes   *bufio.Reader
+	headers    *bytes.Buffer
+	dataRecord *WarcRecord
 }
 
-func (block *httpRequestBlock) PayloadBytes() (io.ReadCloser, error) {
-	r, err := block.Request()
+func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
+	if block.rawBytes != nil {
+		return block.rawBytes, nil
+	}
+
+	if block.dataRecord == nil {
+		return nil, fmt.Errorf("revisit record is not merged with referenced data")
+	}
+
+	dataBlock := block.dataRecord.Block().(PayloadBlock)
+	var data io.Reader
+	var err error
+	data, err = dataBlock.PayloadBytes()
 	if err != nil {
 		return nil, err
 	}
-	return r.Body, nil
+
+	block.rawBytes = bufio.NewReader(io.MultiReader(block.headers, data))
+	return block.rawBytes, nil
 }
 
-func (block *httpRequestBlock) Request() (*http.Request, error) {
-	rb, err := block.RawBytes()
-	if err != nil {
-		return nil, err
-	}
-	return http.ReadRequest(rb)
-}
-
-type httpResponseBlock struct {
-	Block
-}
-
-func (block *httpResponseBlock) PayloadBytes() (io.ReadCloser, error) {
+func (block *RevisitBlock) PayloadBytes() (io.ReadCloser, error) {
 	r, err := block.Response()
 	if err != nil {
 		return nil, err
@@ -55,7 +61,7 @@ func (block *httpResponseBlock) PayloadBytes() (io.ReadCloser, error) {
 	return r.Body, nil
 }
 
-func (block *httpResponseBlock) Response() (*http.Response, error) {
+func (block *RevisitBlock) Response() (*http.Response, error) {
 	rb, err := block.RawBytes()
 	if err != nil {
 		return nil, err
@@ -63,19 +69,17 @@ func (block *httpResponseBlock) Response() (*http.Response, error) {
 	return http.ReadResponse(rb, nil)
 }
 
-func NewHttpBlock(block Block) (PayloadBlock, error) {
+func (block *RevisitBlock) Merge(refersTo *WarcRecord) {
+	block.dataRecord = refersTo
+}
+
+func NewRevisitBlock(block Block) (Block, error) {
 	rb, err := block.RawBytes()
 	if err != nil {
 		return nil, err
 	}
-	b, err := rb.Peek(4)
-	if err != nil {
-		return nil, fmt.Errorf("not a http block %v", err)
-		return nil, err
-	}
-	if bytes.HasPrefix(b, []byte("HTTP")) {
-		return &httpResponseBlock{block}, nil
-	} else {
-		return &httpRequestBlock{block}, nil
-	}
+	buf := &bytes.Buffer{}
+	rb.WriteTo(buf)
+	buf.WriteString(CRLF)
+	return &RevisitBlock{headers: buf}, nil
 }

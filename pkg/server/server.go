@@ -19,9 +19,10 @@ package server
 import (
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
+	log "github.com/sirupsen/logrus"
 	"io"
-	"log"
 	"net/http"
 )
 
@@ -31,10 +32,17 @@ type recordHandler struct {
 
 func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	warcid := r.URL.Path
-	fmt.Printf("ID: %v\n", warcid)
+	log.Debugf("request id: %v", warcid)
 	record, err := h.loader.Get(warcid)
+
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(404)
+		w.Write([]byte("Document not found\n"))
+		return
+	}
 	defer record.Close()
-	fmt.Printf("HEY: %v %v\n", record.Type(), err)
+
 	switch v := record.Block().(type) {
 	case gowarc.HttpResponseBlock:
 		r, _ := v.Response()
@@ -50,15 +58,28 @@ func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "%v = %v\n", k, record.GF().GetAll(k))
 		}
 		fmt.Fprintln(w)
-		io.Copy(w, v.RawBytes())
+		rb, err := v.RawBytes()
+		if err != nil {
+			return
+		}
+		io.Copy(w, rb)
 	}
 }
 
 func Serve() {
+	// TODO: make configurable
+	db, err := index.NewIndexDb("/tmp/cdx")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
 	l := &loader.Loader{
-		StorageRefResolver: mockStorageRefResolver,
-		StorageLoader:      loader.FileStorageLoader,
-		NoUnpack:           false,
+		Resolver: &storageRefResolver{db: db},
+		Loader: &loader.FileStorageLoader{FilePathResolver: func(fileName string) (filePath string, err error) {
+			return db.GetFilePath(fileName)
+		}},
+		NoUnpack: false,
 	}
 
 	rh := &recordHandler{l}
@@ -68,21 +89,10 @@ func Serve() {
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
-func mockStorageRefResolver(warcId string) (storageRef string, err error) {
-	fmt.Printf("RESOLVE: %v\n", warcId)
-	switch warcId {
-	case "urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008":
-		storageRef = "warcfile:testdata/example.warc:0"
-	case "urn:uuid:e9a0ee48-0221-11e7-adb1-0242ac120008":
-		storageRef = "warcfile:testdata/example.warc:488"
-	case "urn:uuid:a9c51e3e-0221-11e7-bf66-0242ac120005":
-		storageRef = "warcfile:testdata/example.warc:1197"
-	case "urn:uuid:a9c5c23a-0221-11e7-8fe3-0242ac120007":
-		storageRef = "warcfile:testdata/example.warc:2566"
-	case "urn:uuid:e6e395ca-0221-11e7-a18d-0242ac120005":
-		storageRef = "warcfile:testdata/example.warc:3370"
-	case "urn:uuid:e6e41fea-0221-11e7-8fe3-0242ac120007":
-		storageRef = "warcfile:testdata/example.warc:4316"
-	}
-	return
+type storageRefResolver struct {
+	db *index.Db
+}
+
+func (m *storageRefResolver) Resolve(warcId string) (storageRef string, err error) {
+	return m.db.GetStorageRef(warcId)
 }
