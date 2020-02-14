@@ -51,7 +51,7 @@ func (l *Loader) Get(warcId string) (record *gowarc.WarcRecord, err error) {
 
 	// TODO: Unpack revisits and continuation
 	if record.RecordType == gowarc.REVISIT {
-		log.Infof("resoving revisit  %v -> %v\n", record.RecordID(), record.RefersTo())
+		log.Infof("resolving revisit  %v -> %v", record.RecordID(), record.RefersTo())
 		storageRef, err = l.Resolver.Resolve(record.RefersTo())
 		if err != nil {
 			return

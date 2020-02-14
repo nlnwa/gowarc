@@ -22,6 +22,8 @@ import (
 	"compress/gzip"
 	"errors"
 	"fmt"
+	log "github.com/sirupsen/logrus"
+	"io"
 	"strconv"
 	"strings"
 	"time"
@@ -120,15 +122,25 @@ func NewWarcReader(opts *WarcReaderOpts) *WarcReader {
 	}
 }
 
-func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error) {
+func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, offset int64, err error) {
 	var r *bufio.Reader
 
-	magic, err := b.Peek(2)
+	magic, err := b.Peek(5)
 	if err != nil {
 		return
 	}
+	// Search for start of new record
+	for !(magic[0] == 0x1f && magic[1] == 0x8b) && !bytes.Equal(magic, []byte("WARC/")) {
+		b.Discard(1)
+		offset++
+		magic, err = b.Peek(5)
+		if err != nil {
+			return
+		}
+	}
 
 	if magic[0] == 0x1f && magic[1] == 0x8b {
+		log.Debug("detected gzip record")
 		var g *gzip.Reader
 		g, err = gzip.NewReader(b)
 		if err != nil {
@@ -142,26 +154,26 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 	}
 
 	l := make([]byte, 5)
-	i, err := r.Read(l)
+	i, err := io.ReadFull(r, l)
 	if err != nil {
 		return
 	}
 	if i != 5 || !bytes.Equal(l, []byte("WARC/")) {
-		return nil, errors.New("missing record version")
+		return nil, offset, errors.New("missing record version")
 	}
 	l, err = r.ReadBytes('\n')
 	if err != nil {
-		return nil, err
+		return nil, offset, err
 	}
 	if wr.opts.Strict && l[len(l)-2] != '\r' {
-		return nil, fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
+		return nil, offset, fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
 	}
 	version := &version{txt: string(bytes.Trim(l, SPHTCRLF))}
 	version.id = VersionStringToMask[version.txt]
 
 	wf, err := wr.warcFieldsParser.parse(r)
 	if err != nil {
-		return nil, err
+		return nil, offset, err
 	}
 
 	record = &WarcRecord{
@@ -171,12 +183,12 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 	}
 
 	if wr.opts.Strict && version.id == V_UNSUPPORTED {
-		return record, fmt.Errorf("unsupported WARC version: " + version.txt)
+		return record, offset, fmt.Errorf("unsupported WARC version: " + version.txt)
 	}
 
 	err = wr.parseWarcHeader(record)
 	if err != nil {
-		return nil, err
+		return nil, offset, err
 	}
 
 	length := record.contentLength
@@ -188,7 +200,7 @@ func (wr *WarcReader) GetRecord(b *bufio.Reader) (record *WarcRecord, err error)
 
 	n, err := r.Discard(4)
 	if n != 4 || err != nil {
-		return record, fmt.Errorf("failed skipping record trailer %v", err)
+		return record, offset, fmt.Errorf("failed skipping record trailer %v", err)
 	}
 
 	return

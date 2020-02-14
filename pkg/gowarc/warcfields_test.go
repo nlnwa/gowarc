@@ -25,7 +25,8 @@ import (
 )
 
 func Test_parseLine(t *testing.T) {
-	wfp := newWarcfieldParser(false)
+	opts := &WarcReaderOpts{Strict: false}
+	wfp := newWarcfieldParser(opts)
 	tests := []struct {
 		name      string
 		line      []byte
@@ -58,7 +59,8 @@ func Test_parseLine(t *testing.T) {
 }
 
 func Test_parseWarcHeader(t *testing.T) {
-	wfp := newWarcfieldParser(true)
+	opts := &WarcReaderOpts{Strict: true}
+	wfp := newWarcfieldParser(opts)
 	tests := []struct {
 		name    string
 		args    *bufio.Reader

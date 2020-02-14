@@ -67,8 +67,9 @@ func (wf *WarcFile) Next() (*WarcRecord, int64, error) {
 	}
 
 	var err error
-	wf.currentRecord, err = wf.warcReader.GetRecord(wf.bufferedReader)
-	return wf.currentRecord, wf.offset, err
+	var recordOffset int64
+	wf.currentRecord, recordOffset, err = wf.warcReader.GetRecord(wf.bufferedReader)
+	return wf.currentRecord, wf.offset + recordOffset, err
 }
 
 func (wf *WarcFile) Close() error {

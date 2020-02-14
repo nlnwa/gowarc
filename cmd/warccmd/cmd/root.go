@@ -17,14 +17,13 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/fsnotify/fsnotify"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/cat"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/index"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/ls"
 	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/serve"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"os"
-
-	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
 )
 
@@ -52,7 +51,8 @@ to quickly create a Cobra application.`,
 	cobra.OnInitialize(func() { c.initConfig() })
 
 	// Flags
-	cmd.PersistentFlags().StringVar(&c.cfgFile, "config", "", "config file (default is $HOME/.warccmd.yaml)")
+	cmd.PersistentFlags().StringVar(&c.cfgFile, "config", "", "config file. If not set, /etc/warccmd/, $HOME/.warccmd/ and current working dir will be searched for file config.yaml")
+	viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
 
 	// Subcommands
 	cmd.AddCommand(ls.NewCommand())
@@ -65,26 +65,39 @@ to quickly create a Cobra application.`,
 
 // initConfig reads in config file and ENV variables if set.
 func (c *conf) initConfig() {
-	if c.cfgFile != "" {
-		// Use config file from the flag.
-		viper.SetConfigFile(c.cfgFile)
-	} else {
-		// Find home directory.
-		home, err := homedir.Dir()
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-
-		// Search config in home directory with name ".warccmd" (without extension).
-		viper.AddConfigPath(home)
-		viper.SetConfigName(".warccmd")
-	}
+	viper.SetTypeByDefaultValue(true)
+	viper.SetDefault("warcdir", []string{"."})
+	viper.SetDefault("indexdir", ".")
+	viper.SetDefault("autoindex", true)
 
 	viper.AutomaticEnv() // read in environment variables that match
 
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	if viper.IsSet("config") {
+		// Use config file from the flag.
+		viper.SetConfigFile(viper.GetString("config"))
+	} else {
+		// Search config in home directory with name ".warccmd" (without extension).
+		viper.SetConfigName("config")         // name of config file (without extension)
+		viper.SetConfigType("yaml")           // REQUIRED if the config file does not have the extension in the name
+		viper.AddConfigPath("/etc/warccmd/")  // path to look for the config file in
+		viper.AddConfigPath("$HOME/.warccmd") // call multiple times to add many search paths
+		viper.AddConfigPath(".")              // optionally look for config in the working directory
 	}
+
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		fmt.Println("Config file changed:", e.Name)
+	})
+
+	if err := viper.ReadInConfig(); err != nil {
+		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
+			// Config file not found; ignore error
+		} else {
+			// Config file was found but another error was produced
+			log.Fatalf("error reading config file: %v", err)
+		}
+	}
+
+	// Config file found and successfully parsed
+	fmt.Println("Using config file:", viper.ConfigFileUsed())
 }

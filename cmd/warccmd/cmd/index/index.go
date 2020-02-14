@@ -21,6 +21,7 @@ import (
 	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"io"
 	"os"
 	"strconv"
@@ -54,8 +55,8 @@ to quickly create a Cobra application.`,
 }
 
 func runE(c *conf) error {
-	// TODO: make configurable
-	db, err := index.NewIndexDb("/tmp/cdx")
+	dbDir := viper.GetString("indexdir")
+	db, err := index.NewIndexDb(dbDir)
 	if err != nil {
 		return err
 	}
@@ -87,5 +88,6 @@ func readFile(c *conf, db *index.Db) {
 
 		db.Add(wr.RecordID(), c.fileName, currentOffset)
 	}
+	db.Flush()
 	fmt.Fprintln(os.Stderr, "Count: ", count)
 }

@@ -16,8 +16,11 @@
 package serve
 
 import (
+	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/server"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 type conf struct {
@@ -41,17 +44,6 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			//if len(args) == 0 {
-			//	return errors.New("missing file name")
-			//}
-			//c.fileName = args[0]
-			//if c.offset >= 0 && c.recordCount == 0 {
-			//	c.recordCount = 1
-			//}
-			//if c.offset < 0 {
-			//	c.offset = 0
-			//}
-			//sort.Strings(c.id)
 			return runE(c)
 		},
 	}
@@ -66,6 +58,20 @@ to quickly create a Cobra application.`,
 }
 
 func runE(c *conf) error {
-	server.Serve()
+	dbDir := viper.GetString("indexdir")
+	db, err := index.NewIndexDb(dbDir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	log.Infof("Starting autoindexer")
+	if viper.GetBool("autoindex") {
+		autoindexer := index.NewAutoIndexer(db)
+		defer autoindexer.Shutdown()
+	}
+
+	log.Infof("Starting web server")
+	server.Serve(db)
 	return nil
 }

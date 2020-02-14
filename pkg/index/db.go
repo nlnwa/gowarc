@@ -23,8 +23,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sync"
 	"time"
 )
+
+type record struct {
+	id, filePath string
+	offset       int64
+}
 
 type Db struct {
 	dbDir       string
@@ -32,18 +38,54 @@ type Db struct {
 	fileIndex   *badger.DB
 	idIndexGc   *time.Ticker
 	fileIndexGc *time.Ticker
+
+	// batch settings
+	batchMaxSize int
+	batchMaxWait time.Duration
+	batchItems   []*record
+	batchMutex   *sync.RWMutex
+	/*notifier channel*/
+	batchFlushChan chan []*record
 }
 
 func NewIndexDb(dbDir string) (*Db, error) {
+	dbDir = path.Join(dbDir, "warcdb")
 	idIndexDir := path.Join(dbDir, "id-index")
 	fileIndexDir := path.Join(dbDir, "file-index")
 
+	batchMaxSize := 10000
+	batchMaxWait := 5 * time.Second
+
 	d := &Db{
-		dbDir:       dbDir,
-		idIndexGc:   time.NewTicker(5 * time.Minute),
-		fileIndexGc: time.NewTicker(5 * time.Minute),
+		dbDir:          dbDir,
+		idIndexGc:      time.NewTicker(5 * time.Minute),
+		fileIndexGc:    time.NewTicker(5 * time.Minute),
+		batchMaxSize:   batchMaxSize,
+		batchMaxWait:   batchMaxWait,
+		batchItems:     make([]*record, 0, batchMaxSize),
+		batchMutex:     &sync.RWMutex{},
+		batchFlushChan: make(chan []*record, 1),
 	}
 
+	// Init batch routines
+	go func(flushJobs <-chan []*record) {
+		for j := range flushJobs {
+			d.AddBatch(j)
+		}
+	}(d.batchFlushChan)
+
+	go func() {
+		for {
+			select {
+			case <-time.Tick(d.batchMaxWait):
+				d.batchMutex.Lock()
+				d.Flush()
+				d.batchMutex.Unlock()
+			}
+		}
+	}()
+
+	// Open db
 	var err error
 
 	d.idIndex, err = openIndex(idIndexDir, d.idIndexGc)
@@ -85,6 +127,7 @@ func (d *Db) Delete() {
 }
 
 func (d *Db) Close() {
+	d.Flush()
 	d.idIndexGc.Stop()
 	d.fileIndexGc.Stop()
 	for {
@@ -104,29 +147,79 @@ func (d *Db) Close() {
 }
 
 func (d *Db) Add(id, filePath string, offset int64) error {
-	var err error
-	filePath, err = filepath.Abs(filePath)
-	if err != nil {
-		return err
+	record := &record{
+		id:       id,
+		filePath: filePath,
+		offset:   offset,
 	}
-	fileName := filepath.Base(filePath)
+
+	d.batchMutex.Lock()
+	defer d.batchMutex.Unlock()
+	d.batchItems = append(d.batchItems, record)
+	if len(d.batchItems) >= d.batchMaxSize {
+		d.Flush()
+	}
+
+	return nil
+}
+
+func (d *Db) AddBatch(records []*record) {
+	log.Infof("flushing batch to DB")
+	filepaths := make(map[string]string)
+	var err error
+
+	for _, r := range records {
+		if _, ok := filepaths[r.filePath]; !ok {
+			r.filePath, err = filepath.Abs(r.filePath)
+			if err != nil {
+				log.Errorf("%v", err)
+			}
+			fileName := filepath.Base(r.filePath)
+			filepaths[r.filePath] = fileName
+		}
+	}
+
 	err = d.fileIndex.Update(func(txn *badger.Txn) error {
-		_, err := txn.Get([]byte(fileName))
-		if err == badger.ErrKeyNotFound {
-			err = txn.Set([]byte(fileName), []byte(filePath))
+		for filePath, fileName := range filepaths {
+			_, err := txn.Get([]byte(fileName))
+			if err == badger.ErrKeyNotFound {
+				err = txn.Set([]byte(fileName), []byte(filePath))
+			}
 		}
 		return err
 	})
 	if err != nil {
-		return err
+		log.Errorf("%v", err)
 	}
 
-	storageRef := fmt.Sprintf("warcfile:%s:%d", fileName, offset)
 	err = d.idIndex.Update(func(txn *badger.Txn) error {
-		err := txn.Set([]byte(id), []byte(storageRef))
-		return err
+		for _, r := range records {
+			fileName := filepaths[r.filePath]
+			storageRef := fmt.Sprintf("warcfile:%s:%d", fileName, r.offset)
+			err := txn.Set([]byte(r.id), []byte(storageRef))
+			if err != nil {
+				log.Errorf("%v", err)
+			}
+		}
+		return nil
 	})
-	return err
+
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+}
+
+func (d *Db) Flush() {
+	if len(d.batchItems) <= 0 {
+		return
+	}
+
+	copiedItems := make([]*record, len(d.batchItems))
+	for idx, i := range d.batchItems {
+		copiedItems[idx] = i
+	}
+	d.batchItems = d.batchItems[:0]
+	d.batchFlushChan <- copiedItems
 }
 
 func (d *Db) GetStorageRef(id string) (string, error) {
@@ -153,4 +246,26 @@ func (d *Db) GetFilePath(fileName string) (string, error) {
 		return err
 	})
 	return string(val), err
+}
+
+func (d *Db) ListFilePaths() ([]string, error) {
+	var result []string
+	opt := badger.DefaultIteratorOptions
+	opt.PrefetchSize = 10
+	opt.PrefetchValues = false
+	var count int
+	err := d.fileIndex.View(func(txn *badger.Txn) error {
+		it := txn.NewIterator(opt)
+		defer it.Close()
+		for it.Rewind(); it.Valid(); it.Next() {
+			count++
+			result = append(result, string(it.Item().KeyCopy(nil)))
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	fmt.Printf("Counted %d elements\n", count)
+	return result, err
 }

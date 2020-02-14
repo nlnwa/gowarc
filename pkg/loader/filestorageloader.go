@@ -34,7 +34,7 @@ func (f *FileStorageLoader) Load(storageRef string) (record *gowarc.WarcRecord, 
 	if err != nil {
 		return nil, err
 	}
-	log.Debugf("loading record from file: %s, offset: %v\n", filePath, offset)
+	log.Debugf("loading record from file: %s, offset: %v", filePath, offset)
 
 	opts := &gowarc.WarcReaderOpts{Strict: false}
 	wf, err := gowarc.NewWarcFilename(filePath, offset, opts)
@@ -55,6 +55,7 @@ func (f *FileStorageLoader) parseStorageRef(storageRef string) (fileName string,
 	p := strings.SplitN(storageRef, ":", 3)
 	if len(p) != 3 || p[0] != "warcfile" {
 		err = fmt.Errorf("storage ref '%s' can't be handled by FileStorageLoader", storageRef)
+		return
 	}
 	fileName = p[1]
 	offset, err = strconv.ParseInt(p[2], 0, 64)

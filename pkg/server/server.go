@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/index"
@@ -24,6 +25,10 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 type recordHandler struct {
@@ -66,14 +71,7 @@ func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Serve() {
-	// TODO: make configurable
-	db, err := index.NewIndexDb("/tmp/cdx")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer db.Close()
-
+func Serve(db *index.Db) {
 	l := &loader.Loader{
 		Resolver: &storageRefResolver{db: db},
 		Loader: &loader.FileStorageLoader{FilePathResolver: func(fileName string) (filePath string, err error) {
@@ -86,7 +84,32 @@ func Serve() {
 
 	http.Handle("/id/", http.StripPrefix("/id/", rh))
 
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	http.HandleFunc("/files/", func(writer http.ResponseWriter, request *http.Request) {
+		files, err := db.ListFilePaths()
+		if err != nil {
+			log.Fatalf("error reading files: %v", err)
+		}
+		writer.Header().Set("Content-Type", "text/plain")
+		for _, f := range files {
+			fmt.Fprintf(writer, "%v\n", f)
+		}
+	})
+
+	httpServer := &http.Server{
+		Addr: ":8080",
+	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		httpServer.Shutdown(ctx)
+	}()
+
+	log.Info(httpServer.ListenAndServe())
+	//log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 type storageRefResolver struct {
