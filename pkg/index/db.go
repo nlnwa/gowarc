@@ -19,6 +19,11 @@ package index
 import (
 	"fmt"
 	"github.com/dgraph-io/badger"
+	"github.com/golang/protobuf/proto"
+	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/pkg/surt"
+	"github.com/nlnwa/gowarc/pkg/timestamp"
+	cdx "github.com/nlnwa/gowarc/proto"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path"
@@ -28,16 +33,20 @@ import (
 )
 
 type record struct {
-	id, filePath string
-	offset       int64
+	id        string
+	filePath  string
+	offset    int64
+	surt      string
+	timestamp string
+	cdx       *cdx.Cdx
 }
 
 type Db struct {
-	dbDir       string
-	idIndex     *badger.DB
-	fileIndex   *badger.DB
-	idIndexGc   *time.Ticker
-	fileIndexGc *time.Ticker
+	dbDir        string
+	idIndex      *badger.DB
+	fileIndex    *badger.DB
+	cdxIndex     *badger.DB
+	dbGcInterval *time.Ticker
 
 	// batch settings
 	batchMaxSize int
@@ -52,14 +61,14 @@ func NewIndexDb(dbDir string) (*Db, error) {
 	dbDir = path.Join(dbDir, "warcdb")
 	idIndexDir := path.Join(dbDir, "id-index")
 	fileIndexDir := path.Join(dbDir, "file-index")
+	cdxIndexDir := path.Join(dbDir, "cdx-index")
 
 	batchMaxSize := 10000
 	batchMaxWait := 5 * time.Second
 
 	d := &Db{
 		dbDir:          dbDir,
-		idIndexGc:      time.NewTicker(5 * time.Minute),
-		fileIndexGc:    time.NewTicker(5 * time.Minute),
+		dbGcInterval:   time.NewTicker(5 * time.Minute),
 		batchMaxSize:   batchMaxSize,
 		batchMaxWait:   batchMaxWait,
 		batchItems:     make([]*record, 0, batchMaxSize),
@@ -88,39 +97,64 @@ func NewIndexDb(dbDir string) (*Db, error) {
 	// Open db
 	var err error
 
-	d.idIndex, err = openIndex(idIndexDir, d.idIndexGc)
+	d.idIndex, err = openIndex(idIndexDir)
 	if err != nil {
 		return nil, err
 	}
 
-	d.fileIndex, err = openIndex(fileIndexDir, d.fileIndexGc)
+	d.fileIndex, err = openIndex(fileIndexDir)
 	if err != nil {
 		return nil, err
 	}
+
+	d.cdxIndex, err = openIndex(cdxIndexDir)
+	if err != nil {
+		return nil, err
+	}
+
+	go func() {
+		for range d.dbGcInterval.C {
+			d.runValueLogGC(0.5)
+		}
+	}()
 
 	return d, nil
 }
 
-func openIndex(indexDir string, gcTrigger *time.Ticker) (db *badger.DB, err error) {
+func openIndex(indexDir string) (db *badger.DB, err error) {
 	if err := os.MkdirAll(indexDir, 0777); err != nil {
 		return nil, err
 	}
 	opts := badger.DefaultOptions(indexDir)
 	opts.Logger = log.StandardLogger()
 	db, err = badger.Open(opts)
-	go func() {
-		for range gcTrigger.C {
-		again:
-			err := db.RunValueLogGC(0.7)
-			if err == nil {
-				goto again
-			}
-		}
-	}()
 	return
 }
 
-func (d *Db) Delete() {
+func (d *Db) runValueLogGC(discardRatio float64) {
+	for {
+		err := d.idIndex.RunValueLogGC(discardRatio)
+		if err != nil {
+			break
+		}
+	}
+	_ = d.idIndex.Close()
+	for {
+		err := d.fileIndex.RunValueLogGC(discardRatio)
+		if err != nil {
+			break
+		}
+	}
+	_ = d.fileIndex.Close()
+	for {
+		err := d.cdxIndex.RunValueLogGC(discardRatio)
+		if err != nil {
+			break
+		}
+	}
+}
+
+func (d *Db) DeleteDb() {
 	if err := os.RemoveAll(d.dbDir); err != nil {
 		log.Fatal(err)
 	}
@@ -128,29 +162,26 @@ func (d *Db) Delete() {
 
 func (d *Db) Close() {
 	d.Flush()
-	d.idIndexGc.Stop()
-	d.fileIndexGc.Stop()
-	for {
-		err := d.idIndex.RunValueLogGC(0.7)
-		if err != nil {
-			break
-		}
-	}
-	_ = d.idIndex.Close()
-	for {
-		err := d.fileIndex.RunValueLogGC(0.7)
-		if err != nil {
-			break
-		}
-	}
-	_ = d.fileIndex.Close()
+	d.dbGcInterval.Stop()
+	d.runValueLogGC(0.3)
+	_ = d.cdxIndex.Close()
 }
 
-func (d *Db) Add(id, filePath string, offset int64) error {
+func (d *Db) Add(warcRecord *gowarc.WarcRecord, filePath string, offset int64) error {
 	record := &record{
-		id:       id,
+		id:       warcRecord.RecordID(),
 		filePath: filePath,
 		offset:   offset,
+	}
+
+	var err error
+	if warcRecord.RecordType == gowarc.RESPONSE {
+		record.surt, err = surt.GetSurtS(warcRecord.TargetUri(), false)
+		record.timestamp = timestamp.To14(warcRecord.Date())
+		record.cdx = &cdx.Cdx{}
+	}
+	if err != nil {
+		return err
 	}
 
 	d.batchMutex.Lock()
@@ -203,7 +234,27 @@ func (d *Db) AddBatch(records []*record) {
 		}
 		return nil
 	})
+	if err != nil {
+		log.Errorf("%v", err)
+	}
 
+	err = d.cdxIndex.Update(func(txn *badger.Txn) error {
+		for _, r := range records {
+			if r.surt != "" && r.timestamp != "" && r.cdx != nil {
+				key := r.surt + " " + r.timestamp
+				value, err := proto.Marshal(r.cdx)
+				if err != nil {
+					log.Errorf("%v", err)
+					continue
+				}
+				err = txn.Set([]byte(key), value)
+				if err != nil {
+					log.Errorf("%v", err)
+				}
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		log.Errorf("%v", err)
 	}
@@ -267,5 +318,47 @@ func (d *Db) ListFilePaths() ([]string, error) {
 		return nil, err
 	}
 	fmt.Printf("Counted %d elements\n", count)
+	return result, err
+}
+
+func (d *Db) Searchx(url, timestamp string) (*cdx.Cdx, error) {
+	s, err := surt.GetSurtS(url, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var result *cdx.Cdx
+	key := s + " " + timestamp
+	err = d.cdxIndex.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+		item.Value(func(val []byte) error {
+			return proto.Unmarshal(val, result)
+		})
+		return err
+	})
+	return result, err
+}
+
+func (d *Db) Search(url, timestamp string) (*cdx.Cdx, error) {
+	s, err := surt.GetSurtS(url, false)
+	if err != nil {
+		return nil, err
+	}
+
+	var result *cdx.Cdx
+	key := s + " " + timestamp
+	err = d.cdxIndex.View(func(txn *badger.Txn) error {
+		item, err := txn.Get([]byte(key))
+		if err != nil {
+			return err
+		}
+		item.Value(func(val []byte) error {
+			return proto.Unmarshal(val, result)
+		})
+		return err
+	})
 	return result, err
 }

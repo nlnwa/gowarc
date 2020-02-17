@@ -21,14 +21,43 @@ import (
 	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	"io"
 	"os"
 	"strconv"
 )
 
+type cdxFormat struct {
+	name   string
+	writer index.CdxWriter
+}
+
+func (c *cdxFormat) String() string {
+	return "cdx"
+}
+func (c *cdxFormat) Set(name string) error {
+	switch name {
+	case "cdx":
+		c.writer = &index.CdxLegacy{}
+	case "cdxj":
+		c.writer = &index.CdxJ{}
+	case "cdxpb":
+		c.writer = &index.CdxPb{}
+	case "db":
+		c.writer = &index.CdxDb{}
+	default:
+		return fmt.Errorf("unknwon format %v", name)
+	}
+	c.name = name
+	return nil
+}
+func (c *cdxFormat) Type() string {
+	return "cdxFormat"
+}
+
 type conf struct {
 	fileName string
+	format   cdxFormat
+	writer   index.CdxWriter
 }
 
 func NewCommand() *cobra.Command {
@@ -47,31 +76,34 @@ to quickly create a Cobra application.`,
 				return errors.New("missing file name")
 			}
 			c.fileName = args[0]
+			c.writer = c.format.writer
 			return runE(c)
 		},
 	}
+
+	cmd.Flags().VarP(&c.format, "format", "f", "cdx format")
 
 	return cmd
 }
 
 func runE(c *conf) error {
-	dbDir := viper.GetString("indexdir")
-	db, err := index.NewIndexDb(dbDir)
+	fmt.Printf("Format: %v\n", c.format)
+	err := c.writer.Init()
 	if err != nil {
 		return err
 	}
-	defer db.Close()
-	readFile(c, db)
+	defer c.writer.Close()
+	readFile(c)
 	return nil
 }
 
-func readFile(c *conf, db *index.Db) {
+func readFile(c *conf) {
 	opts := &gowarc.WarcReaderOpts{Strict: false}
 	wf, err := gowarc.NewWarcFilename(c.fileName, 0, opts)
-	defer wf.Close()
 	if err != nil {
 		return
 	}
+	defer wf.Close()
 
 	count := 0
 
@@ -86,8 +118,7 @@ func readFile(c *conf, db *index.Db) {
 		}
 		count++
 
-		db.Add(wr.RecordID(), c.fileName, currentOffset)
+		c.writer.Write(wr, c.fileName, currentOffset)
 	}
-	db.Flush()
 	fmt.Fprintln(os.Stderr, "Count: ", count)
 }

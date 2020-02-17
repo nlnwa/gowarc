@@ -95,6 +95,10 @@ func Serve(db *index.Db) {
 		}
 	})
 
+	http.HandleFunc("search/", func(writer http.ResponseWriter, request *http.Request) {
+
+	})
+
 	httpServer := &http.Server{
 		Addr: ":8080",
 	}

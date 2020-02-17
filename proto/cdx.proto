@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package gowarc.cdx;
+
+option go_package = "github.com/nlnwa/gowarc/cdx;cdx";
+
+message Cdx {
+    string uri = 1;
+    string ref = 2;
+}

@@ -5,7 +5,8 @@ go 1.13
 require (
 	github.com/dgraph-io/badger v1.6.0
 	github.com/fsnotify/fsnotify v1.4.7
-	github.com/mitchellh/go-homedir v1.1.0
+	github.com/golang/protobuf v1.3.3
+	github.com/nlnwa/whatwg-url v0.0.0-20200216225048-098f0c2f027f
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/afero v1.2.2 // indirect

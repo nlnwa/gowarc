@@ -115,7 +115,7 @@ func indexFile(db *Db, fileName string) {
 		}
 		count++
 
-		db.Add(wr.RecordID(), fileName, currentOffset)
+		db.Add(wr, fileName, currentOffset)
 	}
 	db.Flush()
 	log.Infof("Finished indexing %s. Found: %d records in: %v", fileName, count, time.Since(start))
