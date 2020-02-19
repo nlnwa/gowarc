@@ -101,7 +101,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !contains(c.id, wr.HeaderGet(warcrecord.WarcRecordID)) {
+			if !contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
 				continue
 			}
 		}
@@ -117,11 +117,11 @@ func readFile(c *conf, fileName string) {
 }
 
 func printRecord(offset int64, record warcrecord.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.HeaderGet(warcrecord.WarcRecordID), record.Type(), record.HeaderGet(warcrecord.WarcTargetURI))
+	fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), record.WarcHeader().Get(warcrecord.WarcTargetURI))
 	fmt.Printf("%v\n", record)
 
 	buf := &bytes.Buffer{}
-	record.HeaderWrite(buf)
+	record.WarcHeader().Write(buf)
 
 	b := record.Block()
 	switch v := b.(type) {

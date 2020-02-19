@@ -54,7 +54,7 @@ func NewUnmarshaler(opts *warcoptions.WarcOptions) *unmarshaler {
 		opts:             opts,
 		warcFieldsParser: warcfields.NewParser(opts),
 	}
-	um.warcFieldsParser.NewFunc = func(values []warcfields.NameValue, ver interface{}) (interface{}, error) {
+	um.warcFieldsParser.NewFunc = func(values []warcfields.NameValue, ver interface{}) (warcfields.WarcFields, error) {
 		rt, err := um.resolveRecordType(values)
 		if err != nil {
 			return nil, err
@@ -64,12 +64,12 @@ func NewUnmarshaler(opts *warcoptions.WarcOptions) *unmarshaler {
 			return nil, err
 		}
 		for _, f := range values {
-			err = wr.HeaderAdd(f.Name, f.Value)
+			err = wr.WarcHeader().Add(f.Name, f.Value)
 			if err != nil {
-				return wr, err
+				return nil, err
 			}
 		}
-		return wr, nil
+		return wr.WarcHeader(), nil
 	}
 	return um
 }
@@ -131,7 +131,7 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 		return nil, offset, err
 	}
 
-	record := wf.(*warcRecord)
+	record := wf.(*warcHeader).wr
 	//record = &WarcRecord{
 	//	headers:          wf,
 	//	extensionHeaders: NewWarcFields(),
@@ -143,7 +143,7 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	//	return nil, offset, err
 	//}
 
-	length, _ := strconv.ParseInt(record.HeaderGet(ContentLength), 10, 64)
+	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
 
 	c2 := countingreader.NewLimited(r, length)
 	record.block = &genericBlock{bufio.NewReader(c2)}
@@ -163,7 +163,7 @@ func (wr *unmarshaler) parseBlock(record *warcRecord) (err error) {
 		record.block, err = NewRevisitBlock(record.block)
 		return
 	}
-	contentType := strings.ToLower(record.HeaderGet(ContentType))
+	contentType := strings.ToLower(record.headers.Get(ContentType))
 	if record.recordType.id&(RESPONSE.id|RESOURCE.id|REQUEST.id|CONVERSION.id|CONTINUATION.id) != 0 {
 		if strings.HasPrefix(contentType, "application/http") {
 			httpBlock, err := NewHttpBlock(record.block)

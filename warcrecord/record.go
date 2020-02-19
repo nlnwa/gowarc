@@ -28,14 +28,7 @@ import (
 type WarcRecord interface {
 	Version() string
 	Type() *recordType
-	HeaderGet(name string) string
-	HeaderGetAll(name string) []string
-	HeaderHas(name string) bool
-	HeaderAdd(name string, value string) error
-	HeaderSet(name string, value string) error
-	HeaderDelete(name string)
-	HeaderSort()
-	HeaderWrite(w io.Writer) (bytesWritten int, err error)
+	WarcHeader() warcfields.WarcFields
 	Block() Block
 	String() string
 	Close()
@@ -94,10 +87,13 @@ var recordTypeStringToType = map[string]*recordType{
 func New(version *version, recordType *recordType) (WarcRecord, error) {
 	r := &warcRecord{
 		version:    version,
-		headers:    warcfields.New(),
 		recordType: recordType,
 		block:      nil,
 		strict:     false,
+	}
+	r.headers = &warcHeader{
+		WarcFields: warcfields.New(),
+		wr:         r,
 	}
 	return r, nil
 }
@@ -115,54 +111,61 @@ func (wr *warcRecord) Version() string { return wr.version.txt }
 
 func (wr *warcRecord) Type() *recordType { return wr.recordType }
 
-func (wr *warcRecord) HeaderGet(name string) string {
-	name, _ = NormalizeName(name)
-	return wr.headers.Get(name)
+func (wr *warcRecord) WarcHeader() warcfields.WarcFields { return wr.headers }
+
+type warcHeader struct {
+	warcfields.WarcFields
+	wr *warcRecord
 }
 
-func (wr *warcRecord) HeaderGetAll(name string) []string {
+func (wh *warcHeader) Get(name string) string {
 	name, _ = NormalizeName(name)
-	return wr.headers.GetAll(name)
+	return wh.WarcFields.Get(name)
 }
 
-func (wr *warcRecord) HeaderHas(name string) bool {
+func (wh *warcHeader) GetAll(name string) []string {
 	name, _ = NormalizeName(name)
-	return wr.headers.Has(name)
+	return wh.WarcFields.GetAll(name)
 }
 
-func (wr *warcRecord) HeaderAdd(name string, value string) error {
+func (wh *warcHeader) Has(name string) bool {
+	name, _ = NormalizeName(name)
+	return wh.WarcFields.Has(name)
+}
+
+func (wh *warcHeader) Add(name string, value string) error {
 	var def fieldDef
 	var err error
 	name, def = NormalizeName(name)
-	value, err = def.validationFunc(name, value, wr, def, wr.strict)
+	value, err = def.validationFunc(name, value, wh.wr, def, wh.wr.strict)
 	if err != nil {
 		return err
 	}
-	return wr.headers.Add(name, value)
+	return wh.WarcFields.Add(name, value)
 }
 
-func (wr *warcRecord) HeaderSet(name string, value string) error {
+func (wh *warcHeader) Set(name string, value string) error {
 	var def fieldDef
 	var err error
 	name, def = NormalizeName(name)
-	value, err = def.validationFunc(name, value, wr, def, wr.strict)
+	value, err = def.validationFunc(name, value, wh.wr, def, wh.wr.strict)
 	if err != nil {
 		return err
 	}
-	return wr.headers.Set(name, value)
+	return wh.WarcFields.Set(name, value)
 }
 
-func (wr *warcRecord) HeaderDelete(name string) {
+func (wh *warcHeader) Delete(name string) {
 	name, _ = NormalizeName(name)
-	wr.headers.Delete(name)
+	wh.WarcFields.Delete(name)
 }
 
-func (wr *warcRecord) HeaderSort() {
-	wr.headers.Sort()
+func (wh *warcHeader) Sort() {
+	wh.WarcFields.Sort()
 }
 
-func (wr *warcRecord) HeaderWrite(w io.Writer) (int, error) {
-	return wr.headers.Write(w)
+func (wh *warcHeader) Write(w io.Writer) (int, error) {
+	return wh.WarcFields.Write(w)
 }
 
 func (wr *warcRecord) Block() Block {
@@ -182,7 +185,7 @@ func (wr *warcRecord) Close() {
 		return
 	}
 
-	remaining, _ := strconv.Atoi(wr.HeaderGet(ContentLength))
+	remaining, _ := strconv.Atoi(wr.headers.Get(ContentLength))
 	for remaining > 0 {
 		n, err := rb.Discard(int(remaining))
 		if err != nil {

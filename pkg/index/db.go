@@ -169,15 +169,15 @@ func (d *Db) Close() {
 
 func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64) error {
 	record := &record{
-		id:       warcRecord.HeaderGet(warcrecord.WarcRecordID),
+		id:       warcRecord.WarcHeader().Get(warcrecord.WarcRecordID),
 		filePath: filePath,
 		offset:   offset,
 	}
 
 	var err error
 	if warcRecord.Type() == warcrecord.RESPONSE {
-		record.surt, err = surt.GetSurtS(warcRecord.HeaderGet(warcrecord.WarcTargetURI), false)
-		record.timestamp = timestamp.To14(warcRecord.HeaderGet(warcrecord.WarcDate))
+		record.surt, err = surt.GetSurtS(warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI), false)
+		record.timestamp = timestamp.To14(warcRecord.WarcHeader().Get(warcrecord.WarcDate))
 		record.cdx = &cdx.Cdx{}
 	}
 	if err != nil {

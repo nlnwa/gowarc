@@ -59,7 +59,7 @@ func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.Copy(w, r.Body)
 	default:
 		w.Header().Set("Content-Type", "text/plain")
-		record.HeaderWrite(w)
+		record.WarcHeader().Write(w)
 		fmt.Fprintln(w)
 		rb, err := v.RawBytes()
 		if err != nil {

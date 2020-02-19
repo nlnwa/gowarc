@@ -85,13 +85,13 @@ func (c *CdxJ) Close() {
 
 func (c *CdxJ) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		surtUrl, err := surt.GetSurtS(wr.HeaderGet(warcrecord.WarcTargetURI), false)
+		surtUrl, err := surt.GetSurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
 		if err != nil {
 			return err
 		}
-		ts := timestamp.To14(wr.HeaderGet(warcrecord.WarcDate))
+		ts := timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))
 		rec := &cdx.Cdx{
-			Uri: wr.HeaderGet(warcrecord.WarcTargetURI),
+			Uri: wr.WarcHeader().Get(warcrecord.WarcTargetURI),
 			Ref: "warcfile:" + fileName + "#" + strconv.Itoa(int(offset)),
 		}
 		cdxj, err := c.jsonMarshaler.MarshalToString(rec)
@@ -112,13 +112,13 @@ func (c *CdxPb) Close() {
 
 func (c *CdxPb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		surtUrl, err := surt.GetSurtS(wr.HeaderGet(warcrecord.WarcTargetURI), false)
+		surtUrl, err := surt.GetSurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
 		if err != nil {
 			return err
 		}
-		ts := timestamp.To14(wr.HeaderGet(warcrecord.WarcDate))
+		ts := timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))
 		rec := &cdx.Cdx{
-			Uri: wr.HeaderGet(warcrecord.WarcTargetURI),
+			Uri: wr.WarcHeader().Get(warcrecord.WarcTargetURI),
 			Ref: "warcfile:" + fileName + "#" + strconv.Itoa(int(offset)),
 		}
 		cdxpb, err := proto.Marshal(rec)

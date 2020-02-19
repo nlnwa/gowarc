@@ -41,7 +41,7 @@ const (
 
 type Parser struct {
 	Options *warcoptions.WarcOptions
-	NewFunc func(nv []NameValue, ctx interface{}) (interface{}, error)
+	NewFunc func(nv []NameValue, ctx interface{}) (WarcFields, error)
 }
 
 func NewParser(options *warcoptions.WarcOptions) *Parser {
@@ -98,7 +98,7 @@ func (p *Parser) readLine(r *bufio.Reader) (line []byte, next byte, err error) {
 	return
 }
 
-func (p *Parser) Parse(r *bufio.Reader, ctx interface{}) (interface{}, error) {
+func (p *Parser) Parse(r *bufio.Reader, ctx interface{}) (WarcFields, error) {
 	nv := make([]NameValue, 0, 10)
 	for {
 		line, n, err := p.readLine(r)

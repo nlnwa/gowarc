@@ -51,8 +51,8 @@ func (l *Loader) Get(warcId string) (record warcrecord.WarcRecord, err error) {
 
 	// TODO: Unpack revisits and continuation
 	if record.Type() == warcrecord.REVISIT {
-		log.Infof("resolving revisit  %v -> %v", record.HeaderGet(warcrecord.WarcRecordID), record.HeaderGet(warcrecord.WarcRefersTo))
-		storageRef, err = l.Resolver.Resolve(record.HeaderGet(warcrecord.WarcRefersTo))
+		log.Infof("resolving revisit  %v -> %v", record.WarcHeader().Get(warcrecord.WarcRecordID), record.WarcHeader().Get(warcrecord.WarcRefersTo))
+		storageRef, err = l.Resolver.Resolve(record.WarcHeader().Get(warcrecord.WarcRefersTo))
 		if err != nil {
 			return
 		}
