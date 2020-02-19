@@ -14,13 +14,8 @@
  * limitations under the License.
  */
 
-package timestamp
+package warcoptions
 
-import "time"
-
-func To14(s string) string {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t.Format("20060102150405")
-	}
-	return ""
+type WarcOptions struct {
+	Strict bool
 }

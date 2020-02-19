@@ -19,7 +19,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcreader"
+	"github.com/nlnwa/gowarc/warcrecord"
 	"io"
 	"os"
 	"sort"
@@ -79,8 +81,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := &gowarc.WarcReaderOpts{Strict: c.strict}
-	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
+	opts := &warcoptions.WarcOptions{Strict: c.strict}
+	wf, err := warcreader.NewWarcFilename(fileName, c.offset, opts)
 	defer wf.Close()
 	if err != nil {
 		fmt.Printf("Error opening file: %v\n", err)
@@ -99,7 +101,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !contains(c.id, wr.RecordID()) {
+			if !contains(c.id, wr.HeaderGet(warcrecord.WarcRecordID)) {
 				continue
 			}
 		}
@@ -114,50 +116,33 @@ func readFile(c *conf, fileName string) {
 	fmt.Fprintln(os.Stderr, "Count: ", count)
 }
 
-func printRecord(offset int64, record *gowarc.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.RecordID(), record.Type(), record.TargetUri())
+func printRecord(offset int64, record warcrecord.WarcRecord) {
+	fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.HeaderGet(warcrecord.WarcRecordID), record.Type(), record.HeaderGet(warcrecord.WarcTargetURI))
 	fmt.Printf("%v\n", record)
 
-	f := record.GF()
-	fmt.Printf("%v\n", f)
-	for k, v := range f {
-		fmt.Printf("K: %v, V: %v\n", k, v)
-	}
-	//if len(exNames) > 0 {
-	//	fmt.Println("--")
-	//	for _, k := range exNames {
-	//		fmt.Fprintln(os.Stderr, "Extensions: ", k, " = ", record.ExtensionField(k))
-	//	}
-	//}
-
-	exNames := record.ExtensionFieldnames()
-	if len(exNames) > 0 {
-		fmt.Println("--")
-		for _, k := range exNames {
-			fmt.Fprintln(os.Stderr, "Extensions: ", k, " = ", record.ExtensionField(k))
-		}
-	}
+	buf := &bytes.Buffer{}
+	record.HeaderWrite(buf)
 
 	b := record.Block()
 	switch v := b.(type) {
-	case gowarc.HttpResponseBlock:
+	case warcrecord.HttpResponseBlock:
 		rb, err := v.RawBytes()
 		if err != nil {
 			return
 		}
-		buf := &bytes.Buffer{}
 		rb.WriteTo(buf)
-	case gowarc.HttpRequestBlock:
+	case warcrecord.HttpRequestBlock:
 		rb, err := v.RawBytes()
 		if err != nil {
 			return
 		}
 
-		buf := &bytes.Buffer{}
 		rb.WriteTo(buf)
 	default:
 		fmt.Printf("%T\n", v)
 	}
+
+	fmt.Print(buf.String())
 }
 
 func contains(s []string, e string) bool {

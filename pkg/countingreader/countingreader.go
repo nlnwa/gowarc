@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gowarc
+package countingreader
 
 import (
 	"io"
@@ -30,19 +30,22 @@ type Reader struct {
 
 // NewReader makes a new Reader that counts the bytes
 // read through it.
-func NewCountingReader(r io.Reader) *Reader {
+func New(r io.Reader) *Reader {
 	return &Reader{
 		r: r,
 		m: -1,
 	}
 }
 
-// NewReader makes a new Reader that limits the number of bytes
+// NewLimited makes a new Reader that counts the bytes
 // read through it.
-func NewLimitedReader(r io.Reader, m int64) *Reader {
+//
+// When maxBytes bytes are read, the next read will
+// return io.EOF even though the underlying reader has more data.
+func NewLimited(r io.Reader, maxBytes int64) *Reader {
 	return &Reader{
 		r: r,
-		m: m,
+		m: maxBytes,
 	}
 }
 

@@ -17,7 +17,7 @@
 package loader
 
 import (
-	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -26,7 +26,7 @@ type StorageRefResolver interface {
 }
 
 type StorageLoader interface {
-	Load(storageRef string) (record *gowarc.WarcRecord, err error)
+	Load(storageRef string) (record warcrecord.WarcRecord, err error)
 }
 
 type Loader struct {
@@ -35,7 +35,7 @@ type Loader struct {
 	NoUnpack bool
 }
 
-func (l *Loader) Get(warcId string) (record *gowarc.WarcRecord, err error) {
+func (l *Loader) Get(warcId string) (record warcrecord.WarcRecord, err error) {
 	storageRef, err := l.Resolver.Resolve(warcId)
 	if err != nil {
 		return
@@ -50,18 +50,18 @@ func (l *Loader) Get(warcId string) (record *gowarc.WarcRecord, err error) {
 	}
 
 	// TODO: Unpack revisits and continuation
-	if record.RecordType == gowarc.REVISIT {
-		log.Infof("resolving revisit  %v -> %v", record.RecordID(), record.RefersTo())
-		storageRef, err = l.Resolver.Resolve(record.RefersTo())
+	if record.Type() == warcrecord.REVISIT {
+		log.Infof("resolving revisit  %v -> %v", record.HeaderGet(warcrecord.WarcRecordID), record.HeaderGet(warcrecord.WarcRefersTo))
+		storageRef, err = l.Resolver.Resolve(record.HeaderGet(warcrecord.WarcRefersTo))
 		if err != nil {
 			return
 		}
-		var revisitOf *gowarc.WarcRecord
+		var revisitOf warcrecord.WarcRecord
 		revisitOf, err = l.Loader.Load(storageRef)
 		if err != nil {
 			return
 		}
-		rb := record.Block().(*gowarc.RevisitBlock)
+		rb := record.Block().(*warcrecord.RevisitBlock)
 		rb.Merge(revisitOf)
 		return record, nil
 	}

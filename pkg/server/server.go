@@ -19,9 +19,9 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
+	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
@@ -49,7 +49,7 @@ func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer record.Close()
 
 	switch v := record.Block().(type) {
-	case gowarc.HttpResponseBlock:
+	case warcrecord.HttpResponseBlock:
 		r, _ := v.Response()
 		for k, vl := range r.Header {
 			for _, v := range vl {
@@ -59,9 +59,7 @@ func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		io.Copy(w, r.Body)
 	default:
 		w.Header().Set("Content-Type", "text/plain")
-		for _, k := range record.GF().Names() {
-			fmt.Fprintf(w, "%v = %v\n", k, record.GF().GetAll(k))
-		}
+		record.HeaderWrite(w)
 		fmt.Fprintln(w)
 		rb, err := v.RawBytes()
 		if err != nil {

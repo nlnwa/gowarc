@@ -20,10 +20,10 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger"
 	"github.com/golang/protobuf/proto"
-	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/surt"
 	"github.com/nlnwa/gowarc/pkg/timestamp"
 	cdx "github.com/nlnwa/gowarc/proto"
+	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"path"
@@ -167,17 +167,17 @@ func (d *Db) Close() {
 	_ = d.cdxIndex.Close()
 }
 
-func (d *Db) Add(warcRecord *gowarc.WarcRecord, filePath string, offset int64) error {
+func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64) error {
 	record := &record{
-		id:       warcRecord.RecordID(),
+		id:       warcRecord.HeaderGet(warcrecord.WarcRecordID),
 		filePath: filePath,
 		offset:   offset,
 	}
 
 	var err error
-	if warcRecord.RecordType == gowarc.RESPONSE {
-		record.surt, err = surt.GetSurtS(warcRecord.TargetUri(), false)
-		record.timestamp = timestamp.To14(warcRecord.Date())
+	if warcRecord.Type() == warcrecord.RESPONSE {
+		record.surt, err = surt.GetSurtS(warcRecord.HeaderGet(warcrecord.WarcTargetURI), false)
+		record.timestamp = timestamp.To14(warcRecord.HeaderGet(warcrecord.WarcDate))
 		record.cdx = &cdx.Cdx{}
 	}
 	if err != nil {

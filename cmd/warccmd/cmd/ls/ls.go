@@ -18,7 +18,9 @@ package ls
 import (
 	"errors"
 	"fmt"
-	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcreader"
+	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
@@ -77,8 +79,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := &gowarc.WarcReaderOpts{Strict: c.strict}
-	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
+	opts := &warcoptions.WarcOptions{Strict: c.strict}
+	wf, err := warcreader.NewWarcFilename(fileName, c.offset, opts)
 	defer wf.Close()
 	if err != nil {
 		return
@@ -96,7 +98,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !contains(c.id, wr.RecordID()) {
+			if !contains(c.id, wr.HeaderGet(warcrecord.WarcRecordID)) {
 				continue
 			}
 		}
@@ -111,8 +113,8 @@ func readFile(c *conf, fileName string) {
 	fmt.Fprintln(os.Stderr, "Count: ", count)
 }
 
-func printRecord(offset int64, record *gowarc.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, record.RecordID(), record.Type(), cropString(record.TargetUri(), 100))
+func printRecord(offset int64, record warcrecord.WarcRecord) {
+	fmt.Printf("%v\t%s\t%s \t%s\n", offset, record.HeaderGet(warcrecord.WarcRecordID), record.Type(), cropString(record.HeaderGet(warcrecord.WarcTargetURI), 100))
 }
 
 func cropString(s string, size int) string {

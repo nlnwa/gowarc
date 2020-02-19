@@ -18,8 +18,9 @@ package index
 import (
 	"errors"
 	"fmt"
-	"github.com/nlnwa/gowarc/pkg/gowarc"
 	"github.com/nlnwa/gowarc/pkg/index"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
@@ -98,8 +99,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf) {
-	opts := &gowarc.WarcReaderOpts{Strict: false}
-	wf, err := gowarc.NewWarcFilename(c.fileName, 0, opts)
+	opts := &warcoptions.WarcOptions{Strict: false}
+	wf, err := warcreader.NewWarcFilename(c.fileName, 0, opts)
 	if err != nil {
 		return
 	}

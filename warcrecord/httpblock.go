@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gowarc
+package warcrecord
 
 import (
 	"bytes"
@@ -22,6 +22,16 @@ import (
 	"io"
 	"net/http"
 )
+
+type HttpRequestBlock interface {
+	PayloadBlock
+	Request() (*http.Request, error)
+}
+
+type HttpResponseBlock interface {
+	PayloadBlock
+	Response() (*http.Response, error)
+}
 
 type httpRequestBlock struct {
 	Block

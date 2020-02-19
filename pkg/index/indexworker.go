@@ -17,7 +17,8 @@
 package index
 
 import (
-	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcreader"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"strconv"
@@ -95,8 +96,8 @@ func (iw *indexWorker) Queue(fileName string, batchWindow time.Duration) {
 func indexFile(db *Db, fileName string) {
 	log.Infof("indexing %v", fileName)
 	start := time.Now()
-	opts := &gowarc.WarcReaderOpts{Strict: false}
-	wf, err := gowarc.NewWarcFilename(fileName, 0, opts)
+	opts := &warcoptions.WarcOptions{Strict: false}
+	wf, err := warcreader.NewWarcFilename(fileName, 0, opts)
 	if err != nil {
 		log.Warnf("error while indexing %v: %v", fileName, err)
 		return

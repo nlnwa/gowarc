@@ -17,7 +17,7 @@
 package loader
 
 import (
-	"github.com/nlnwa/gowarc/pkg/gowarc"
+	"github.com/nlnwa/gowarc/warcrecord"
 	"reflect"
 	"testing"
 )
@@ -34,7 +34,7 @@ func TestLoader_Get(t *testing.T) {
 	tests := []struct {
 		name       string
 		args       args
-		wantRecord *gowarc.WarcRecord
+		wantRecord warcrecord.WarcRecord
 		wantErr    bool
 	}{
 		{

@@ -14,23 +14,27 @@
  * limitations under the License.
  */
 
-package gowarc
+package warcreader
 
 import (
 	"bufio"
+	"github.com/nlnwa/gowarc/pkg/countingreader"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcrecord"
 	"os"
 )
 
 type WarcFile struct {
 	file           *os.File
+	initialOffset  int64
 	offset         int64
-	warcReader     *WarcReader
-	countingReader *Reader
+	warcReader     warcrecord.Unmarshaler
+	countingReader *countingreader.Reader
 	bufferedReader *bufio.Reader
-	currentRecord  *WarcRecord
+	currentRecord  warcrecord.WarcRecord
 }
 
-func NewWarcFilename(filename string, offset int64, opts *WarcReaderOpts) (*WarcFile, error) {
+func NewWarcFilename(filename string, offset int64, opts *warcoptions.WarcOptions) (*WarcFile, error) {
 	file, err := os.Open(filename) // For read access.
 	if err != nil {
 		return nil, err
@@ -39,28 +43,28 @@ func NewWarcFilename(filename string, offset int64, opts *WarcReaderOpts) (*Warc
 	return NewWarcFile(file, offset, opts)
 }
 
-func NewWarcFile(file *os.File, offset int64, opts *WarcReaderOpts) (*WarcFile, error) {
+func NewWarcFile(file *os.File, offset int64, opts *warcoptions.WarcOptions) (*WarcFile, error) {
 	wf := &WarcFile{
 		file:       file,
 		offset:     offset,
-		warcReader: NewWarcReader(opts),
+		warcReader: warcrecord.NewUnmarshaler(opts),
 	}
 	_, err := file.Seek(offset, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	wf.countingReader = NewCountingReader(file)
-	wf.countingReader.n = offset
+	wf.countingReader = countingreader.New(file)
+	wf.initialOffset = offset
 	wf.bufferedReader = bufio.NewReaderSize(wf.countingReader, 4*1024)
 	return wf, nil
 }
 
-func (wf *WarcFile) Next() (*WarcRecord, int64, error) {
+func (wf *WarcFile) Next() (warcrecord.WarcRecord, int64, error) {
 	if wf.currentRecord != nil {
 		wf.currentRecord.Close()
 	}
-	wf.offset = wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
+	wf.offset = wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
 	fs, _ := wf.file.Stat()
 	if fs.Size() <= wf.offset {
 		wf.offset = 0
@@ -68,7 +72,7 @@ func (wf *WarcFile) Next() (*WarcRecord, int64, error) {
 
 	var err error
 	var recordOffset int64
-	wf.currentRecord, recordOffset, err = wf.warcReader.GetRecord(wf.bufferedReader)
+	wf.currentRecord, recordOffset, err = wf.warcReader.Unmarshal(wf.bufferedReader)
 	return wf.currentRecord, wf.offset + recordOffset, err
 }
 

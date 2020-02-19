@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package gowarc
+package warcrecord
 
 import (
 	"bufio"
@@ -29,7 +29,7 @@ const CRLF = "\r\n"
 type RevisitBlock struct {
 	rawBytes   *bufio.Reader
 	headers    *bytes.Buffer
-	dataRecord *WarcRecord
+	dataRecord WarcRecord
 }
 
 func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
@@ -69,7 +69,7 @@ func (block *RevisitBlock) Response() (*http.Response, error) {
 	return http.ReadResponse(rb, nil)
 }
 
-func (block *RevisitBlock) Merge(refersTo *WarcRecord) {
+func (block *RevisitBlock) Merge(refersTo WarcRecord) {
 	block.dataRecord = refersTo
 }
 
