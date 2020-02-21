@@ -48,6 +48,10 @@ type version struct {
 	txt string
 }
 
+func (v *version) String() string {
+	return "WARC/" + v.txt
+}
+
 var (
 	V1_0 = &version{id: 1, txt: "1.0"}
 	V1_1 = &version{id: 2, txt: "1.1"}

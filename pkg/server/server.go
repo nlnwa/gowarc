@@ -18,56 +18,16 @@ package server
 
 import (
 	"context"
-	"fmt"
+	"github.com/gorilla/mux"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
-	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
-	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 )
-
-type recordHandler struct {
-	loader *loader.Loader
-}
-
-func (h *recordHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	warcid := r.URL.Path
-	log.Debugf("request id: %v", warcid)
-	record, err := h.loader.Get(warcid)
-
-	if err != nil {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(404)
-		w.Write([]byte("Document not found\n"))
-		return
-	}
-	defer record.Close()
-
-	switch v := record.Block().(type) {
-	case warcrecord.HttpResponseBlock:
-		r, _ := v.Response()
-		for k, vl := range r.Header {
-			for _, v := range vl {
-				w.Header().Set(k, v)
-			}
-		}
-		io.Copy(w, r.Body)
-	default:
-		w.Header().Set("Content-Type", "text/plain")
-		record.WarcHeader().Write(w)
-		fmt.Fprintln(w)
-		rb, err := v.RawBytes()
-		if err != nil {
-			return
-		}
-		io.Copy(w, rb)
-	}
-}
 
 func Serve(db *index.Db) {
 	l := &loader.Loader{
@@ -78,24 +38,11 @@ func Serve(db *index.Db) {
 		NoUnpack: false,
 	}
 
-	rh := &recordHandler{l}
-
-	http.Handle("/id/", http.StripPrefix("/id/", rh))
-
-	http.HandleFunc("/files/", func(writer http.ResponseWriter, request *http.Request) {
-		files, err := db.ListFilePaths()
-		if err != nil {
-			log.Fatalf("error reading files: %v", err)
-		}
-		writer.Header().Set("Content-Type", "text/plain")
-		for _, f := range files {
-			fmt.Fprintf(writer, "%v\n", f)
-		}
-	})
-
-	http.HandleFunc("search/", func(writer http.ResponseWriter, request *http.Request) {
-
-	})
+	r := mux.NewRouter()
+	r.Handle("/id/{id}", &contentHandler{l})
+	r.Handle("/files/", &fileHandler{l, db})
+	r.Handle("/search/", &searchHandler{l})
+	http.Handle("/", r)
 
 	httpServer := &http.Server{
 		Addr: ":8080",

@@ -18,10 +18,10 @@ package cmd
 import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
-	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/cat"
-	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/index"
-	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/ls"
-	"github.com/nlnwa/gowarc/cmd/warccmd/cmd/serve"
+	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
+	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
+	"github.com/nlnwa/gowarc/cmd/warc/cmd/ls"
+	"github.com/nlnwa/gowarc/cmd/warc/cmd/serve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -31,11 +31,11 @@ type conf struct {
 	cfgFile string
 }
 
-// NewCommand returns a new cobra.Command implementing the root command for warccmd
+// NewCommand returns a new cobra.Command implementing the root command for warc
 func NewCommand() *cobra.Command {
 	c := &conf{}
 	cmd := &cobra.Command{
-		Use:   "warccmd",
+		Use:   "warc",
 		Short: "A brief description of your application",
 		Long: `A longer description that spans multiple lines and likely contains
 examples and usage of using your application. For example:
@@ -51,7 +51,7 @@ to quickly create a Cobra application.`,
 	cobra.OnInitialize(func() { c.initConfig() })
 
 	// Flags
-	cmd.PersistentFlags().StringVar(&c.cfgFile, "config", "", "config file. If not set, /etc/warccmd/, $HOME/.warccmd/ and current working dir will be searched for file config.yaml")
+	cmd.PersistentFlags().StringVar(&c.cfgFile, "config", "", "config file. If not set, /etc/warc/, $HOME/.warc/ and current working dir will be searched for file config.yaml")
 	viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
 
 	// Subcommands
@@ -76,12 +76,12 @@ func (c *conf) initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(viper.GetString("config"))
 	} else {
-		// Search config in home directory with name ".warccmd" (without extension).
-		viper.SetConfigName("config")         // name of config file (without extension)
-		viper.SetConfigType("yaml")           // REQUIRED if the config file does not have the extension in the name
-		viper.AddConfigPath("/etc/warccmd/")  // path to look for the config file in
-		viper.AddConfigPath("$HOME/.warccmd") // call multiple times to add many search paths
-		viper.AddConfigPath(".")              // optionally look for config in the working directory
+		// Search config in home directory with name ".warc" (without extension).
+		viper.SetConfigName("config")      // name of config file (without extension)
+		viper.SetConfigType("yaml")        // REQUIRED if the config file does not have the extension in the name
+		viper.AddConfigPath("/etc/warc/")  // path to look for the config file in
+		viper.AddConfigPath("$HOME/.warc") // call multiple times to add many search paths
+		viper.AddConfigPath(".")           // optionally look for config in the working directory
 	}
 
 	viper.WatchConfig()

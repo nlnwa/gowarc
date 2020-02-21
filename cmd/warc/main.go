@@ -17,7 +17,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc/cmd/warccmd/cmd"
+	"github.com/nlnwa/gowarc/cmd/warc/cmd"
 	"os"
 )
 

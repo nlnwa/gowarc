@@ -68,7 +68,7 @@ func NewIndexDb(dbDir string) (*Db, error) {
 
 	d := &Db{
 		dbDir:          dbDir,
-		dbGcInterval:   time.NewTicker(5 * time.Minute),
+		dbGcInterval:   time.NewTicker(15 * time.Second),
 		batchMaxSize:   batchMaxSize,
 		batchMaxWait:   batchMaxWait,
 		batchItems:     make([]*record, 0, batchMaxSize),
@@ -138,14 +138,12 @@ func (d *Db) runValueLogGC(discardRatio float64) {
 			break
 		}
 	}
-	_ = d.idIndex.Close()
 	for {
 		err := d.fileIndex.RunValueLogGC(discardRatio)
 		if err != nil {
 			break
 		}
 	}
-	_ = d.fileIndex.Close()
 	for {
 		err := d.cdxIndex.RunValueLogGC(discardRatio)
 		if err != nil {
@@ -164,6 +162,8 @@ func (d *Db) Close() {
 	d.Flush()
 	d.dbGcInterval.Stop()
 	d.runValueLogGC(0.3)
+	_ = d.idIndex.Close()
+	_ = d.fileIndex.Close()
 	_ = d.cdxIndex.Close()
 }
 

@@ -6,6 +6,7 @@ require (
 	github.com/dgraph-io/badger v1.6.0
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/golang/protobuf v1.3.3
+	github.com/gorilla/mux v1.7.4
 	github.com/nlnwa/whatwg-url v0.0.0-20200216225048-098f0c2f027f
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/sirupsen/logrus v1.4.2
