@@ -84,6 +84,9 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	}
 	// Search for start of new record
 	for !(magic[0] == 0x1f && magic[1] == 0x8b) && !bytes.Equal(magic, []byte("WARC/")) {
+		if wr.opts.Strict {
+			return nil, offset, fmt.Errorf("expected start of record")
+		}
 		b.Discard(1)
 		offset++
 		magic, err = b.Peek(5)

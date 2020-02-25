@@ -94,7 +94,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if err != nil {
-			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), c.offset)
+			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), currentOffset)
 			break
 		}
 		if len(c.id) > 0 {
