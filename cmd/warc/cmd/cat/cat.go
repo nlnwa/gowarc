@@ -117,30 +117,35 @@ func readFile(c *conf, fileName string) {
 }
 
 func printRecord(offset int64, record warcrecord.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), record.WarcHeader().Get(warcrecord.WarcTargetURI))
-	fmt.Printf("%v\n", record)
-
+	m := warcrecord.NewMarshaler(&warcoptions.WarcOptions{
+		Strict:   false,
+		Compress: true,
+	})
+	m.WriteRecord(os.Stdout, record)
+	//fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), record.WarcHeader().Get(warcrecord.WarcTargetURI))
+	//fmt.Printf("%v\n", record)
+	//
 	buf := &bytes.Buffer{}
-	record.WarcHeader().Write(buf)
-
-	b := record.Block()
-	switch v := b.(type) {
-	case warcrecord.HttpResponseBlock:
-		rb, err := v.RawBytes()
-		if err != nil {
-			return
-		}
-		rb.WriteTo(buf)
-	case warcrecord.HttpRequestBlock:
-		rb, err := v.RawBytes()
-		if err != nil {
-			return
-		}
-
-		rb.WriteTo(buf)
-	default:
-		fmt.Printf("%T\n", v)
-	}
+	//record.WarcHeader().Write(buf)
+	//
+	//b := record.Block()
+	//switch v := b.(type) {
+	//case warcrecord.HttpResponseBlock:
+	//	rb, err := v.RawBytes()
+	//	if err != nil {
+	//		return
+	//	}
+	//	rb.WriteTo(buf)
+	//case warcrecord.HttpRequestBlock:
+	//	rb, err := v.RawBytes()
+	//	if err != nil {
+	//		return
+	//	}
+	//
+	//	rb.WriteTo(buf)
+	//default:
+	//	fmt.Printf("%T\n", v)
+	//}
 
 	fmt.Print(buf.String())
 }

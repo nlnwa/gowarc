@@ -17,42 +17,59 @@
 package warcrecord
 
 import (
+	"compress/gzip"
 	"fmt"
+	"github.com/nlnwa/gowarc/warcoptions"
 	"io"
 )
 
-type WarcWriterOpts struct {
-	Strict   bool
-	Compress bool
+type Marshaler struct {
+	opts *warcoptions.WarcOptions
 }
 
-type WarcWriter struct {
-	opts *WarcWriterOpts
-}
-
-func NewWarcWriter(opts *WarcWriterOpts) *WarcWriter {
-	return &WarcWriter{
+func NewMarshaler(opts *warcoptions.WarcOptions) *Marshaler {
+	return &Marshaler{
 		opts: opts,
 	}
 }
 
-func (ww *WarcWriter) WriteRecord(w io.Writer, record WarcRecord) (bytesWritten int, err error) {
+func (m *Marshaler) WriteRecord(w io.Writer, record WarcRecord) (bytesWritten int64, err error) {
+	if m.opts.Compress {
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		w = gz
+	}
 	var n int
-	//n, err = fmt.Fprintf(w, "Names: %v\r\n", record.headers.Names())
 	n, err = fmt.Fprintf(w, "WARC/%v\r\n", record.Version())
-	bytesWritten += n
+	bytesWritten += int64(n)
 	if err != nil {
 		return
 	}
-	//n, err = record.headers.Write(w)
-	//bytesWritten += n
-	//if err != nil {
-	//	return
-	//}
+
+	n, err = record.WarcHeader().Write(w)
+	bytesWritten += int64(n)
+	if err != nil {
+		return
+	}
+
 	n, err = w.Write([]byte(CRLF))
-	bytesWritten += n
+	bytesWritten += int64(n)
 	if err != nil {
 		return
 	}
+
+	var n2 int64
+	var r io.Reader
+	r, err = record.Block().RawBytes()
+	if err != nil {
+		return
+	}
+	n2, err = io.Copy(w, r)
+	//n, err = w.Write([]byte(CRLF))
+	bytesWritten += n2
+	if err != nil {
+		return
+	}
+
 	return
 }

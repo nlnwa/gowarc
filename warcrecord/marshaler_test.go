@@ -36,7 +36,7 @@ func TestWarcWriter_WriteRecord(t *testing.T) {
 
 	fmt.Printf("offset: %v\n", offset)
 	wantBytesWritten := 0
-	ww := NewWarcWriter(&WarcWriterOpts{})
+	ww := NewMarshaler(&WarcWriterOpts{})
 	gotBytesWritten, err := ww.WriteRecord(os.Stdout, wr)
 
 	if err != nil {
@@ -61,7 +61,7 @@ func TestWarcWriter_WriteRecord(t *testing.T) {
 	//}
 	//for _, tt := range tests {
 	//	t.Run(tt.name, func(t *testing.T) {
-	//		ww := NewWarcWriter(nil)
+	//		ww := NewMarshaler(nil)
 	//		gotBytesWritten, err := ww.WriteRecord(tt.args.w, tt.args.record)
 	//		if (err != nil) != tt.wantErr {
 	//			t.Errorf("WriteRecord() error = %v, wantErr %v", err, tt.wantErr)

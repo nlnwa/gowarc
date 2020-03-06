@@ -17,5 +17,6 @@
 package warcoptions
 
 type WarcOptions struct {
-	Strict bool
+	Strict   bool
+	Compress bool
 }
