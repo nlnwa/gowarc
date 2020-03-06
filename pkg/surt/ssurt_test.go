@@ -20,7 +20,7 @@ import (
 	"testing"
 )
 
-func TestSurtS(t *testing.T) {
+func TestSsurtS(t *testing.T) {
 	tests := []struct {
 		name          string
 		u             string
@@ -42,13 +42,13 @@ func TestSurtS(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := SurtS(tt.u, tt.includeScheme)
+			got, err := SsurtS(tt.u, tt.includeScheme)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("SurtS() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("SsurtS() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("SurtS() got = %v, want %v", got, tt.want)
+				t.Errorf("SsurtS() got = %v, want %v", got, tt.want)
 			}
 		})
 	}

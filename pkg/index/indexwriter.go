@@ -85,7 +85,7 @@ func (c *CdxJ) Close() {
 
 func (c *CdxJ) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		surtUrl, err := surt.GetSurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
+		surtUrl, err := surt.SurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
 		if err != nil {
 			return err
 		}
@@ -112,7 +112,7 @@ func (c *CdxPb) Close() {
 
 func (c *CdxPb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		surtUrl, err := surt.GetSurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
+		surtUrl, err := surt.SurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
 		if err != nil {
 			return err
 		}

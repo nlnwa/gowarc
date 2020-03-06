@@ -19,6 +19,7 @@ package warcrecord
 import (
 	"github.com/nlnwa/gowarc/warcfields"
 	"github.com/nlnwa/gowarc/warcoptions"
+	"io"
 )
 
 type WarcFieldsBlock interface {
@@ -48,4 +49,11 @@ func NewWarcFieldsBlock(block Block, options *warcoptions.WarcOptions) (WarcFiel
 	}
 
 	return &warcFieldsBlock{Block: block, warcFields: wf.(warcfields.WarcFields)}, nil
+}
+
+func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int, err error) {
+	bytesWritten, err = b.warcFields.Write(w)
+	w.Write([]byte(CRLF))
+	bytesWritten += 2
+	return
 }

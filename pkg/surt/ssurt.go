@@ -21,7 +21,7 @@ import (
 	"strings"
 )
 
-func SurtU(u *url.Url, includeScheme bool) (string, error) {
+func SsurtU(u *url.Url, includeScheme bool) (string, error) {
 	u.SearchParams().Sort()
 
 	var result strings.Builder
@@ -40,10 +40,10 @@ func SurtU(u *url.Url, includeScheme bool) (string, error) {
 	return result.String(), nil
 }
 
-func SurtS(u string, includeScheme bool) (string, error) {
+func SsurtS(u string, includeScheme bool) (string, error) {
 	u2, err := url.Parse(u)
 	if err != nil {
 		return "", err
 	}
-	return SurtU(u2, includeScheme)
+	return SsurtU(u2, includeScheme)
 }

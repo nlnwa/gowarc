@@ -22,6 +22,7 @@ import (
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/nlnwa/gowarc/warcrecord"
+	"github.com/nlnwa/gowarc/warcwriter"
 	"io"
 	"os"
 	"sort"
@@ -107,7 +108,14 @@ func readFile(c *conf, fileName string) {
 		}
 		count++
 
-		printRecord(currentOffset, wr)
+		ww := warcwriter.NewWriter(&warcoptions.WarcOptions{
+			Strict:   false,
+			Compress: false,
+		})
+
+		fmt.Fprintf(os.Stderr, "Offset: %v\n", currentOffset)
+		ww.WriteRecord(os.Stdout, wr)
+		//printRecord(currentOffset, wr)
 
 		if c.recordCount > 0 && count >= c.recordCount {
 			break
@@ -119,7 +127,7 @@ func readFile(c *conf, fileName string) {
 func printRecord(offset int64, record warcrecord.WarcRecord) {
 	m := warcrecord.NewMarshaler(&warcoptions.WarcOptions{
 		Strict:   false,
-		Compress: true,
+		Compress: false,
 	})
 	m.WriteRecord(os.Stdout, record)
 	//fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), record.WarcHeader().Get(warcrecord.WarcTargetURI))

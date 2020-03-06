@@ -53,6 +53,14 @@ func (block *httpRequestBlock) Request() (*http.Request, error) {
 	return http.ReadRequest(rb)
 }
 
+//func (block *httpRequestBlock) Write(w io.Writer) (bytesWritten int, err error) {
+//	bytesWritten, err = block.Request().Write(w)
+//	http.
+//	w.Write([]byte(CRLF))
+//	bytesWritten += 2
+//	return
+//}
+
 type httpResponseBlock struct {
 	Block
 }

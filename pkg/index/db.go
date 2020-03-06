@@ -176,7 +176,7 @@ func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64
 
 	var err error
 	if warcRecord.Type() == warcrecord.RESPONSE {
-		record.surt, err = surt.GetSurtS(warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI), false)
+		record.surt, err = surt.SurtS(warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI), false)
 		record.timestamp = timestamp.To14(warcRecord.WarcHeader().Get(warcrecord.WarcDate))
 		record.cdx = &cdx.Cdx{}
 	}
@@ -322,7 +322,7 @@ func (d *Db) ListFilePaths() ([]string, error) {
 }
 
 func (d *Db) Searchx(url, timestamp string) (*cdx.Cdx, error) {
-	s, err := surt.GetSurtS(url, false)
+	s, err := surt.SurtS(url, false)
 	if err != nil {
 		return nil, err
 	}
@@ -343,7 +343,7 @@ func (d *Db) Searchx(url, timestamp string) (*cdx.Cdx, error) {
 }
 
 func (d *Db) Search(url, timestamp string) (*cdx.Cdx, error) {
-	s, err := surt.GetSurtS(url, false)
+	s, err := surt.SurtS(url, false)
 	if err != nil {
 		return nil, err
 	}
