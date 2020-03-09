@@ -17,6 +17,7 @@
 package warcrecord
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -41,6 +42,22 @@ type httpRequestBlock struct {
 	once            sync.Once
 }
 
+func (block *httpRequestBlock) RawBytes() (*bufio.Reader, error) {
+	if block.requestRawBytes == nil {
+		return block.Block.RawBytes()
+	}
+
+	r1, err := block.RequestBytes()
+	if err != nil {
+		return nil, err
+	}
+	r2, err := block.Block.RawBytes()
+	if err != nil {
+		return nil, err
+	}
+	return bufio.NewReader(io.MultiReader(r1, r2)), nil
+}
+
 func (block *httpRequestBlock) PayloadBytes() (io.ReadCloser, error) {
 	r, err := block.Request()
 	if err != nil {
@@ -49,32 +66,55 @@ func (block *httpRequestBlock) PayloadBytes() (io.ReadCloser, error) {
 	return r.Body, nil
 }
 
-func (block *httpRequestBlock) Request() (*http.Request, error) {
+func (block *httpRequestBlock) RequestBytes() (io.Reader, error) {
 	var err error
 	block.once.Do(func() {
 		rb, e := block.RawBytes()
 		if e != nil {
 			err = e
 		}
-		block.request, err = http.ReadRequest(rb)
+
+		var buf bytes.Buffer
+		var line []byte
+		var n, l int
+		for {
+			line, err = rb.ReadSlice('\n')
+			if err != nil {
+				break
+			}
+			n++
+			l += len(line)
+			buf.Write(line)
+		}
+		block.requestRawBytes = buf.Bytes()
+	})
+	return bytes.NewBuffer(block.requestRawBytes), err
+}
+
+func (block *httpRequestBlock) Request() (*http.Request, error) {
+	var err error
+	block.once.Do(func() {
+		rb, e := block.RequestBytes()
+		if e != nil {
+			err = e
+		}
+		block.request, err = http.ReadRequest(bufio.NewReader(rb))
 	})
 	return block.request, err
 }
 
 func (block *httpRequestBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	var p io.ReadCloser
-	p, err = block.PayloadBytes()
+	var p *bufio.Reader
+	p, err = block.RawBytes()
 	if err != nil {
 		return
 	}
-	fmt.Printf("########## %v\n", err)
 	bytesWritten, err = io.Copy(w, p)
 	if err != nil {
 		return
 	}
-	fmt.Printf("########## %v, %v\n", err, bytesWritten)
-	//w.Write([]byte(CRLF))
-	//bytesWritten += 2
+	w.Write([]byte(CRLF))
+	bytesWritten += 2
 	return
 }
 

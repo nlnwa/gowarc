@@ -97,7 +97,7 @@ func readFile(c *conf, fileName string) {
 	})
 
 	for {
-		wr, currentOffset, err := wf.Next()
+		wr, _, err := wf.Next()
 		if err == io.EOF {
 			break
 		}
@@ -112,9 +112,11 @@ func readFile(c *conf, fileName string) {
 		}
 		count++
 
-		fmt.Fprintf(os.Stderr, "Offset: %v\n", currentOffset)
-		bw, err := ww.WriteRecord(os.Stdout, wr)
-		fmt.Printf("Bytes written: %v, Err: %v\n", bw, err)
+		_, err = ww.WriteRecord(os.Stdout, wr)
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+		}
+		os.Stdout.Write([]byte("\r\n"))
 
 		if c.recordCount > 0 && count >= c.recordCount {
 			break
