@@ -19,5 +19,5 @@ package warcwriter
 import "io"
 
 type Marshaler interface {
-	Write(w io.Writer) (bytesWritten int, err error)
+	Write(w io.Writer) (bytesWritten int64, err error)
 }

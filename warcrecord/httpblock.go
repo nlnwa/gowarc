@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 )
 
 type HttpRequestBlock interface {
@@ -35,6 +36,9 @@ type HttpResponseBlock interface {
 
 type httpRequestBlock struct {
 	Block
+	request         *http.Request
+	requestRawBytes []byte
+	once            sync.Once
 }
 
 func (block *httpRequestBlock) PayloadBytes() (io.ReadCloser, error) {
@@ -46,20 +50,33 @@ func (block *httpRequestBlock) PayloadBytes() (io.ReadCloser, error) {
 }
 
 func (block *httpRequestBlock) Request() (*http.Request, error) {
-	rb, err := block.RawBytes()
-	if err != nil {
-		return nil, err
-	}
-	return http.ReadRequest(rb)
+	var err error
+	block.once.Do(func() {
+		rb, e := block.RawBytes()
+		if e != nil {
+			err = e
+		}
+		block.request, err = http.ReadRequest(rb)
+	})
+	return block.request, err
 }
 
-//func (block *httpRequestBlock) Write(w io.Writer) (bytesWritten int, err error) {
-//	bytesWritten, err = block.Request().Write(w)
-//	http.
-//	w.Write([]byte(CRLF))
-//	bytesWritten += 2
-//	return
-//}
+func (block *httpRequestBlock) Write(w io.Writer) (bytesWritten int64, err error) {
+	var p io.ReadCloser
+	p, err = block.PayloadBytes()
+	if err != nil {
+		return
+	}
+	fmt.Printf("########## %v\n", err)
+	bytesWritten, err = io.Copy(w, p)
+	if err != nil {
+		return
+	}
+	fmt.Printf("########## %v, %v\n", err, bytesWritten)
+	//w.Write([]byte(CRLF))
+	//bytesWritten += 2
+	return
+}
 
 type httpResponseBlock struct {
 	Block
@@ -94,6 +111,6 @@ func NewHttpBlock(block Block) (PayloadBlock, error) {
 	if bytes.HasPrefix(b, []byte("HTTP")) {
 		return &httpResponseBlock{block}, nil
 	} else {
-		return &httpRequestBlock{block}, nil
+		return &httpRequestBlock{Block: block}, nil
 	}
 }

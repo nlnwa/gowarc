@@ -168,7 +168,7 @@ func (wh *warcHeader) Sort() {
 	wh.WarcFields.Sort()
 }
 
-func (wh *warcHeader) Write(w io.Writer) (int, error) {
+func (wh *warcHeader) Write(w io.Writer) (int64, error) {
 	return wh.WarcFields.Write(w)
 }
 

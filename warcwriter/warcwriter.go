@@ -49,8 +49,9 @@ func (m *writer) WriteRecord(w io.Writer, record warcrecord.WarcRecord) (bytesWr
 		return
 	}
 
-	n, err = record.WarcHeader().Write(w)
-	bytesWritten += int64(n)
+	var bw int64
+	bw, err = record.WarcHeader().Write(w)
+	bytesWritten += bw
 	if err != nil {
 		return
 	}
@@ -62,8 +63,9 @@ func (m *writer) WriteRecord(w io.Writer, record warcrecord.WarcRecord) (bytesWr
 	}
 
 	if m, ok := record.Block().(Marshaler); ok {
-		n, err = m.Write(w)
-		bytesWritten += int64(n)
+		var bw int64
+		bw, err = m.Write(w)
+		bytesWritten += bw
 		if err != nil {
 			return
 		}

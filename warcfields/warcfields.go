@@ -31,7 +31,7 @@ type WarcFields interface {
 	Set(name string, value string) error
 	Delete(name string)
 	Sort()
-	Write(w io.Writer) (bytesWritten int, err error)
+	Write(w io.Writer) (bytesWritten int64, err error)
 }
 
 type NameValue struct {
@@ -129,11 +129,11 @@ func (wf *warcFields) Sort() {
 	})
 }
 
-func (wf *warcFields) Write(w io.Writer) (bytesWritten int, err error) {
+func (wf *warcFields) Write(w io.Writer) (bytesWritten int64, err error) {
 	var n int
 	for _, field := range wf.values {
 		n, err = fmt.Fprintf(w, "%v: %v\r\n", field.Name, field.Value)
-		bytesWritten += n
+		bytesWritten += int64(n)
 		if err != nil {
 			return
 		}

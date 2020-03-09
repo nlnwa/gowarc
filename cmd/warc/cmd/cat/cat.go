@@ -16,7 +16,6 @@
 package cat
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/warcoptions"
@@ -92,6 +91,11 @@ func readFile(c *conf, fileName string) {
 
 	count := 0
 
+	ww := warcwriter.NewWriter(&warcoptions.WarcOptions{
+		Strict:   false,
+		Compress: false,
+	})
+
 	for {
 		wr, currentOffset, err := wf.Next()
 		if err == io.EOF {
@@ -108,54 +112,15 @@ func readFile(c *conf, fileName string) {
 		}
 		count++
 
-		ww := warcwriter.NewWriter(&warcoptions.WarcOptions{
-			Strict:   false,
-			Compress: false,
-		})
-
 		fmt.Fprintf(os.Stderr, "Offset: %v\n", currentOffset)
-		ww.WriteRecord(os.Stdout, wr)
-		//printRecord(currentOffset, wr)
+		bw, err := ww.WriteRecord(os.Stdout, wr)
+		fmt.Printf("Bytes written: %v, Err: %v\n", bw, err)
 
 		if c.recordCount > 0 && count >= c.recordCount {
 			break
 		}
 	}
 	fmt.Fprintln(os.Stderr, "Count: ", count)
-}
-
-func printRecord(offset int64, record warcrecord.WarcRecord) {
-	m := warcrecord.NewMarshaler(&warcoptions.WarcOptions{
-		Strict:   false,
-		Compress: false,
-	})
-	m.WriteRecord(os.Stdout, record)
-	//fmt.Printf("%v\t%s\t%s\t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), record.WarcHeader().Get(warcrecord.WarcTargetURI))
-	//fmt.Printf("%v\n", record)
-	//
-	buf := &bytes.Buffer{}
-	//record.WarcHeader().Write(buf)
-	//
-	//b := record.Block()
-	//switch v := b.(type) {
-	//case warcrecord.HttpResponseBlock:
-	//	rb, err := v.RawBytes()
-	//	if err != nil {
-	//		return
-	//	}
-	//	rb.WriteTo(buf)
-	//case warcrecord.HttpRequestBlock:
-	//	rb, err := v.RawBytes()
-	//	if err != nil {
-	//		return
-	//	}
-	//
-	//	rb.WriteTo(buf)
-	//default:
-	//	fmt.Printf("%T\n", v)
-	//}
-
-	fmt.Print(buf.String())
 }
 
 func contains(s []string, e string) bool {
