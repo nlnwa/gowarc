@@ -41,7 +41,7 @@ func Serve(db *index.Db) {
 	r := mux.NewRouter()
 	r.Handle("/id/{id}", &contentHandler{l})
 	r.Handle("/files/", &fileHandler{l, db})
-	r.Handle("/search/", &searchHandler{l})
+	r.Handle("/search", &searchHandler{l, db})
 	http.Handle("/", r)
 
 	httpServer := &http.Server{

@@ -37,6 +37,7 @@ func SurtU(u *url.Url, includeScheme bool) (string, error) {
 	}
 	result.WriteByte(')')
 	result.WriteString(u.Pathname())
+	result.WriteString(u.Search())
 	return result.String(), nil
 }
 

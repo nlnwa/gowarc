@@ -17,49 +17,50 @@
 package server
 
 import (
-	"fmt"
-	"github.com/gorilla/mux"
+	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/sirupsen/logrus"
-	"io"
 	"net/http"
 )
 
 type searchHandler struct {
 	loader *loader.Loader
+	db     *index.Db
 }
 
 func (h *searchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	warcid := mux.Vars(r)["id"]
-	logrus.Debugf("request id: %v", warcid)
-	record, err := h.loader.Get(warcid)
+	uri := r.URL.Query().Get("url")
+	//uri := mux.Vars(r)["url"]
+	logrus.Infof("request url: %v", uri)
+	h.db.Search(uri, "")
 
-	if err != nil {
-		w.Header().Set("Content-Type", "text/plain")
-		w.WriteHeader(404)
-		w.Write([]byte("Document not found\n"))
-		return
-	}
-	defer record.Close()
-
-	switch v := record.Block().(type) {
-	case warcrecord.HttpResponseBlock:
-		r, _ := v.Response()
-		for k, vl := range r.Header {
-			for _, v := range vl {
-				w.Header().Set(k, v)
-			}
-		}
-		io.Copy(w, r.Body)
-	default:
-		w.Header().Set("Content-Type", "text/plain")
-		record.WarcHeader().Write(w)
-		fmt.Fprintln(w)
-		rb, err := v.RawBytes()
-		if err != nil {
-			return
-		}
-		io.Copy(w, rb)
-	}
+	//record, err := h.loader.Get(warcid)
+	//
+	//if err != nil {
+	//	w.Header().Set("Content-Type", "text/plain")
+	//	w.WriteHeader(404)
+	//	w.Write([]byte("Document not found\n"))
+	//	return
+	//}
+	//defer record.Close()
+	//
+	//switch v := record.Block().(type) {
+	//case warcrecord.HttpResponseBlock:
+	//	r, _ := v.Response()
+	//	for k, vl := range r.Header {
+	//		for _, v := range vl {
+	//			w.Header().Set(k, v)
+	//		}
+	//	}
+	//	io.Copy(w, r.Body)
+	//default:
+	//	w.Header().Set("Content-Type", "text/plain")
+	//	record.WarcHeader().Write(w)
+	//	fmt.Fprintln(w)
+	//	rb, err := v.RawBytes()
+	//	if err != nil {
+	//		return
+	//	}
+	//	io.Copy(w, rb)
+	//}
 }

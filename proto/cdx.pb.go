@@ -21,8 +21,55 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
 type Cdx struct {
-	Uri                  string   `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
-	Ref                  string   `protobuf:"bytes,2,opt,name=ref,proto3" json:"ref,omitempty"`
+	// uri (required) - The value should be the non-transformed URI used for the searchable URI (first sortable field).
+	Uri string `protobuf:"bytes,1,opt,name=uri,proto3" json:"uri,omitempty"`
+	// sha (recommended) - A Base32 encoded SHA-1 digest of the payload that this record refers to. Omit if the URI has
+	// no intrinsic payload. For revisit records, this is the digest of the original payload. The algorithm prefix
+	// (e.g. sha-1) is not included in this field. See dig for alternative hashing algorithms.
+	Sha string `protobuf:"bytes,2,opt,name=sha,proto3" json:"sha,omitempty"`
+	// dig - A Base32 encoded output of a hashing algorithm applied to the URI’s payload. This should include a prefix
+	// indicating the algorithm.
+	Dig string `protobuf:"bytes,3,opt,name=dig,proto3" json:"dig,omitempty"`
+	// hsc - HTTP Status Code. Applicable for response records for HTTP(S) URIs.
+	Hsc string `protobuf:"bytes,4,opt,name=hsc,proto3" json:"hsc,omitempty"`
+	// mct - Media Content Type (MIME type). For HTTP(S) response records this is typically the “Content-Type” from
+	// the HTTP header. This field, however, does not specify the origin of the information. It may be used to include
+	// content type that was derived from content analysis or other sources.
+	Mct string `protobuf:"bytes,5,opt,name=mct,proto3" json:"mct,omitempty"`
+	// ref (required) - A URI that resolves to the resource that this record refers to. This can be any well defined
+	// URI scheme. For the most common web archive use case of warc filename plus offset, see Appendix C. For other
+	// use cases, existing schemes can be used or new ones devised.
+	Ref string `protobuf:"bytes,6,opt,name=ref,proto3" json:"ref,omitempty"`
+	// rid (recommended) - Record ID. Typically WARC-Record-ID or equivalent if not using WARCs. In a mixed environment,
+	// you should ensure that record ID is unique.
+	Rid string `protobuf:"bytes,7,opt,name=rid,proto3" json:"rid,omitempty"`
+	// cle - Content Length. The length of the content (uncompressed), ignoring WARC headers, but including any
+	// HTTP headers or similar.
+	Cle string `protobuf:"bytes,8,opt,name=cle,proto3" json:"cle,omitempty"`
+	// ple - Payload Length. The length of the payload (uncompressed). The exact meaning will vary by content type,
+	// but the common case is the length of the document, excluding any HTTP headers in a HTTP response record.
+	Ple string `protobuf:"bytes,9,opt,name=ple,proto3" json:"ple,omitempty"`
+	// rle - Record Length. The length of the record that this line refers to. This is the entire record
+	// (including e.g. WARC headers) as written on disk (compressed if stored compressed).
+	Rle string `protobuf:"bytes,10,opt,name=rle,proto3" json:"rle,omitempty"`
+	// rct - Record Concurrant To. The record ID of another record that the current record is considered to be
+	// ‘concurrant’ to. See further WARC chapter 5.7 (WARC-Concurrent-To).
+	Rct string `protobuf:"bytes,11,opt,name=rct,proto3" json:"rct,omitempty"`
+	// rou (recommended) - Revisit Original URI. Only valid for records of type revisit. Contains the URI of
+	// the record that this record is considered a revisit of.
+	Rou string `protobuf:"bytes,12,opt,name=rou,proto3" json:"rou,omitempty"`
+	// rod (recommended) - Revisit Original Date. Only valid for records of type revisit. Contains the
+	// timestamp (equivalent to sortable field #2) of the record that this record is considered a revisit of.
+	Rod string `protobuf:"bytes,13,opt,name=rod,proto3" json:"rod,omitempty"`
+	// roi - Revisit Original record ID. Only valid for records of type revisit. Contains the record ID of
+	// the record that this record is considered a revisit of.
+	Roi string `protobuf:"bytes,14,opt,name=roi,proto3" json:"roi,omitempty"`
+	// Searchable URI - ssu (sortable searchable URI)
+	Ssu string `protobuf:"bytes,15,opt,name=ssu,proto3" json:"ssu,omitempty"`
+	// Timestamp - sts (sortable timestamp)
+	Sts string `protobuf:"bytes,16,opt,name=sts,proto3" json:"sts,omitempty"`
+	// Record Type - srt (sortable record type)
+	Srt                  string   `protobuf:"bytes,17,opt,name=srt,proto3" json:"srt,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -60,9 +107,114 @@ func (m *Cdx) GetUri() string {
 	return ""
 }
 
+func (m *Cdx) GetSha() string {
+	if m != nil {
+		return m.Sha
+	}
+	return ""
+}
+
+func (m *Cdx) GetDig() string {
+	if m != nil {
+		return m.Dig
+	}
+	return ""
+}
+
+func (m *Cdx) GetHsc() string {
+	if m != nil {
+		return m.Hsc
+	}
+	return ""
+}
+
+func (m *Cdx) GetMct() string {
+	if m != nil {
+		return m.Mct
+	}
+	return ""
+}
+
 func (m *Cdx) GetRef() string {
 	if m != nil {
 		return m.Ref
+	}
+	return ""
+}
+
+func (m *Cdx) GetRid() string {
+	if m != nil {
+		return m.Rid
+	}
+	return ""
+}
+
+func (m *Cdx) GetCle() string {
+	if m != nil {
+		return m.Cle
+	}
+	return ""
+}
+
+func (m *Cdx) GetPle() string {
+	if m != nil {
+		return m.Ple
+	}
+	return ""
+}
+
+func (m *Cdx) GetRle() string {
+	if m != nil {
+		return m.Rle
+	}
+	return ""
+}
+
+func (m *Cdx) GetRct() string {
+	if m != nil {
+		return m.Rct
+	}
+	return ""
+}
+
+func (m *Cdx) GetRou() string {
+	if m != nil {
+		return m.Rou
+	}
+	return ""
+}
+
+func (m *Cdx) GetRod() string {
+	if m != nil {
+		return m.Rod
+	}
+	return ""
+}
+
+func (m *Cdx) GetRoi() string {
+	if m != nil {
+		return m.Roi
+	}
+	return ""
+}
+
+func (m *Cdx) GetSsu() string {
+	if m != nil {
+		return m.Ssu
+	}
+	return ""
+}
+
+func (m *Cdx) GetSts() string {
+	if m != nil {
+		return m.Sts
+	}
+	return ""
+}
+
+func (m *Cdx) GetSrt() string {
+	if m != nil {
+		return m.Srt
 	}
 	return ""
 }
@@ -71,16 +223,25 @@ func init() {
 	proto.RegisterType((*Cdx)(nil), "gowarc.cdx.Cdx")
 }
 
-func init() { proto.RegisterFile("cdx.proto", fileDescriptor_dd71725f001d5944) }
+func init() {
+	proto.RegisterFile("cdx.proto", fileDescriptor_dd71725f001d5944)
+}
 
 var fileDescriptor_dd71725f001d5944 = []byte{
-	// 118 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0x4c, 0x4e, 0xa9, 0xd0,
-	0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x4a, 0xcf, 0x2f, 0x4f, 0x2c, 0x4a, 0xd6, 0x4b, 0x4e,
-	0xa9, 0x50, 0xd2, 0xe4, 0x62, 0x76, 0x4e, 0xa9, 0x10, 0x12, 0xe0, 0x62, 0x2e, 0x2d, 0xca, 0x94,
-	0x60, 0x54, 0x60, 0xd4, 0xe0, 0x0c, 0x02, 0x31, 0x41, 0x22, 0x45, 0xa9, 0x69, 0x12, 0x4c, 0x10,
-	0x91, 0xa2, 0xd4, 0x34, 0x27, 0xc5, 0x28, 0xf9, 0xf4, 0xcc, 0x92, 0x8c, 0xd2, 0x24, 0xbd, 0xe4,
-	0xfc, 0x5c, 0xfd, 0xbc, 0x9c, 0xbc, 0xf2, 0x44, 0x7d, 0x88, 0x49, 0xfa, 0xc9, 0x29, 0x15, 0xd6,
-	0xc9, 0x29, 0x15, 0x49, 0x6c, 0x60, 0x0b, 0x8c, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff, 0x1f, 0x61,
-	0xff, 0x9a, 0x6d, 0x00, 0x00, 0x00,
+	// 237 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x34, 0xd0, 0xbb, 0x6e, 0xc3, 0x30,
+	0x0c, 0x05, 0x50, 0x24, 0x6e, 0xd3, 0x5a, 0x7d, 0xa5, 0x99, 0xb8, 0xf5, 0x31, 0x75, 0xb2, 0x87,
+	0x8e, 0xdd, 0xda, 0x3f, 0xe8, 0xd8, 0xcd, 0x21, 0x15, 0x4b, 0x80, 0x1c, 0x19, 0x7a, 0x20, 0xfa,
+	0xb3, 0xfe, 0x5e, 0x20, 0x93, 0xd9, 0x88, 0x03, 0x5c, 0x10, 0xf7, 0xaa, 0x16, 0xa9, 0x74, 0x73,
+	0xf0, 0xc9, 0xef, 0xd4, 0xe8, 0x4f, 0x43, 0xc0, 0x0e, 0xa9, 0xbc, 0xff, 0xaf, 0x55, 0xf3, 0x43,
+	0x65, 0xb7, 0x55, 0x4d, 0x0e, 0x16, 0x56, 0xaf, 0xab, 0x8f, 0xf6, 0xb7, 0x9e, 0x55, 0xa2, 0x19,
+	0x60, 0xcd, 0x12, 0xcd, 0x50, 0x85, 0xec, 0x08, 0x0d, 0x0b, 0xd9, 0xb1, 0x8a, 0x89, 0x08, 0x57,
+	0x2c, 0x26, 0x62, 0x95, 0x09, 0x13, 0x5c, 0xb3, 0x4c, 0x98, 0xaa, 0x04, 0x7d, 0x80, 0x0d, 0x4b,
+	0xd0, 0x87, 0x45, 0x2c, 0xc1, 0x8d, 0x88, 0xa5, 0x2a, 0xe8, 0x34, 0xdc, 0xb2, 0xa0, 0xd3, 0x55,
+	0x66, 0xa7, 0xa1, 0x65, 0x99, 0x59, 0x82, 0xd3, 0xa0, 0x24, 0x25, 0x82, 0x09, 0xee, 0x44, 0xe4,
+	0x97, 0xcf, 0x70, 0x2f, 0xe2, 0x33, 0x0b, 0xc1, 0xc3, 0x45, 0x88, 0xc5, 0xc2, 0xe3, 0x45, 0xb8,
+	0x69, 0xcc, 0xf0, 0x24, 0x4d, 0xe3, 0x92, 0x8a, 0x29, 0xc2, 0x56, 0x24, 0xc5, 0x45, 0x42, 0x82,
+	0x67, 0x91, 0x90, 0xbe, 0xdf, 0xfe, 0x5e, 0x46, 0x9b, 0x4c, 0xde, 0x77, 0xe8, 0xa7, 0xfe, 0xe8,
+	0x8e, 0xa7, 0xa1, 0xe7, 0x61, 0x7b, 0xa4, 0xf2, 0x85, 0x54, 0xf6, 0x9b, 0x65, 0xef, 0xcf, 0x73,
+	0x00, 0x00, 0x00, 0xff, 0xff, 0xe0, 0x45, 0x95, 0x0d, 0x7c, 0x01, 0x00, 0x00,
 }

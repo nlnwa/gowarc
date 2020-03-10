@@ -20,12 +20,8 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/nlnwa/gowarc/pkg/surt"
-	"github.com/nlnwa/gowarc/pkg/timestamp"
-	cdx "github.com/nlnwa/gowarc/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/spf13/viper"
-	"strconv"
 )
 
 type CdxWriter interface {
@@ -85,20 +81,12 @@ func (c *CdxJ) Close() {
 
 func (c *CdxJ) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		surtUrl, err := surt.SurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
-		if err != nil {
-			return err
-		}
-		ts := timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))
-		rec := &cdx.Cdx{
-			Uri: wr.WarcHeader().Get(warcrecord.WarcTargetURI),
-			Ref: "warcfile:" + fileName + "#" + strconv.Itoa(int(offset)),
-		}
+		rec := NewCdxRecord(wr, fileName, offset)
 		cdxj, err := c.jsonMarshaler.MarshalToString(rec)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%v %v %v\n", surtUrl, ts, cdxj)
+		fmt.Printf("%s %s %s %s\n", rec.Ssu, rec.Sts, rec.Srt, cdxj)
 	}
 	return nil
 }
@@ -112,20 +100,12 @@ func (c *CdxPb) Close() {
 
 func (c *CdxPb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		surtUrl, err := surt.SurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), false)
-		if err != nil {
-			return err
-		}
-		ts := timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))
-		rec := &cdx.Cdx{
-			Uri: wr.WarcHeader().Get(warcrecord.WarcTargetURI),
-			Ref: "warcfile:" + fileName + "#" + strconv.Itoa(int(offset)),
-		}
+		rec := NewCdxRecord(wr, fileName, offset)
 		cdxpb, err := proto.Marshal(rec)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s %s %s\n", surtUrl, ts, cdxpb)
+		fmt.Printf("%s %s %s %s\n", rec.Ssu, rec.Sts, rec.Srt, cdxpb)
 	}
 	return nil
 }

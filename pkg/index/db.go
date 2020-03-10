@@ -18,10 +18,9 @@ package index
 
 import (
 	"fmt"
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/nlnwa/gowarc/pkg/surt"
-	"github.com/nlnwa/gowarc/pkg/timestamp"
 	cdx "github.com/nlnwa/gowarc/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
@@ -33,12 +32,10 @@ import (
 )
 
 type record struct {
-	id        string
-	filePath  string
-	offset    int64
-	surt      string
-	timestamp string
-	cdx       *cdx.Cdx
+	id       string
+	filePath string
+	offset   int64
+	cdx      *cdx.Cdx
 }
 
 type Db struct {
@@ -173,10 +170,8 @@ func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64
 	}
 
 	var err error
-	if warcRecord.Type() == warcrecord.RESPONSE {
-		record.surt, err = surt.SurtS(warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI), false)
-		record.timestamp = timestamp.To14(warcRecord.WarcHeader().Get(warcrecord.WarcDate))
-		record.cdx = &cdx.Cdx{}
+	if warcRecord.Type() == warcrecord.RESPONSE || warcRecord.Type() == warcrecord.REVISIT {
+		record.cdx = NewCdxRecord(warcRecord, filePath, offset)
 	}
 	if err != nil {
 		return err
@@ -238,8 +233,8 @@ func (d *Db) AddBatch(records []*record) {
 
 	err = d.cdxIndex.Update(func(txn *badger.Txn) error {
 		for _, r := range records {
-			if r.surt != "" && r.timestamp != "" && r.cdx != nil {
-				key := r.surt + " " + r.timestamp
+			if r.cdx != nil {
+				key := r.cdx.Ssu + " " + r.cdx.Sts + " " + r.cdx.Srt
 				value, err := proto.Marshal(r.cdx)
 				if err != nil {
 					log.Errorf("%v", err)
@@ -322,44 +317,58 @@ func (d *Db) ListFilePaths() ([]string, error) {
 	return result, err
 }
 
-func (d *Db) Searchx(url, timestamp string) (*cdx.Cdx, error) {
-	s, err := surt.SurtS(url, false)
-	if err != nil {
-		return nil, err
-	}
-
-	var result *cdx.Cdx
-	key := s + " " + timestamp
-	err = d.cdxIndex.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(key))
-		if err != nil {
-			return err
-		}
-		item.Value(func(val []byte) error {
-			return proto.Unmarshal(val, result)
-		})
-		return err
-	})
-	return result, err
-}
+//func (d *Db) Searchx(url, timestamp string) (*cdx.Cdx, error) {
+//	s, err := surt.SurtS(url, false)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	var result *cdx.Cdx
+//	key := s + " " + timestamp
+//	err = d.cdxIndex.View(func(txn *badger.Txn) error {
+//		item, err := txn.Get([]byte(key))
+//		if err != nil {
+//			return err
+//		}
+//		item.Value(func(val []byte) error {
+//			return proto.Unmarshal(val, result)
+//		})
+//		return err
+//	})
+//	return result, err
+//}
 
 func (d *Db) Search(url, timestamp string) (*cdx.Cdx, error) {
-	s, err := surt.SurtS(url, false)
+	s, err := surt.SurtS(url, true)
 	if err != nil {
 		return nil, err
 	}
 
-	var result *cdx.Cdx
-	key := s + " " + timestamp
+	result := &cdx.Cdx{}
+	key := []byte(s + " ")
+	log.Infof("Searching for key '%s'\n", key)
+
 	err = d.cdxIndex.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(key))
-		if err != nil {
-			return err
+		opts := badger.DefaultIteratorOptions
+		opts.PrefetchValues = false
+		opts.Prefix = key
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		//for it.Seek(key); it.ValidForPrefix(key); it.Next() {
+		for it.Rewind(); it.ValidForPrefix(key); it.Next() {
+			item := it.Item()
+			k := item.Key()
+			err := item.Value(func(v []byte) error {
+				proto.Unmarshal(v, result)
+				fmt.Printf("key=%s, value=%s\n", k, result)
+				return nil
+			})
+			if err != nil {
+				return err
+			}
 		}
-		item.Value(func(val []byte) error {
-			return proto.Unmarshal(val, result)
-		})
-		return err
+		return nil
 	})
 	return result, err
 }
