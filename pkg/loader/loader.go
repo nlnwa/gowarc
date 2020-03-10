@@ -61,9 +61,7 @@ func (l *Loader) Get(warcId string) (record warcrecord.WarcRecord, err error) {
 		if err != nil {
 			return
 		}
-		rb := record.Block().(*warcrecord.RevisitBlock)
-		rb.Merge(revisitOf)
-		return record, nil
+		record, err = warcrecord.Merge(record, revisitOf)
 	}
 
 	return

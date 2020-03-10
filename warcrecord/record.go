@@ -40,7 +40,7 @@ type Block interface {
 
 type PayloadBlock interface {
 	Block
-	PayloadBytes() (io.ReadCloser, error)
+	PayloadBytes() (io.Reader, error)
 }
 
 type version struct {

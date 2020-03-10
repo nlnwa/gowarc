@@ -135,16 +135,6 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	}
 
 	record := wf.(*warcHeader).wr
-	//record = &WarcRecord{
-	//	headers:          wf,
-	//	extensionHeaders: NewWarcFields(),
-	//	version:          version,
-	//}
-
-	//err = wr.parseWarcHeader(record)
-	//if err != nil {
-	//	return nil, offset, err
-	//}
 
 	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
 
@@ -152,11 +142,6 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	record.block = &genericBlock{bufio.NewReader(c2)}
 
 	err = wr.parseBlock(record)
-
-	n, err := r.Discard(4)
-	if n != 4 || err != nil {
-		return record, offset, fmt.Errorf("failed skipping record trailer %v", err)
-	}
 
 	return record, offset, nil
 }

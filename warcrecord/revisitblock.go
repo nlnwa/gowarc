@@ -22,64 +22,98 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
 )
 
 const CRLF = "\r\n"
 
 type RevisitBlock struct {
-	rawBytes   *bufio.Reader
-	headers    *bytes.Buffer
-	dataRecord WarcRecord
+	Block
+	response         *http.Response
+	responseRawBytes []byte
+	once             sync.Once
 }
 
 func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
-	if block.rawBytes != nil {
-		return block.rawBytes, nil
+	if block.responseRawBytes == nil {
+		return block.Block.RawBytes()
 	}
 
-	if block.dataRecord == nil {
-		return nil, fmt.Errorf("revisit record is not merged with referenced data")
-	}
-
-	dataBlock := block.dataRecord.Block().(PayloadBlock)
-	var data io.Reader
-	var err error
-	data, err = dataBlock.PayloadBytes()
+	r1, err := block.ResponseBytes()
 	if err != nil {
 		return nil, err
 	}
-
-	block.rawBytes = bufio.NewReader(io.MultiReader(block.headers, data))
-	return block.rawBytes, nil
+	return bufio.NewReader(r1), nil
 }
 
-func (block *RevisitBlock) PayloadBytes() (io.ReadCloser, error) {
-	r, err := block.Response()
+func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
+	_, err := block.Response()
 	if err != nil {
 		return nil, err
 	}
-	return r.Body, nil
+	return block.Block.RawBytes()
+}
+
+func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
+	var err error
+	block.once.Do(func() {
+		rb, e := block.RawBytes()
+		if e != nil {
+			err = e
+		}
+
+		var buf bytes.Buffer
+		var line []byte
+		var n, l int
+		for {
+			line, err = rb.ReadSlice('\n')
+			if err != nil {
+				break
+			}
+			n++
+			l += len(line)
+			buf.Write(line)
+			if len(line) < 3 {
+				break
+			}
+		}
+		block.responseRawBytes = buf.Bytes()
+	})
+	return bytes.NewBuffer(block.responseRawBytes), err
 }
 
 func (block *RevisitBlock) Response() (*http.Response, error) {
-	rb, err := block.RawBytes()
-	if err != nil {
-		return nil, err
-	}
-	return http.ReadResponse(rb, nil)
+	var err error
+	block.once.Do(func() {
+		rb, e := block.ResponseBytes()
+		if e != nil {
+			err = e
+		}
+		block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
+	})
+	return block.response, err
 }
 
-func (block *RevisitBlock) Merge(refersTo WarcRecord) {
-	block.dataRecord = refersTo
+func (block *RevisitBlock) Write(w io.Writer) (bytesWritten int64, err error) {
+	var p *bufio.Reader
+	p, err = block.RawBytes()
+	if err != nil {
+		return
+	}
+	bytesWritten, err = io.Copy(w, p)
+	if err != nil {
+		return
+	}
+	w.Write([]byte(CRLF))
+	bytesWritten += 2
+	return
 }
 
 func NewRevisitBlock(block Block) (Block, error) {
-	rb, err := block.RawBytes()
-	if err != nil {
-		return nil, err
-	}
-	buf := &bytes.Buffer{}
-	rb.WriteTo(buf)
-	buf.WriteString(CRLF)
-	return &RevisitBlock{headers: buf}, nil
+	return &RevisitBlock{Block: block}, nil
+}
+
+func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
+	fmt.Printf("MERGE %v -> %v\n", revisit.WarcHeader().Get(WarcRecordID), refersTo)
+	return refersTo, nil
 }

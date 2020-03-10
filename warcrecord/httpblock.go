@@ -58,12 +58,12 @@ func (block *httpRequestBlock) RawBytes() (*bufio.Reader, error) {
 	return bufio.NewReader(io.MultiReader(r1, r2)), nil
 }
 
-func (block *httpRequestBlock) PayloadBytes() (io.ReadCloser, error) {
-	r, err := block.Request()
+func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
+	_, err := block.Request()
 	if err != nil {
 		return nil, err
 	}
-	return r.Body, nil
+	return block.Block.RawBytes()
 }
 
 func (block *httpRequestBlock) RequestBytes() (io.Reader, error) {
@@ -85,6 +85,9 @@ func (block *httpRequestBlock) RequestBytes() (io.Reader, error) {
 			n++
 			l += len(line)
 			buf.Write(line)
+			if len(line) < 3 {
+				break
+			}
 		}
 		block.requestRawBytes = buf.Bytes()
 	})
@@ -120,22 +123,85 @@ func (block *httpRequestBlock) Write(w io.Writer) (bytesWritten int64, err error
 
 type httpResponseBlock struct {
 	Block
+	response         *http.Response
+	responseRawBytes []byte
+	once             sync.Once
 }
 
-func (block *httpResponseBlock) PayloadBytes() (io.ReadCloser, error) {
-	r, err := block.Response()
+func (block *httpResponseBlock) RawBytes() (*bufio.Reader, error) {
+	if block.responseRawBytes == nil {
+		return block.Block.RawBytes()
+	}
+
+	r1, err := block.ResponseBytes()
 	if err != nil {
 		return nil, err
 	}
-	return r.Body, nil
+	r2, err := block.Block.RawBytes()
+	if err != nil {
+		return nil, err
+	}
+	return bufio.NewReader(io.MultiReader(r1, r2)), nil
+}
+
+func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {
+	_, err := block.Response()
+	if err != nil {
+		return nil, err
+	}
+	return block.Block.RawBytes()
+}
+
+func (block *httpResponseBlock) ResponseBytes() (io.Reader, error) {
+	var err error
+	block.once.Do(func() {
+		rb, e := block.RawBytes()
+		if e != nil {
+			err = e
+		}
+
+		var buf bytes.Buffer
+		var line []byte
+		var n, l int
+		for {
+			line, err = rb.ReadSlice('\n')
+			if err != nil {
+				break
+			}
+			n++
+			l += len(line)
+			buf.Write(line)
+			if len(line) < 3 {
+				break
+			}
+		}
+		block.responseRawBytes = buf.Bytes()
+	})
+	return bytes.NewBuffer(block.responseRawBytes), err
 }
 
 func (block *httpResponseBlock) Response() (*http.Response, error) {
-	rb, err := block.RawBytes()
+	rb, err := block.ResponseBytes()
 	if err != nil {
 		return nil, err
 	}
-	return http.ReadResponse(rb, nil)
+	block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
+	return block.response, err
+}
+
+func (block *httpResponseBlock) Write(w io.Writer) (bytesWritten int64, err error) {
+	var p *bufio.Reader
+	p, err = block.RawBytes()
+	if err != nil {
+		return
+	}
+	bytesWritten, err = io.Copy(w, p)
+	if err != nil {
+		return
+	}
+	w.Write([]byte(CRLF))
+	bytesWritten += 2
+	return
 }
 
 func NewHttpBlock(block Block) (PayloadBlock, error) {
@@ -149,7 +215,7 @@ func NewHttpBlock(block Block) (PayloadBlock, error) {
 		return nil, err
 	}
 	if bytes.HasPrefix(b, []byte("HTTP")) {
-		return &httpResponseBlock{block}, nil
+		return &httpResponseBlock{Block: block}, nil
 	} else {
 		return &httpRequestBlock{Block: block}, nil
 	}

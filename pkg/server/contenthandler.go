@@ -45,13 +45,17 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch v := record.Block().(type) {
 	case warcrecord.HttpResponseBlock:
-		r, _ := v.Response()
+		r, err := v.Response()
 		for k, vl := range r.Header {
 			for _, v := range vl {
 				w.Header().Set(k, v)
 			}
 		}
-		io.Copy(w, r.Body)
+		p, err := v.PayloadBytes()
+		if err != nil {
+			return
+		}
+		io.Copy(w, p)
 	default:
 		w.Header().Set("Content-Type", "text/plain")
 		record.WarcHeader().Write(w)
