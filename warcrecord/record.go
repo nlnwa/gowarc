@@ -26,7 +26,7 @@ import (
 )
 
 type WarcRecord interface {
-	Version() string
+	Version() *version
 	Type() *recordType
 	WarcHeader() warcfields.WarcFields
 	Block() Block
@@ -88,7 +88,7 @@ var recordTypeStringToType = map[string]*recordType{
 	CONTINUATION.txt: CONTINUATION,
 }
 
-func New(version *version, recordType *recordType) (WarcRecord, error) {
+func New(version *version, recordType *recordType) WarcRecord {
 	r := &warcRecord{
 		version:    version,
 		recordType: recordType,
@@ -99,7 +99,7 @@ func New(version *version, recordType *recordType) (WarcRecord, error) {
 		WarcFields: warcfields.New(),
 		wr:         r,
 	}
-	return r, nil
+	return r
 }
 
 type warcRecord struct {
@@ -111,7 +111,7 @@ type warcRecord struct {
 	strict bool
 }
 
-func (wr *warcRecord) Version() string { return wr.version.txt }
+func (wr *warcRecord) Version() *version { return wr.version }
 
 func (wr *warcRecord) Type() *recordType { return wr.recordType }
 

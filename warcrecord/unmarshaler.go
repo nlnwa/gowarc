@@ -59,10 +59,7 @@ func NewUnmarshaler(opts *warcoptions.WarcOptions) *unmarshaler {
 		if err != nil {
 			return nil, err
 		}
-		wr, err := New(ver.(*version), rt)
-		if err != nil {
-			return nil, err
-		}
+		wr := New(ver.(*version), rt)
 		for _, f := range values {
 			err = wr.WarcHeader().Add(f.Name, f.Value)
 			if err != nil {

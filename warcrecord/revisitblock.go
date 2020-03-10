@@ -32,6 +32,7 @@ type RevisitBlock struct {
 	response         *http.Response
 	responseRawBytes []byte
 	once             sync.Once
+	data             io.Reader
 }
 
 func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
@@ -43,15 +44,20 @@ func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bufio.NewReader(r1), nil
-}
 
-func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
-	_, err := block.Response()
+	r2, err := block.PayloadBytes()
 	if err != nil {
 		return nil, err
 	}
-	return block.Block.RawBytes()
+
+	return bufio.NewReader(io.MultiReader(r1, r2)), nil
+}
+
+func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
+	if block.data == nil {
+		return &bytes.Buffer{}, nil
+	}
+	return block.data, nil
 }
 
 func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
@@ -68,7 +74,12 @@ func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
 		for {
 			line, err = rb.ReadSlice('\n')
 			if err != nil {
-				break
+				if err == io.EOF {
+					line = append(line, []byte(CRLF)...)
+					err = nil
+				} else {
+					break
+				}
 			}
 			n++
 			l += len(line)
@@ -83,14 +94,11 @@ func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
 }
 
 func (block *RevisitBlock) Response() (*http.Response, error) {
-	var err error
-	block.once.Do(func() {
-		rb, e := block.ResponseBytes()
-		if e != nil {
-			err = e
-		}
-		block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
-	})
+	rb, err := block.ResponseBytes()
+	if err != nil {
+		return nil, err
+	}
+	block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
 	return block.response, err
 }
 
@@ -115,5 +123,28 @@ func NewRevisitBlock(block Block) (Block, error) {
 
 func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 	fmt.Printf("MERGE %v -> %v\n", revisit.WarcHeader().Get(WarcRecordID), refersTo)
-	return refersTo, nil
+	m, ok := revisit.(*warcRecord)
+	if !ok {
+		return nil, fmt.Errorf("unknown record implementation")
+	}
+	m.recordType = RESPONSE
+	err := m.headers.Set(WarcType, "response")
+	if err != nil {
+		fmt.Printf("ERR: %v\n", err)
+	}
+	m.headers.Delete(WarcRefersTo)
+	m.headers.Delete(WarcRefersToTargetURI)
+	m.headers.Delete(WarcRefersToDate)
+	m.headers.Delete(WarcProfile)
+
+	b := m.block.(*RevisitBlock)
+	d := refersTo.Block().(PayloadBlock)
+	b.data, err = d.PayloadBytes()
+	if err != nil {
+		fmt.Printf("ERR: %v\n", err)
+	}
+
+	fmt.Printf("Merged: %v\n", m)
+
+	return m, nil
 }

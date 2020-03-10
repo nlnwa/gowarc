@@ -40,12 +40,12 @@ type NameValue struct {
 }
 
 type warcFields struct {
-	values []NameValue
+	values []*NameValue
 }
 
 func New() WarcFields {
 	return &warcFields{
-		values: make([]NameValue, 0, 10),
+		values: make([]*NameValue, 0, 10),
 	}
 }
 
@@ -91,7 +91,7 @@ func (wf *warcFields) Has(name string) bool {
 //}
 
 func (wf *warcFields) Add(name string, value string) error {
-	wf.values = append(wf.values, NameValue{Name: name, Value: value})
+	wf.values = append(wf.values, &NameValue{Name: name, Value: value})
 	return nil
 }
 
@@ -108,13 +108,13 @@ func (wf *warcFields) Set(name string, value string) error {
 		}
 	}
 	if !isSet {
-		wf.values = append(wf.values, NameValue{Name: name, Value: value})
+		wf.values = append(wf.values, &NameValue{Name: name, Value: value})
 	}
 	return nil
 }
 
 func (wf *warcFields) Delete(name string) {
-	var result []NameValue
+	var result []*NameValue
 	for _, nv := range wf.values {
 		if nv.Name != name {
 			result = append(result, nv)

@@ -71,18 +71,5 @@ func (m *writer) WriteRecord(w io.Writer, record warcrecord.WarcRecord) (bytesWr
 		}
 	}
 
-	//var n2 int64
-	//var r io.Reader
-	//r, err = record.Block().RawBytes()
-	//if err != nil {
-	//	return
-	//}
-	//n2, err = io.Copy(w, r)
-	////n, err = w.Write([]byte(CRLF))
-	//bytesWritten += n2
-	//if err != nil {
-	//	return
-	//}
-
 	return
 }

@@ -87,9 +87,7 @@ func NewIndexDb(dbDir string) (*Db, error) {
 		for {
 			select {
 			case <-time.Tick(d.batchMaxWait):
-				d.batchMutex.Lock()
 				d.Flush()
-				d.batchMutex.Unlock()
 			}
 		}
 	}()
@@ -185,8 +183,8 @@ func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64
 	}
 
 	d.batchMutex.Lock()
-	defer d.batchMutex.Unlock()
 	d.batchItems = append(d.batchItems, record)
+	d.batchMutex.Unlock()
 	if len(d.batchItems) >= d.batchMaxSize {
 		d.Flush()
 	}
@@ -261,6 +259,9 @@ func (d *Db) AddBatch(records []*record) {
 }
 
 func (d *Db) Flush() {
+	d.batchMutex.RLock()
+	defer d.batchMutex.RUnlock()
+
 	if len(d.batchItems) <= 0 {
 		return
 	}

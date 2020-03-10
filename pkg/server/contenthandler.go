@@ -32,6 +32,10 @@ type contentHandler struct {
 
 func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	warcid := mux.Vars(r)["id"]
+	if len(warcid) > 0 && warcid[0] != '<' {
+		warcid = "<" + warcid + ">"
+	}
+
 	logrus.Debugf("request id: %v", warcid)
 	record, err := h.loader.Get(warcid)
 
@@ -44,18 +48,18 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer record.Close()
 
 	switch v := record.Block().(type) {
-	case warcrecord.HttpResponseBlock:
+	case *warcrecord.RevisitBlock:
 		r, err := v.Response()
-		for k, vl := range r.Header {
-			for _, v := range vl {
-				w.Header().Set(k, v)
-			}
-		}
-		p, err := v.PayloadBytes()
 		if err != nil {
 			return
 		}
-		io.Copy(w, p)
+		renderContent(w, v, r)
+	case warcrecord.HttpResponseBlock:
+		r, err := v.Response()
+		if err != nil {
+			return
+		}
+		renderContent(w, v, r)
 	default:
 		w.Header().Set("Content-Type", "text/plain")
 		record.WarcHeader().Write(w)
@@ -66,4 +70,17 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		io.Copy(w, rb)
 	}
+}
+
+func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, r *http.Response) {
+	for k, vl := range r.Header {
+		for _, v := range vl {
+			w.Header().Set(k, v)
+		}
+	}
+	p, err := v.PayloadBytes()
+	if err != nil {
+		return
+	}
+	io.Copy(w, p)
 }
