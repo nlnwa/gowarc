@@ -17,8 +17,13 @@
 package server
 
 import (
+	"fmt"
+	"github.com/dgraph-io/badger/v2"
+	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/proto"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
+	cdx "github.com/nlnwa/gowarc/proto"
 	"github.com/sirupsen/logrus"
 	"net/http"
 )
@@ -28,39 +33,30 @@ type searchHandler struct {
 	db     *index.Db
 }
 
+var jsonMarshaler = &jsonpb.Marshaler{}
+
 func (h *searchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uri := r.URL.Query().Get("url")
 	//uri := mux.Vars(r)["url"]
 	logrus.Infof("request url: %v", uri)
-	h.db.Search(uri, "")
+	h.db.Search(uri, "", func(item *badger.Item) {
+		result := &cdx.Cdx{}
+		//k := item.Key()
+		err := item.Value(func(v []byte) error {
+			proto.Unmarshal(v, result)
+			//fmt.Printf("key=%s, value=%s\n", k, result)
 
-	//record, err := h.loader.Get(warcid)
-	//
-	//if err != nil {
-	//	w.Header().Set("Content-Type", "text/plain")
-	//	w.WriteHeader(404)
-	//	w.Write([]byte("Document not found\n"))
-	//	return
-	//}
-	//defer record.Close()
-	//
-	//switch v := record.Block().(type) {
-	//case warcrecord.HttpResponseBlock:
-	//	r, _ := v.Response()
-	//	for k, vl := range r.Header {
-	//		for _, v := range vl {
-	//			w.Header().Set(k, v)
-	//		}
-	//	}
-	//	io.Copy(w, r.Body)
-	//default:
-	//	w.Header().Set("Content-Type", "text/plain")
-	//	record.WarcHeader().Write(w)
-	//	fmt.Fprintln(w)
-	//	rb, err := v.RawBytes()
-	//	if err != nil {
-	//		return
-	//	}
-	//	io.Copy(w, rb)
-	//}
+			cdxj, err := jsonMarshaler.MarshalToString(result)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(w, "%s %s %s %s\n\n", result.Ssu, result.Sts, result.Srt, cdxj)
+
+			return nil
+		})
+		if err != nil {
+			//return err
+		}
+	})
+
 }

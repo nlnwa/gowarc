@@ -317,35 +317,13 @@ func (d *Db) ListFilePaths() ([]string, error) {
 	return result, err
 }
 
-//func (d *Db) Searchx(url, timestamp string) (*cdx.Cdx, error) {
-//	s, err := surt.SurtS(url, false)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	var result *cdx.Cdx
-//	key := s + " " + timestamp
-//	err = d.cdxIndex.View(func(txn *badger.Txn) error {
-//		item, err := txn.Get([]byte(key))
-//		if err != nil {
-//			return err
-//		}
-//		item.Value(func(val []byte) error {
-//			return proto.Unmarshal(val, result)
-//		})
-//		return err
-//	})
-//	return result, err
-//}
-
-func (d *Db) Search(url, timestamp string) (*cdx.Cdx, error) {
+func (d *Db) Search(url, timestamp string, f func(*badger.Item)) error {
 	s, err := surt.SurtS(url, true)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	result := &cdx.Cdx{}
-	key := []byte(s + " ")
+	key := []byte(s)
 	log.Infof("Searching for key '%s'\n", key)
 
 	err = d.cdxIndex.View(func(txn *badger.Txn) error {
@@ -355,20 +333,11 @@ func (d *Db) Search(url, timestamp string) (*cdx.Cdx, error) {
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		//for it.Seek(key); it.ValidForPrefix(key); it.Next() {
 		for it.Rewind(); it.ValidForPrefix(key); it.Next() {
 			item := it.Item()
-			k := item.Key()
-			err := item.Value(func(v []byte) error {
-				proto.Unmarshal(v, result)
-				fmt.Printf("key=%s, value=%s\n", k, result)
-				return nil
-			})
-			if err != nil {
-				return err
-			}
+			f(item)
 		}
 		return nil
 	})
-	return result, err
+	return err
 }
