@@ -14,20 +14,15 @@
  * limitations under the License.
  */
 
-package timestamp
+package warcserver
 
-import "time"
+import (
+	"github.com/gorilla/mux"
+	"github.com/nlnwa/gowarc/pkg/index"
+	"github.com/nlnwa/gowarc/pkg/loader"
+)
 
-func To14(s string) string {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t.Format("20060102150405")
-	}
-	return ""
-}
-
-func From14ToTime(s string) time.Time {
-	if t, err := time.Parse("20060102150405", s); err == nil {
-		return t
-	}
-	return time.Time{}
+func RegisterRoutes(r *mux.Router, db *index.Db, loader *loader.Loader) {
+	r.Handle("/", &rootHandler{})
+	r.Handle("/{collection}/index", &indexHandler{loader: loader, db: db})
 }

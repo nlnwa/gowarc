@@ -23,6 +23,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
+	"github.com/nlnwa/gowarc/pkg/surt"
 	cdx "github.com/nlnwa/gowarc/proto"
 	"github.com/sirupsen/logrus"
 	"net/http"
@@ -37,9 +38,15 @@ var jsonMarshaler = &jsonpb.Marshaler{}
 
 func (h *searchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	uri := r.URL.Query().Get("url")
+	key, err := surt.SsurtString(uri, true)
+	if err != nil {
+		h.handleError(err, w)
+		return
+	}
+
 	//uri := mux.Vars(r)["url"]
-	logrus.Infof("request url: %v", uri)
-	h.db.Search(uri, "", func(item *badger.Item) {
+	logrus.Infof("request url: %v, key: %v", uri, key)
+	h.db.Search(key, false, func(item *badger.Item) bool {
 		result := &cdx.Cdx{}
 		//k := item.Key()
 		err := item.Value(func(v []byte) error {
@@ -57,6 +64,17 @@ func (h *searchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			//return err
 		}
+		return false
+	}, func() error {
+		return nil
 	})
 
+}
+
+func (h *searchHandler) handleError(err error, w http.ResponseWriter) {
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(404)
+		fmt.Fprintf(w, "Error: %v\n", err)
+	}
 }

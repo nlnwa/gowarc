@@ -14,7 +14,7 @@ tools:
 	&& wget -q https://github.com/google/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip \
 	&& unzip protoc-${PROTOC_VERSION}-linux-x86_64.zip \
 	&& rm protoc-${PROTOC_VERSION}-linux-x86_64.zip
-	go get github.com/golang/protobuf/protoc-gen-go
+	go install google.golang.org/protobuf/cmd/protoc-gen-go
 
 %.pb.go: %.proto
 	find ./ -name *.proto -exec 'tools/bin/protoc' '--go_out=paths=source_relative:.' '{}' ';'

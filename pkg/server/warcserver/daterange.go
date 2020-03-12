@@ -14,20 +14,29 @@
  * limitations under the License.
  */
 
-package timestamp
+package warcserver
 
-import "time"
+import (
+	"fmt"
+	"strings"
+)
 
-func To14(s string) string {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t.Format("20060102150405")
-	}
-	return ""
+type dateRange struct {
+	from string
+	to   string
 }
 
-func From14ToTime(s string) time.Time {
-	if t, err := time.Parse("20060102150405", s); err == nil {
-		return t
+func parseDateRange(from, to string) *dateRange {
+	from = fmt.Sprintf("%s%0*d", from, 14-len(from), 0)
+	to = fmt.Sprintf("%s%.*s", to, 14-len(to), "99999999999999")
+	d := &dateRange{from: from, to: to}
+	return d
+}
+
+func (d *dateRange) eval(key []byte) bool {
+	ts := strings.Split(string(key), " ")[1]
+	if ts < d.from || ts > d.to {
+		return false
 	}
-	return time.Time{}
+	return true
 }

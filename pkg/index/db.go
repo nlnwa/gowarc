@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
-	"github.com/nlnwa/gowarc/pkg/surt"
 	cdx "github.com/nlnwa/gowarc/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
@@ -317,27 +316,32 @@ func (d *Db) ListFilePaths() ([]string, error) {
 	return result, err
 }
 
-func (d *Db) Search(url, timestamp string, f func(*badger.Item)) error {
-	s, err := surt.SurtS(url, true)
-	if err != nil {
-		return err
-	}
+type PerItemFunction func(*badger.Item) (stopIteration bool)
+type AfterIterationFunction func() error
 
-	key := []byte(s)
+func (d *Db) Search(key string, reverse bool, f PerItemFunction, a AfterIterationFunction) error {
 	log.Infof("Searching for key '%s'\n", key)
 
-	err = d.cdxIndex.View(func(txn *badger.Txn) error {
+	err := d.cdxIndex.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.PrefetchValues = false
-		opts.Prefix = key
+		opts.Prefix = []byte(key)
+		opts.Reverse = reverse
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		for it.Rewind(); it.ValidForPrefix(key); it.Next() {
-			item := it.Item()
-			f(item)
+		seekKey := key
+		if reverse {
+			seekKey += string(0xff)
 		}
-		return nil
+
+		for it.Seek([]byte(seekKey)); it.ValidForPrefix([]byte(key)); it.Next() {
+			item := it.Item()
+			if f(item) {
+				break
+			}
+		}
+		return a()
 	})
 	return err
 }

@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package timestamp
+package warcserver
 
-import "time"
+import (
+	"fmt"
+	"net/http"
+)
 
-func To14(s string) string {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t.Format("20060102150405")
-	}
-	return ""
+type rootHandler struct {
 }
 
-func From14ToTime(s string) time.Time {
-	if t, err := time.Parse("20060102150405", s); err == nil {
-		return t
-	}
-	return time.Time{}
+func (h *rootHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	//w.WriteHeader(404)
+	fmt.Fprintf(w, "[\"all\"]")
 }

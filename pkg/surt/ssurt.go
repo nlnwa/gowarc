@@ -18,32 +18,56 @@ package surt
 
 import (
 	"github.com/nlnwa/whatwg-url/url"
+	"net"
 	"strings"
 )
 
-func SsurtU(u *url.Url, includeScheme bool) (string, error) {
+func SsurtUrl(u *url.Url, includeScheme bool) (string, error) {
 	u.SearchParams().Sort()
 
 	var result strings.Builder
+	hostname := u.Hostname()
+	if hostname != "" {
+		if hostname[0] == '[' {
+			result.WriteString(hostname)
+		} else if net.ParseIP(hostname).To4() != nil {
+			result.WriteString(hostname)
+		} else {
+			t := strings.Split(hostname, ".")
+			for i := len(t) - 1; i >= 0; i-- {
+				result.WriteString(t[i])
+				result.WriteByte(',')
+			}
+		}
+		result.WriteString("//")
+	}
 	if includeScheme {
-		result.WriteString(u.Protocol() + "//")
+		if u.Port() != "" {
+			result.WriteString(u.Port())
+			result.WriteByte(':')
+		}
+		result.WriteString(strings.TrimSuffix(u.Protocol(), ":"))
+		if u.Username() != "" {
+			result.WriteByte('@')
+			result.WriteString(u.Username())
+		}
+		if u.Password() != "" {
+			result.WriteByte(':')
+			result.WriteString(u.Password())
+		}
+		result.WriteByte(':')
 	}
-
-	result.WriteByte('(')
-	t := strings.Split(u.Hostname(), ".")
-	for i := len(t) - 1; i >= 0; i-- {
-		result.WriteString(t[i])
-		result.WriteByte(',')
-	}
-	result.WriteByte(')')
 	result.WriteString(u.Pathname())
+	result.WriteString(u.Search())
+	result.WriteString(u.Hash())
+
 	return result.String(), nil
 }
 
-func SsurtS(u string, includeScheme bool) (string, error) {
+func SsurtString(u string, includeScheme bool) (string, error) {
 	u2, err := url.Parse(u)
 	if err != nil {
 		return "", err
 	}
-	return SsurtU(u2, includeScheme)
+	return SsurtUrl(u2, includeScheme)
 }

@@ -38,7 +38,7 @@ func NewCdxRecord(wr warcrecord.WarcRecord, fileName string, offset int64) *cdx.
 		Rod: wr.WarcHeader().Get(warcrecord.WarcRefersToDate),
 		Roi: wr.WarcHeader().Get(warcrecord.WarcRefersTo),
 	}
-	if ssu, err := surt.SurtS(wr.WarcHeader().Get(warcrecord.WarcTargetURI), true); err == nil {
+	if ssu, err := surt.SsurtString(wr.WarcHeader().Get(warcrecord.WarcTargetURI), true); err == nil {
 		cdx.Ssu = ssu
 	}
 	cdx.Sts = timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))

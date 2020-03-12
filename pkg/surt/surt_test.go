@@ -33,7 +33,7 @@ func TestSurtS(t *testing.T) {
 		{"3", "http://www.example.com/foo/bar", false, "(com,example,www,)/foo/bar", false},
 		{"4", "http://127.0.0.1/foo/bar", false, "(1,0,0,127,)/foo/bar", false},
 		{"5", "http://[::1]/foo/bar", false, "([::1],)/foo/bar", false},
-		{"6", "http://example.com/foo/bar?query#fragment", false, "(com,example,)/foo/bar?query=", false},
+		{"6", "http://example.com/foo/bar?query#fragment", false, "(com,example,)/foo/bar?query", false},
 		{"7", "http://www.example.com", true, "http://(com,example,www,)/", false},
 		{"8", "http://www.example.com:80", true, "http://(com,example,www,)/", false},
 		{"9", "http://www.example.com/foo/bar", true, "http://(com,example,www,)/foo/bar", false},

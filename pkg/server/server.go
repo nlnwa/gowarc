@@ -21,6 +21,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
+	"github.com/nlnwa/gowarc/pkg/server/warcserver"
 	log "github.com/sirupsen/logrus"
 	"net/http"
 	"os"
@@ -42,6 +43,8 @@ func Serve(db *index.Db) {
 	r.Handle("/id/{id}", &contentHandler{l})
 	r.Handle("/files/", &fileHandler{l, db})
 	r.Handle("/search", &searchHandler{l, db})
+	warcserverRoutes := r.PathPrefix("/warcserver").Subrouter()
+	warcserver.RegisterRoutes(warcserverRoutes, db, l)
 	http.Handle("/", r)
 
 	httpServer := &http.Server{
