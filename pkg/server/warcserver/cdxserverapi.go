@@ -17,14 +17,18 @@
 package warcserver
 
 import (
-	"fmt"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/gorilla/mux"
 	cdx "github.com/nlnwa/gowarc/proto"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"net/http"
 	"strconv"
 )
+
+var jsonMarshaler = &protojson.MarshalOptions{}
+
+type RenderFunc func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error
 
 type cdxServerApi struct {
 	collection string
@@ -36,13 +40,15 @@ type cdxServerApi struct {
 	sort       *sorter
 	w          http.ResponseWriter
 	count      int
+	renderFunc RenderFunc
 }
 
-func parseCdxServerApi(w http.ResponseWriter, r *http.Request) (*cdxServerApi, error) {
+func parseCdxServerApi(w http.ResponseWriter, r *http.Request, renderFunc RenderFunc) (*cdxServerApi, error) {
 	var err error
 	c := &cdxServerApi{
 		collection: mux.Vars(r)["collection"],
 		w:          w,
+		renderFunc: renderFunc,
 	}
 	if c.key, c.matchType, err = parseKey(r.URL.Query().Get("url"), r.URL.Query().Get("matchType")); err != nil {
 		return nil, err
@@ -67,11 +73,9 @@ func (c *cdxServerApi) writeItem(item *badger.Item) (stopIteration bool) {
 	err := item.Value(func(v []byte) error {
 		proto.Unmarshal(v, result)
 		if c.filter.eval(result) {
-			cdxj, err := jsonMarshaler.Marshal(result)
-			if err != nil {
+			if err := c.renderFunc(c.w, result, c); err != nil {
 				return err
 			}
-			fmt.Fprintf(c.w, "%s %s %s %s\n\n", result.Ssu, result.Sts, result.Srt, cdxj)
 
 			c.count++
 		}

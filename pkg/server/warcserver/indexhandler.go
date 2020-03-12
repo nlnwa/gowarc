@@ -17,10 +17,11 @@
 package warcserver
 
 import (
+	"fmt"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
-	"google.golang.org/protobuf/encoding/protojson"
+	cdx "github.com/nlnwa/gowarc/proto"
 	"net/http"
 )
 
@@ -29,10 +30,17 @@ type indexHandler struct {
 	db     *index.Db
 }
 
-var jsonMarshaler = &protojson.MarshalOptions{}
-
 func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	cdxApi, err := parseCdxServerApi(w, r)
+	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
+		cdxj, err := jsonMarshaler.Marshal(record)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(w, "%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj)
+		return nil
+	}
+
+	cdxApi, err := parseCdxServerApi(w, r, renderFunc)
 	if err != nil {
 		handleError(err, w)
 		return

@@ -25,4 +25,5 @@ import (
 func RegisterRoutes(r *mux.Router, db *index.Db, loader *loader.Loader) {
 	r.Handle("/", &rootHandler{})
 	r.Handle("/{collection}/index", &indexHandler{loader: loader, db: db})
+	r.Handle("/{collection}/resource", &resourceHandler{loader: loader, db: db})
 }
