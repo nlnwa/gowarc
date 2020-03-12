@@ -17,6 +17,7 @@
 package warcserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/nlnwa/gowarc/pkg/index"
@@ -34,11 +35,8 @@ type resourceHandler struct {
 }
 
 func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("REQ: %v\n", r.RequestURI)
 	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
-		cdxj, err := jsonMarshaler.Marshal(record)
-		if err != nil {
-			return err
-		}
 		warcid := record.Rid
 		if len(warcid) > 0 && warcid[0] != '<' {
 			warcid = "<" + warcid + ">"
@@ -50,7 +48,19 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		defer warcRecord.Close()
 
-		renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj))
+		cdxj, err := json.Marshal(cdxjTopywbJson(record))
+		if err != nil {
+			return err
+		}
+		switch cdxApi.output {
+		case "json":
+			fmt.Fprintf(w, "%s\n", cdxj)
+			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s\n", cdxj))
+		default:
+			fmt.Fprintf(w, "%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj)
+			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj))
+		}
+
 		return nil
 	}
 

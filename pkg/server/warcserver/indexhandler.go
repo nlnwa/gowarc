@@ -17,6 +17,7 @@
 package warcserver
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/nlnwa/gowarc/pkg/index"
@@ -31,12 +32,18 @@ type indexHandler struct {
 }
 
 func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	fmt.Printf("REQ: %v\n", r.RequestURI)
 	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
-		cdxj, err := jsonMarshaler.Marshal(record)
+		cdxj, err := json.Marshal(cdxjTopywbJson(record))
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(w, "%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj)
+		switch cdxApi.output {
+		case "json":
+			fmt.Fprintf(w, "%s\n", cdxj)
+		default:
+			fmt.Fprintf(w, "%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj)
+		}
 		return nil
 	}
 
@@ -64,4 +71,31 @@ func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		h.db.Search(cdxApi.key, cdxApi.sort.reverse, defaultPerItemFunc, defaultAfterIterationFunc)
 	}
+}
+
+type pywbJson struct {
+	Urlkey    string `json:"urlkey"`
+	Timestamp string `json:"timestamp"`
+	Url       string `json:"url"`
+	Mime      string `json:"mime"`
+	Status    string `json:"status"`
+	Digest    string `json:"digest"`
+	Length    string `json:"length"`
+	Offset    string `json:"offset"`
+	Filename  string `json:"filename"`
+}
+
+func cdxjTopywbJson(record *cdx.Cdx) *pywbJson {
+	js := &pywbJson{
+		Urlkey:    record.Ssu,
+		Timestamp: record.Sts,
+		Url:       record.Uri,
+		Mime:      record.Mct,
+		Status:    record.Hsc,
+		Digest:    record.Sha,
+		Length:    record.Rle,
+		Offset:    record.Ref,
+		Filename:  record.Ref,
+	}
+	return js
 }

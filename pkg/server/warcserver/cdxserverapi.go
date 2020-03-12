@@ -38,6 +38,7 @@ type cdxServerApi struct {
 	limit      int
 	filter     *filters
 	sort       *sorter
+	output     string
 	w          http.ResponseWriter
 	count      int
 	renderFunc RenderFunc
@@ -49,6 +50,7 @@ func parseCdxServerApi(w http.ResponseWriter, r *http.Request, renderFunc Render
 		collection: mux.Vars(r)["collection"],
 		w:          w,
 		renderFunc: renderFunc,
+		output:     r.URL.Query().Get("output"),
 	}
 	if c.key, c.matchType, err = parseKey(r.URL.Query().Get("url"), r.URL.Query().Get("matchType")); err != nil {
 		return nil, err

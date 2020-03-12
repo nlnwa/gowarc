@@ -49,7 +49,7 @@ func Serve(db *index.Db) {
 	http.Handle("/", r)
 
 	httpServer := &http.Server{
-		Addr: ":8080",
+		Addr: ":9999",
 	}
 
 	sigs := make(chan os.Signal, 1)
