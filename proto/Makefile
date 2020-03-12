@@ -3,10 +3,14 @@ PROTOC_VERSION=3.11.4
 .PHONY: all
 .PHONY: clean
 
-all:	tools *.pb.go #$(PROTO)
+go_files := $(patsubst %.proto,%.pb.go,$(wildcard *.proto))
+all: $(go_files)
 
 clean:
 	rm -rf tools
+
+distclean:
+	rm *.pb.go
 
 tools:
 	mkdir tools
@@ -17,4 +21,4 @@ tools:
 	go install google.golang.org/protobuf/cmd/protoc-gen-go
 
 %.pb.go: %.proto
-	find ./ -name *.proto -exec 'tools/bin/protoc' '--go_out=paths=source_relative:.' '{}' ';'
+	tools/bin/protoc -Itools/include -I. --go_out=paths=source_relative:. $<

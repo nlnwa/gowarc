@@ -30,7 +30,7 @@ type fileHandler struct {
 }
 
 func (h *fileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	files, err := h.db.ListFilePaths()
+	files, err := h.db.ListFileNames()
 	if err != nil {
 		log.Fatalf("error reading files: %v", err)
 	}

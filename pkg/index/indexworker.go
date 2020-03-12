@@ -17,10 +17,13 @@
 package index
 
 import (
+	"github.com/golang/protobuf/ptypes"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
 	log "github.com/sirupsen/logrus"
 	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -94,6 +97,27 @@ func (iw *indexWorker) Queue(fileName string, batchWindow time.Duration) {
 }
 
 func indexFile(db *Db, fileName string) {
+	// Check if file is indexed and has not changed since indexing
+	stat, err := os.Stat(fileName)
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+	fileSize := stat.Size()
+	fileLastModified := stat.ModTime()
+	fn := filepath.Base(fileName)
+	if fileInfo, err := db.GetFilePath(fn); err == nil {
+		fileInfoLastModified, err := ptypes.Timestamp(fileInfo.LastModified)
+		if err != nil {
+			log.Errorf("%v", err)
+		}
+		if fileInfo.Size == fileSize && fileInfoLastModified.Equal(fileLastModified) {
+			log.Debugf("Already indexed %v", fileName)
+			return
+		}
+	} else {
+		log.Errorf("%v", err)
+	}
+
 	log.Infof("indexing %v", fileName)
 	start := time.Now()
 	opts := &warcoptions.WarcOptions{Strict: false}
@@ -119,6 +143,7 @@ func indexFile(db *Db, fileName string) {
 		db.Add(wr, fileName, currentOffset)
 	}
 	db.Flush()
+	db.UpdateFilePath(fileName)
 	log.Infof("Finished indexing %s. Found: %d records in: %v", fileName, count, time.Since(start))
 	return
 }

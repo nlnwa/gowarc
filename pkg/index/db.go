@@ -20,7 +20,8 @@ import (
 	"fmt"
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
-	cdx "github.com/nlnwa/gowarc/proto"
+	"github.com/golang/protobuf/ptypes"
+	gowarcpb "github.com/nlnwa/gowarc/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -34,7 +35,7 @@ type record struct {
 	id       string
 	filePath string
 	offset   int64
-	cdx      *cdx.Cdx
+	cdx      *gowarcpb.Cdx
 }
 
 type Db struct {
@@ -186,38 +187,74 @@ func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64
 	return nil
 }
 
+func (d *Db) UpdateFilePath(filePath string) {
+	fileInfo := &gowarcpb.Fileinfo{}
+	var err error
+	fileInfo.Path, err = filepath.Abs(filePath)
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+	fileInfo.Name = filepath.Base(fileInfo.Path)
+	stat, err := os.Stat(fileInfo.Path)
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+	fileInfo.Size = stat.Size()
+	fileInfo.LastModified, err = ptypes.TimestampProto(stat.ModTime())
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+
+	value, err := proto.Marshal(fileInfo)
+	if err != nil {
+		log.Errorf("%v", err)
+		return
+	}
+
+	err = d.fileIndex.Update(func(txn *badger.Txn) error {
+		return txn.Set([]byte(fileInfo.Name), value)
+	})
+	if err != nil {
+		log.Errorf("%v", err)
+	}
+}
+
 func (d *Db) AddBatch(records []*record) {
-	log.Infof("flushing batch to DB")
-	filepaths := make(map[string]string)
+	log.Debugf("flushing batch to DB")
+	//filepaths := make(map[string]string)
 	var err error
 
-	for _, r := range records {
-		if _, ok := filepaths[r.filePath]; !ok {
+	//for _, r := range records {
+	//	if _, ok := filepaths[r.filePath]; !ok {
+	//		r.filePath, err = filepath.Abs(r.filePath)
+	//		if err != nil {
+	//			log.Errorf("%v", err)
+	//		}
+	//		fileName := filepath.Base(r.filePath)
+	//		filepaths[r.filePath] = fileName
+	//	}
+	//}
+
+	//err = d.fileIndex.Update(func(txn *badger.Txn) error {
+	//	for filePath, fileName := range filepaths {
+	//		_, err := txn.Get([]byte(fileName))
+	//		if err == badger.ErrKeyNotFound {
+	//			err = txn.Set([]byte(fileName), []byte(filePath))
+	//		}
+	//	}
+	//	return err
+	//})
+	//if err != nil {
+	//	log.Errorf("%v", err)
+	//}
+
+	err = d.idIndex.Update(func(txn *badger.Txn) error {
+		for _, r := range records {
 			r.filePath, err = filepath.Abs(r.filePath)
 			if err != nil {
 				log.Errorf("%v", err)
 			}
 			fileName := filepath.Base(r.filePath)
-			filepaths[r.filePath] = fileName
-		}
-	}
-
-	err = d.fileIndex.Update(func(txn *badger.Txn) error {
-		for filePath, fileName := range filepaths {
-			_, err := txn.Get([]byte(fileName))
-			if err == badger.ErrKeyNotFound {
-				err = txn.Set([]byte(fileName), []byte(filePath))
-			}
-		}
-		return err
-	})
-	if err != nil {
-		log.Errorf("%v", err)
-	}
-
-	err = d.idIndex.Update(func(txn *badger.Txn) error {
-		for _, r := range records {
-			fileName := filepaths[r.filePath]
 			storageRef := fmt.Sprintf("warcfile:%s:%d", fileName, r.offset)
 			err := txn.Set([]byte(r.id), []byte(storageRef))
 			if err != nil {
@@ -281,20 +318,22 @@ func (d *Db) GetStorageRef(id string) (string, error) {
 	return string(val), err
 }
 
-func (d *Db) GetFilePath(fileName string) (string, error) {
-	var val []byte
+func (d *Db) GetFilePath(fileName string) (*gowarcpb.Fileinfo, error) {
+	val := &gowarcpb.Fileinfo{}
 	err := d.fileIndex.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(fileName))
 		if err != nil {
 			return err
 		}
-		val, err = item.ValueCopy(nil)
+		err = item.Value(func(v []byte) error {
+			return proto.Unmarshal(v, val)
+		})
 		return err
 	})
-	return string(val), err
+	return val, err
 }
 
-func (d *Db) ListFilePaths() ([]string, error) {
+func (d *Db) ListFileNames() ([]string, error) {
 	var result []string
 	opt := badger.DefaultIteratorOptions
 	opt.PrefetchSize = 10

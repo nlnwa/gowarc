@@ -34,7 +34,8 @@ func Serve(db *index.Db) {
 	l := &loader.Loader{
 		Resolver: &storageRefResolver{db: db},
 		Loader: &loader.FileStorageLoader{FilePathResolver: func(fileName string) (filePath string, err error) {
-			return db.GetFilePath(fileName)
+			fileInfo, err := db.GetFilePath(fileName)
+			return fileInfo.Path, err
 		}},
 		NoUnpack: false,
 	}
