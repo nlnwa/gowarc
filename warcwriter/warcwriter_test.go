@@ -17,57 +17,35 @@
 package warcwriter
 
 import (
+	"fmt"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcreader"
+	"os"
 	"testing"
 )
 
 func TestWarcWriter_WriteRecord(t *testing.T) {
-	//wf, err := NewWriter("../../testdata/example.warc", 0, &warcoptions.WarcOptions{Strict: false})
-	//defer wf.Close()
-	//if err != nil {
-	//	return
-	//}
-	//
-	//wr, offset, err := wf.Next()
-	//if err != nil {
-	//	return
-	//}
-	//
-	//fmt.Printf("offset: %v\n", offset)
-	//wantBytesWritten := 0
-	//ww := NewWriter(&warcoptions.WarcOptions{})
-	//gotBytesWritten, err := ww.WriteRecord(os.Stdout, wr)
-	//
-	//if err != nil {
-	//	t.Errorf("WriteRecord() error = %v", err)
-	//	return
-	//}
-	//if gotBytesWritten != wantBytesWritten {
-	//	t.Errorf("WriteRecord() gotBytesWritten = %v, want %v", gotBytesWritten, wantBytesWritten)
-	//}
+	wf, err := warcreader.NewWarcFilename("../../testdata/example.warc", 0, &warcoptions.WarcOptions{Strict: false})
+	if err != nil {
+		return
+	}
+	defer wf.Close()
 
-	//type args struct {
-	//	w      *io.Writer
-	//	record *WarcRecord
-	//}
-	//tests := []struct {
-	//	name             string
-	//	args             args
-	//	wantBytesWritten int64
-	//	wantErr          bool
-	//}{
-	//	// TODO: Add test cases.
-	//}
-	//for _, tt := range tests {
-	//	t.Run(tt.name, func(t *testing.T) {
-	//		ww := NewMarshaler(nil)
-	//		gotBytesWritten, err := ww.WriteRecord(tt.args.w, tt.args.record)
-	//		if (err != nil) != tt.wantErr {
-	//			t.Errorf("WriteRecord() error = %v, wantErr %v", err, tt.wantErr)
-	//			return
-	//		}
-	//		if gotBytesWritten != tt.wantBytesWritten {
-	//			t.Errorf("WriteRecord() gotBytesWritten = %v, want %v", gotBytesWritten, tt.wantBytesWritten)
-	//		}
-	//	})
-	//}
+	wr, offset, err := wf.Next()
+	if err != nil {
+		return
+	}
+
+	fmt.Printf("offset: %v\n", offset)
+	var wantBytesWritten int64 = 0
+	ww := NewWriter(&warcoptions.WarcOptions{})
+	gotBytesWritten, err := ww.WriteRecord(os.Stdout, wr)
+
+	if err != nil {
+		t.Errorf("WriteRecord() error = %v", err)
+		return
+	}
+	if gotBytesWritten != wantBytesWritten {
+		t.Errorf("WriteRecord() gotBytesWritten = %v, want %v", gotBytesWritten, wantBytesWritten)
+	}
 }

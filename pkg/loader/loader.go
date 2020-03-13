@@ -17,6 +17,7 @@
 package loader
 
 import (
+	"context"
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 )
@@ -26,7 +27,7 @@ type StorageRefResolver interface {
 }
 
 type StorageLoader interface {
-	Load(storageRef string) (record warcrecord.WarcRecord, err error)
+	Load(ctx context.Context, storageRef string) (record warcrecord.WarcRecord, err error)
 }
 
 type Loader struct {
@@ -35,12 +36,12 @@ type Loader struct {
 	NoUnpack bool
 }
 
-func (l *Loader) Get(warcId string) (record warcrecord.WarcRecord, err error) {
+func (l *Loader) Get(ctx context.Context, warcId string) (record warcrecord.WarcRecord, err error) {
 	storageRef, err := l.Resolver.Resolve(warcId)
 	if err != nil {
 		return
 	}
-	record, err = l.Loader.Load(storageRef)
+	record, err = l.Loader.Load(ctx, storageRef)
 	if err != nil {
 		return
 	}
@@ -57,7 +58,7 @@ func (l *Loader) Get(warcId string) (record warcrecord.WarcRecord, err error) {
 			return
 		}
 		var revisitOf warcrecord.WarcRecord
-		revisitOf, err = l.Loader.Load(storageRef)
+		revisitOf, err = l.Loader.Load(ctx, storageRef)
 		if err != nil {
 			return
 		}

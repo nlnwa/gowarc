@@ -17,6 +17,7 @@
 package warcserver
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger/v2"
@@ -42,7 +43,9 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			warcid = "<" + warcid + ">"
 		}
 
-		warcRecord, err := h.loader.Get(record.Rid)
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		warcRecord, err := h.loader.Get(ctx, record.Rid)
 		if err != nil {
 			return err
 		}
@@ -54,11 +57,9 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		switch cdxApi.output {
 		case "json":
-			fmt.Fprintf(w, "%s\n", cdxj)
 			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s\n", cdxj))
 		default:
-			fmt.Fprintf(w, "%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj)
-			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj))
+			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s %s %s\n", record.Ssu, record.Sts, cdxj))
 		}
 
 		return nil
@@ -88,6 +89,10 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.db.Search(cdxApi.key, false, cdxApi.sort.add, cdxApi.sort.write)
 	} else {
 		h.db.Search(cdxApi.key, cdxApi.sort.reverse, defaultPerItemFunc, defaultAfterIterationFunc)
+	}
+
+	if cdxApi.count == 0 {
+		handleError(fmt.Errorf("Not found"), w)
 	}
 }
 

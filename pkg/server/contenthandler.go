@@ -17,6 +17,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/nlnwa/gowarc/pkg/loader"
@@ -37,7 +38,9 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	logrus.Debugf("request id: %v", warcid)
-	record, err := h.loader.Get(warcid)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	record, err := h.loader.Get(ctx, warcid)
 
 	if err != nil {
 		w.Header().Set("Content-Type", "text/plain")

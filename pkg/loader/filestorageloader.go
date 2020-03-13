@@ -17,6 +17,7 @@
 package loader
 
 import (
+	"context"
 	"fmt"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
@@ -31,7 +32,7 @@ type FileStorageLoader struct {
 	FilePathResolver func(fileName string) (filePath string, err error)
 }
 
-func (f *FileStorageLoader) Load(storageRef string) (record warcrecord.WarcRecord, err error) {
+func (f *FileStorageLoader) Load(ctx context.Context, storageRef string) (record warcrecord.WarcRecord, err error) {
 	filePath, offset, err := f.parseStorageRef(storageRef)
 	if err != nil {
 		return nil, err
@@ -43,7 +44,14 @@ func (f *FileStorageLoader) Load(storageRef string) (record warcrecord.WarcRecor
 	if err != nil {
 		return
 	}
-	defer wf.Close()
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			log.Tracef("File: %v closed\n", filePath)
+			wf.Close()
+		}
+	}()
 
 	record, _, err = wf.Next()
 	if err != nil {

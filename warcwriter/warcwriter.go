@@ -43,7 +43,7 @@ func (m *writer) WriteRecord(w io.Writer, record warcrecord.WarcRecord) (bytesWr
 		w = gz
 	}
 	var n int
-	n, err = fmt.Fprintf(w, "WARC/%v\r\n", record.Version())
+	n, err = fmt.Fprintf(w, "%v\r\n", record.Version())
 	bytesWritten += int64(n)
 	if err != nil {
 		return
