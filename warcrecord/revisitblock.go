@@ -127,10 +127,11 @@ func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 	if !ok {
 		return nil, fmt.Errorf("unknown record implementation")
 	}
+
 	m.recordType = RESPONSE
 	err := m.headers.Set(WarcType, "response")
 	if err != nil {
-		fmt.Printf("ERR: %v\n", err)
+		fmt.Printf("ERR1: %v\n", err)
 	}
 	m.headers.Delete(WarcRefersTo)
 	m.headers.Delete(WarcRefersToTargetURI)
@@ -141,7 +142,7 @@ func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 	d := refersTo.Block().(PayloadBlock)
 	b.data, err = d.PayloadBytes()
 	if err != nil {
-		fmt.Printf("ERR: %v\n", err)
+		fmt.Printf("ERR2: %v\n", err)
 	}
 
 	fmt.Printf("Merged: %v\n", m)

@@ -27,6 +27,8 @@ import (
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/nlnwa/gowarc/warcwriter"
+	log "github.com/sirupsen/logrus"
+	"io"
 	"net/http"
 )
 
@@ -36,7 +38,7 @@ type resourceHandler struct {
 }
 
 func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("REQ: %v\n", r.RequestURI)
+	log.Infof("REQ: %v", r.RequestURI)
 	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
 		warcid := record.Rid
 		if len(warcid) > 0 && warcid[0] != '<' {
@@ -57,9 +59,33 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		switch cdxApi.output {
 		case "json":
-			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s\n", cdxj))
+			renderWarcContent(w, warcRecord, cdxApi, fmt.Sprintf("%s\n", cdxj))
+		case "content":
+			switch v := warcRecord.Block().(type) {
+			case *warcrecord.RevisitBlock:
+				r, err := v.Response()
+				if err != nil {
+					return err
+				}
+				renderContent(w, v, r)
+			case warcrecord.HttpResponseBlock:
+				r, err := v.Response()
+				if err != nil {
+					return err
+				}
+				renderContent(w, v, r)
+			default:
+				w.Header().Set("Content-Type", "text/plain")
+				warcRecord.WarcHeader().Write(w)
+				fmt.Fprintln(w)
+				rb, err := v.RawBytes()
+				if err != nil {
+					return err
+				}
+				io.Copy(w, rb)
+			}
 		default:
-			renderContent(w, warcRecord, cdxApi, fmt.Sprintf("%s %s %s\n", record.Ssu, record.Sts, cdxj))
+			renderWarcContent(w, warcRecord, cdxApi, fmt.Sprintf("%s %s %s\n", record.Ssu, record.Sts, cdxj))
 		}
 
 		return nil
@@ -81,7 +107,7 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return cdxApi.writeItem(item)
 	}
 
-	var defaultAfterIterationFunc index.AfterIterationFunction = func() error {
+	var defaultAfterIterationFunc index.AfterIterationFunction = func(txn *badger.Txn) error {
 		return nil
 	}
 
@@ -96,7 +122,7 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func renderContent(w http.ResponseWriter, warcRecord warcrecord.WarcRecord, cdxApi *cdxServerApi, cdx string) {
+func renderWarcContent(w http.ResponseWriter, warcRecord warcrecord.WarcRecord, cdxApi *cdxServerApi, cdx string) {
 	w.Header().Set("Warcserver-Cdx", cdx)
 	w.Header().Set("Link", "<"+warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI)+">; rel=\"original\"")
 	w.Header().Set("WARC-Target-URI", warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI))
@@ -113,4 +139,18 @@ func renderContent(w http.ResponseWriter, warcRecord warcrecord.WarcRecord, cdxA
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
+}
+
+func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, r *http.Response) {
+	for k, vl := range r.Header {
+		for _, v := range vl {
+			w.Header().Set(k, v)
+		}
+	}
+	w.WriteHeader(r.StatusCode)
+	p, err := v.PayloadBytes()
+	if err != nil {
+		return
+	}
+	io.Copy(w, p)
 }

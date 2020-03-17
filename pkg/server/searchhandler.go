@@ -44,14 +44,12 @@ func (h *searchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//uri := mux.Vars(r)["url"]
 	logrus.Infof("request url: %v, key: %v", uri, key)
 	h.db.Search(key, false, func(item *badger.Item) bool {
 		result := &cdx.Cdx{}
 		//k := item.Key()
 		err := item.Value(func(v []byte) error {
 			proto.Unmarshal(v, result)
-			//fmt.Printf("key=%s, value=%s\n", k, result)
 
 			cdxj, err := jsonMarshaler.MarshalToString(result)
 			if err != nil {
@@ -65,7 +63,7 @@ func (h *searchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			//return err
 		}
 		return false
-	}, func() error {
+	}, func(txn *badger.Txn) error {
 		return nil
 	})
 

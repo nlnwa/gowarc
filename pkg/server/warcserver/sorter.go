@@ -52,18 +52,21 @@ func (s *sorter) add(item *badger.Item) (stopIteration bool) {
 	}
 
 	ts := timestamp.From14ToTime(strings.Split(string(item.Key()), " ")[1]).Unix()
-	v := []interface{}{ts, item}
+	v := []interface{}{ts, item.KeyCopy(nil)}
 	s.values = append(s.values, v)
-	fmt.Printf("ADD: %s\n", item.Key())
 
 	return false
 }
 
-func (s *sorter) write() error {
+func (s *sorter) write(txn *badger.Txn) error {
 	s.sort()
 
 	for _, i := range s.values {
-		if s.cdxApi.writeItem(i[1].(*badger.Item)) {
+		item, err := txn.Get(i[1].([]byte))
+		if err != nil {
+			return err
+		}
+		if s.cdxApi.writeItem(item) {
 			break
 		}
 	}
