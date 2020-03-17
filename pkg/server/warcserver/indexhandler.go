@@ -23,6 +23,7 @@ import (
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
 	cdx "github.com/nlnwa/gowarc/proto"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 )
 
@@ -32,7 +33,7 @@ type indexHandler struct {
 }
 
 func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("REQ: %v\n", r.RequestURI)
+	log.Infof("REQ: %v", r.RequestURI)
 	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
 		cdxj, err := json.Marshal(cdxjTopywbJson(record))
 		if err != nil {
@@ -42,7 +43,7 @@ func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		case "json":
 			fmt.Fprintf(w, "%s\n", cdxj)
 		default:
-			fmt.Fprintf(w, "%s %s %s %s\n", record.Ssu, record.Sts, record.Srt, cdxj)
+			fmt.Fprintf(w, "%s %s %s\n", record.Ssu, record.Sts, cdxj)
 		}
 		return nil
 	}
@@ -62,7 +63,7 @@ func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return cdxApi.writeItem(item)
 	}
 
-	var defaultAfterIterationFunc index.AfterIterationFunction = func() error {
+	var defaultAfterIterationFunc index.AfterIterationFunction = func(txn *badger.Txn) error {
 		return nil
 	}
 

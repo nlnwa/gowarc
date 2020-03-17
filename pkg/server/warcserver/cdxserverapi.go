@@ -52,6 +52,15 @@ func parseCdxServerApi(w http.ResponseWriter, r *http.Request, renderFunc Render
 		renderFunc: renderFunc,
 		output:     r.URL.Query().Get("output"),
 	}
+
+	var sort string
+	closest := r.URL.Query().Get("closest")
+	if closest != "" {
+		sort = "closest"
+	} else {
+		sort = r.URL.Query().Get("sort")
+	}
+
 	if c.key, c.matchType, err = parseKey(r.URL.Query().Get("url"), r.URL.Query().Get("matchType")); err != nil {
 		return nil, err
 	}
@@ -63,7 +72,7 @@ func parseCdxServerApi(w http.ResponseWriter, r *http.Request, renderFunc Render
 
 	c.filter = parseFilter(r.URL.Query()["filter"])
 
-	if c.sort, err = c.parseSort(r.URL.Query().Get("sort"), r.URL.Query().Get("closest"), c.matchType); err != nil {
+	if c.sort, err = c.parseSort(sort, closest, c.matchType); err != nil {
 		return nil, err
 	}
 

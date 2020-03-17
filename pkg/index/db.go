@@ -356,10 +356,10 @@ func (d *Db) ListFileNames() ([]string, error) {
 }
 
 type PerItemFunction func(*badger.Item) (stopIteration bool)
-type AfterIterationFunction func() error
+type AfterIterationFunction func(txn *badger.Txn) error
 
 func (d *Db) Search(key string, reverse bool, f PerItemFunction, a AfterIterationFunction) error {
-	log.Infof("Searching for key '%s'\n", key)
+	log.Infof("Searching for key '%s'", key)
 
 	err := d.cdxIndex.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
@@ -380,7 +380,7 @@ func (d *Db) Search(key string, reverse bool, f PerItemFunction, a AfterIteratio
 				break
 			}
 		}
-		return a()
+		return a(txn)
 	})
 	return err
 }
