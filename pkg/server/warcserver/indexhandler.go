@@ -23,8 +23,8 @@ import (
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
 	cdx "github.com/nlnwa/gowarc/proto"
-	log "github.com/sirupsen/logrus"
 	"net/http"
+	"strings"
 )
 
 type indexHandler struct {
@@ -33,7 +33,6 @@ type indexHandler struct {
 }
 
 func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infof("REQ: %v", r.RequestURI)
 	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
 		cdxj, err := json.Marshal(cdxjTopywbJson(record))
 		if err != nil {
@@ -72,6 +71,17 @@ func (h *indexHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	} else {
 		h.db.Search(cdxApi.key, cdxApi.sort.reverse, defaultPerItemFunc, defaultAfterIterationFunc)
 	}
+
+	// If no hits with http, try https
+	if cdxApi.count == 0 && strings.Contains(cdxApi.key, "http:") {
+		cdxApi.key = strings.ReplaceAll(cdxApi.key, "http:", "https:")
+
+		if cdxApi.sort.closest != "" {
+			h.db.Search(cdxApi.key, false, cdxApi.sort.add, cdxApi.sort.write)
+		} else {
+			h.db.Search(cdxApi.key, cdxApi.sort.reverse, defaultPerItemFunc, defaultAfterIterationFunc)
+		}
+	}
 }
 
 type pywbJson struct {
@@ -90,7 +100,7 @@ func cdxjTopywbJson(record *cdx.Cdx) *pywbJson {
 	js := &pywbJson{
 		Urlkey:    record.Ssu,
 		Timestamp: record.Sts,
-		Url:       record.Uri,
+		Url:       strings.ReplaceAll(record.Uri, "&", "%26"),
 		Mime:      record.Mct,
 		Status:    record.Hsc,
 		Digest:    record.Sha,

@@ -20,6 +20,7 @@ import (
 	"github.com/dgraph-io/badger/v2"
 	"github.com/gorilla/mux"
 	cdx "github.com/nlnwa/gowarc/proto"
+	"github.com/nlnwa/whatwg-url/url"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"net/http"
@@ -61,7 +62,8 @@ func parseCdxServerApi(w http.ResponseWriter, r *http.Request, renderFunc Render
 		sort = r.URL.Query().Get("sort")
 	}
 
-	if c.key, c.matchType, err = parseKey(r.URL.Query().Get("url"), r.URL.Query().Get("matchType")); err != nil {
+	url, err := url.ParseRef("http://example.com", r.RequestURI)
+	if c.key, c.matchType, err = parseKey(url.SearchParams().Get("url"), r.URL.Query().Get("matchType")); err != nil {
 		return nil, err
 	}
 
