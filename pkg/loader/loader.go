@@ -52,7 +52,7 @@ func (l *Loader) Get(ctx context.Context, warcId string) (record warcrecord.Warc
 
 	// TODO: Unpack revisits and continuation
 	if record.Type() == warcrecord.REVISIT {
-		log.Infof("resolving revisit  %v -> %v", record.WarcHeader().Get(warcrecord.WarcRecordID), record.WarcHeader().Get(warcrecord.WarcRefersTo))
+		log.Debugf("resolving revisit  %v -> %v", record.WarcHeader().Get(warcrecord.WarcRecordID), record.WarcHeader().Get(warcrecord.WarcRefersTo))
 		storageRef, err = l.Resolver.Resolve(record.WarcHeader().Get(warcrecord.WarcRefersTo))
 		if err != nil {
 			return

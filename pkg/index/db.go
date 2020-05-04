@@ -359,7 +359,7 @@ type PerItemFunction func(*badger.Item) (stopIteration bool)
 type AfterIterationFunction func(txn *badger.Txn) error
 
 func (d *Db) Search(key string, reverse bool, f PerItemFunction, a AfterIterationFunction) error {
-	log.Infof("Searching for key '%s'", key)
+	log.Debugf("Searching for key '%s'", key)
 
 	err := d.cdxIndex.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
