@@ -27,9 +27,9 @@ import (
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/nlnwa/gowarc/warcwriter"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
+	"strings"
 )
 
 type resourceHandler struct {
@@ -38,7 +38,6 @@ type resourceHandler struct {
 }
 
 func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	log.Infof("REQ: %v", r.RequestURI)
 	var renderFunc RenderFunc = func(w http.ResponseWriter, record *cdx.Cdx, cdxApi *cdxServerApi) error {
 		warcid := record.Rid
 		if len(warcid) > 0 && warcid[0] != '<' {
@@ -115,6 +114,17 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		h.db.Search(cdxApi.key, false, cdxApi.sort.add, cdxApi.sort.write)
 	} else {
 		h.db.Search(cdxApi.key, cdxApi.sort.reverse, defaultPerItemFunc, defaultAfterIterationFunc)
+	}
+
+	// If no hits with http, try https
+	if cdxApi.count == 0 && strings.Contains(cdxApi.key, "http:") {
+		cdxApi.key = strings.ReplaceAll(cdxApi.key, "http:", "https:")
+
+		if cdxApi.sort.closest != "" {
+			h.db.Search(cdxApi.key, false, cdxApi.sort.add, cdxApi.sort.write)
+		} else {
+			h.db.Search(cdxApi.key, cdxApi.sort.reverse, defaultPerItemFunc, defaultAfterIterationFunc)
+		}
 	}
 
 	if cdxApi.count == 0 {

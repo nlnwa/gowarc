@@ -18,6 +18,7 @@ package server
 
 import (
 	"context"
+	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
@@ -48,6 +49,11 @@ func Serve(db *index.Db) {
 	warcserver.RegisterRoutes(warcserverRoutes, db, l)
 	http.Handle("/", r)
 
+	loggingMw := func(h http.Handler) http.Handler {
+		return handlers.CombinedLoggingHandler(os.Stdout, h)
+	}
+	r.Use(loggingMw)
+
 	httpServer := &http.Server{
 		Addr: ":9999",
 	}
@@ -62,7 +68,6 @@ func Serve(db *index.Db) {
 	}()
 
 	log.Info(httpServer.ListenAndServe())
-	//log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
 type storageRefResolver struct {

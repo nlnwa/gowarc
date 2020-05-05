@@ -20,6 +20,7 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"sync"
@@ -122,7 +123,6 @@ func NewRevisitBlock(block Block) (Block, error) {
 }
 
 func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
-	fmt.Printf("MERGE %v -> %v\n", revisit.WarcHeader().Get(WarcRecordID), refersTo)
 	m, ok := revisit.(*warcRecord)
 	if !ok {
 		return nil, fmt.Errorf("unknown record implementation")
@@ -131,7 +131,7 @@ func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 	m.recordType = RESPONSE
 	err := m.headers.Set(WarcType, "response")
 	if err != nil {
-		fmt.Printf("ERR1: %v\n", err)
+		log.Warnf("Merge err1: %v", err)
 	}
 	m.headers.Delete(WarcRefersTo)
 	m.headers.Delete(WarcRefersToTargetURI)
@@ -142,10 +142,10 @@ func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 	d := refersTo.Block().(PayloadBlock)
 	b.data, err = d.PayloadBytes()
 	if err != nil {
-		fmt.Printf("ERR2: %v\n", err)
+		log.Warnf("Merge err2: %v", err)
 	}
 
-	fmt.Printf("Merged: %v\n", m)
+	log.Debugf("Merged: %v", m)
 
 	return m, nil
 }

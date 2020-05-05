@@ -25,6 +25,7 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"runtime"
 )
 
 type conf struct {
@@ -43,9 +44,12 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-		// Uncomment the following line if your bare application
-		// has an action associated with it:
-		//	Run: func(cmd *cobra.Command, args []string) { },
+
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Increase GOMAXPROCS as recommended by badger
+			// https://github.com/dgraph-io/badger#are-there-any-go-specific-settings-that-i-should-use
+			runtime.GOMAXPROCS(128)
+		},
 	}
 
 	cobra.OnInitialize(func() { c.initConfig() })
