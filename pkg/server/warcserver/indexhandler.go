@@ -105,8 +105,8 @@ func cdxjTopywbJson(record *cdx.Cdx) *pywbJson {
 		Status:    record.Hsc,
 		Digest:    record.Sha,
 		Length:    record.Rle,
-		Offset:    record.Ref,
-		Filename:  record.Ref,
+		Offset:    "",
+		Filename:  "",
 	}
 	return js
 }
