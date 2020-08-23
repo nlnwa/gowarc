@@ -84,7 +84,12 @@ func parseCdxServerApi(w http.ResponseWriter, r *http.Request, renderFunc Render
 func (c *cdxServerApi) writeItem(item *badger.Item) (stopIteration bool) {
 	result := &cdx.Cdx{}
 	err := item.Value(func(v []byte) error {
-		proto.Unmarshal(v, result)
+		if err := proto.Unmarshal(v, result); err != nil {
+			return err
+		}
+		if c.collection == "screenshot" && result.Hsc != "" {
+			return nil
+		}
 		if c.filter.eval(result) {
 			if err := c.renderFunc(c.w, result, c); err != nil {
 				return err
@@ -94,10 +99,10 @@ func (c *cdxServerApi) writeItem(item *badger.Item) (stopIteration bool) {
 		}
 		return nil
 	})
-	if c.limit > 0 && c.count >= c.limit {
+	if err != nil {
 		return true
 	}
-	if err != nil {
+	if c.limit > 0 && c.count >= c.limit {
 		return true
 	}
 	return false
