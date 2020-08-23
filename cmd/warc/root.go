@@ -13,15 +13,15 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-package cmd
+package main
 
 import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/ls"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/serve"
+	"github.com/nlnwa/gowarc/cmd/warc/cat"
+	"github.com/nlnwa/gowarc/cmd/warc/index"
+	"github.com/nlnwa/gowarc/cmd/warc/ls"
+	"github.com/nlnwa/gowarc/cmd/warc/serve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"

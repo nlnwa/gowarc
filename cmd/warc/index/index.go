@@ -13,34 +13,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package ls
+package index
 
 import (
 	"errors"
 	"fmt"
+	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/spf13/cobra"
 	"io"
 	"os"
-	"sort"
 	"strconv"
 )
 
+type cdxFormat struct {
+	name   string
+	writer index.CdxWriter
+}
+
+func (c *cdxFormat) String() string {
+	return "cdx"
+}
+func (c *cdxFormat) Set(name string) error {
+	switch name {
+	case "cdx":
+		c.writer = &index.CdxLegacy{}
+	case "cdxj":
+		c.writer = &index.CdxJ{}
+	case "cdxpb":
+		c.writer = &index.CdxPb{}
+	case "db":
+		c.writer = &index.CdxDb{}
+	default:
+		return fmt.Errorf("unknwon format %v", name)
+	}
+	c.name = name
+	return nil
+}
+func (c *cdxFormat) Type() string {
+	return "cdxFormat"
+}
+
 type conf struct {
-	offset      int64
-	recordCount int
-	header      bool
-	strict      bool
-	fileName    string
-	id          []string
+	fileName string
+	format   cdxFormat
+	writer   index.CdxWriter
 }
 
 func NewCommand() *cobra.Command {
 	c := &conf{}
 	var cmd = &cobra.Command{
-		Use:   "ls",
+		Use:   "index",
 		Short: "A brief description of your command",
 		Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -53,41 +77,37 @@ to quickly create a Cobra application.`,
 				return errors.New("missing file name")
 			}
 			c.fileName = args[0]
-			if c.offset >= 0 && c.recordCount == 0 {
-				c.recordCount = 1
-			}
-			if c.offset < 0 {
-				c.offset = 0
-			}
-			sort.Strings(c.id)
+			c.writer = c.format.writer
 			return runE(c)
 		},
 	}
 
-	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
-	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
-	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
-	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
-	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
+	cmd.Flags().VarP(&c.format, "format", "f", "cdx format")
 
 	return cmd
 }
 
 func runE(c *conf) error {
-	readFile(c, c.fileName)
+	fmt.Printf("Format: %v\n", c.format)
+	err := c.writer.Init()
+	if err != nil {
+		return err
+	}
+	defer c.writer.Close()
+	readFile(c)
 	return nil
 }
 
-func readFile(c *conf, fileName string) {
-	opts := &warcoptions.WarcOptions{Strict: c.strict}
-	wf, err := warcreader.NewWarcFilename(fileName, c.offset, opts)
-	defer wf.Close()
+func readFile(c *conf) {
+	opts := &warcoptions.WarcOptions{Strict: false}
+	wf, err := warcreader.NewWarcFilename(c.fileName, 0, opts)
 	if err != nil {
 		return
 	}
+	defer wf.Close()
 
 	count := 0
-
+	var prevOffset int64
 	for {
 		wr, currentOffset, err := wf.Next()
 		if err == io.EOF {
@@ -97,38 +117,9 @@ func readFile(c *conf, fileName string) {
 			_, _ = fmt.Fprintf(os.Stderr, "Error: %v, rec num: %v, Offset %v\n", err.Error(), strconv.Itoa(count), currentOffset)
 			break
 		}
-		if len(c.id) > 0 {
-			if !contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
-				continue
-			}
-		}
 		count++
-
-		printRecord(currentOffset, wr)
-
-		if c.recordCount > 0 && count >= c.recordCount {
-			break
-		}
+		rle := currentOffset - prevOffset
+		c.writer.Write(wr, c.fileName, currentOffset, int(rle))
 	}
 	fmt.Fprintln(os.Stderr, "Count: ", count)
-}
-
-func printRecord(offset int64, record warcrecord.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), cropString(record.WarcHeader().Get(warcrecord.WarcTargetURI), 100))
-}
-
-func cropString(s string, size int) string {
-	if len(s) > size {
-		s = s[:size-3] + "..."
-	}
-	return s
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }

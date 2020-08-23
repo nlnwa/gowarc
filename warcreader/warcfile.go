@@ -18,6 +18,7 @@ package warcreader
 
 import (
 	"bufio"
+	"fmt"
 	"github.com/nlnwa/gowarc/pkg/countingreader"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcrecord"
@@ -37,7 +38,7 @@ type WarcFile struct {
 func NewWarcFilename(filename string, offset int64, opts *warcoptions.WarcOptions) (*WarcFile, error) {
 	file, err := os.Open(filename) // For read access.
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to open file: %v", err)
 	}
 
 	return NewWarcFile(file, offset, opts)

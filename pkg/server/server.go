@@ -42,12 +42,12 @@ func Serve(db *index.Db) {
 	}
 
 	r := mux.NewRouter()
+	http.Handle("/", r)
 	r.Handle("/id/{id}", &contentHandler{l})
 	r.Handle("/files/", &fileHandler{l, db})
 	r.Handle("/search", &searchHandler{l, db})
 	warcserverRoutes := r.PathPrefix("/warcserver").Subrouter()
 	warcserver.RegisterRoutes(warcserverRoutes, db, l)
-	http.Handle("/", r)
 
 	loggingMw := func(h http.Handler) http.Handler {
 		return handlers.CombinedLoggingHandler(os.Stdout, h)

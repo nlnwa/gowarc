@@ -21,8 +21,8 @@ import (
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/nlnwa/gowarc/pkg/loader"
+	"github.com/nlnwa/gowarc/warcfields"
 	"github.com/nlnwa/gowarc/warcrecord"
-	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 )
@@ -37,11 +37,9 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		warcid = "<" + warcid + ">"
 	}
 
-	logrus.Debugf("request id: %v", warcid)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	record, err := h.loader.Get(ctx, warcid)
-
 	if err != nil {
 		w.Header().Set("Content-Type", "text/plain")
 		w.WriteHeader(404)
@@ -63,10 +61,12 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		renderContent(w, v, r)
+	case warcrecord.ResourceBlock:
+		renderResource(w, v, record.WarcHeader())
 	default:
 		w.Header().Set("Content-Type", "text/plain")
 		record.WarcHeader().Write(w)
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 		rb, err := v.RawBytes()
 		if err != nil {
 			return
@@ -85,5 +85,17 @@ func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, r *http.Res
 	if err != nil {
 		return
 	}
-	io.Copy(w, p)
+	_, _ = io.Copy(w, p)
+}
+
+func renderResource(w http.ResponseWriter, block warcrecord.ResourceBlock, fields warcfields.WarcFields) {
+	bytes, err := block.RawBytes()
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte("failed to get the raw bytes of the warc record contentblock\n"))
+	}
+	w.Header().Set("Content-Type", fields.Get(warcrecord.ContentType))
+	w.Header().Set("Content-Length", fields.Get(warcrecord.ContentLength))
+	_, _ = io.Copy(w, bytes)
 }

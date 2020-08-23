@@ -78,6 +78,7 @@ func TestLoader_Get(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			gotRecord, err := loader.Get(ctx, tt.args.warcId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Loader.Get() error = %v, wantErr %v", err, tt.wantErr)
@@ -89,7 +90,6 @@ func TestLoader_Get(t *testing.T) {
 					t.Errorf("Loader.Get() = \n%v, want %v", gotRecord, tt.wantRecord)
 				}
 			}
-			cancel()
 		})
 	}
 }

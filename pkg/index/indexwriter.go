@@ -21,13 +21,12 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
-	"github.com/spf13/viper"
 )
 
 type CdxWriter interface {
 	Init() error
 	Close()
-	Write(wr warcrecord.WarcRecord, fileName string, offset int64) error
+	Write(wr warcrecord.WarcRecord, fileName string, offset int64, rle int) error
 }
 
 type CdxLegacy struct {
@@ -39,12 +38,16 @@ type CdxPb struct {
 	jsonMarshaler *jsonpb.Marshaler
 }
 type CdxDb struct {
-	db *Db
+	dbDir string
+	db    *Db
+}
+
+func NewCdxDb(dbDir string) *CdxDb {
+	return &CdxDb{dbDir: dbDir}
 }
 
 func (c *CdxDb) Init() (err error) {
-	dbDir := viper.GetString("indexdir")
-	c.db, err = NewIndexDb(dbDir)
+	c.db, err = NewIndexDb(c.dbDir)
 	if err != nil {
 		return err
 	}
@@ -56,8 +59,8 @@ func (c *CdxDb) Close() {
 	c.db.Close()
 }
 
-func (c *CdxDb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
-	return c.db.Add(wr, fileName, offset)
+func (c *CdxDb) Write(wr warcrecord.WarcRecord, fileName string, offset int64, rle int) error {
+	return c.db.Add(wr, fileName, offset, rle)
 }
 
 func (c *CdxLegacy) Init() (err error) {
@@ -67,7 +70,7 @@ func (c *CdxLegacy) Init() (err error) {
 func (c *CdxLegacy) Close() {
 }
 
-func (c *CdxLegacy) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
+func (c *CdxLegacy) Write(wr warcrecord.WarcRecord, fileName string, offset int64, rle int) error {
 	return nil
 }
 
@@ -79,9 +82,9 @@ func (c *CdxJ) Init() (err error) {
 func (c *CdxJ) Close() {
 }
 
-func (c *CdxJ) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
+func (c *CdxJ) Write(wr warcrecord.WarcRecord, fileName string, offset int64, rle int) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		rec := NewCdxRecord(wr, fileName, offset)
+		rec := NewCdxRecord(wr, fileName, offset, rle)
 		cdxj, err := c.jsonMarshaler.MarshalToString(rec)
 		if err != nil {
 			return err
@@ -98,9 +101,9 @@ func (c *CdxPb) Init() (err error) {
 func (c *CdxPb) Close() {
 }
 
-func (c *CdxPb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
+func (c *CdxPb) Write(wr warcrecord.WarcRecord, fileName string, offset int64, rle int) error {
 	if wr.Type() == warcrecord.RESPONSE {
-		rec := NewCdxRecord(wr, fileName, offset)
+		rec := NewCdxRecord(wr, fileName, offset, rle)
 		cdxpb, err := proto.Marshal(rec)
 		if err != nil {
 			return err

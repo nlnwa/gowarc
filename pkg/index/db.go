@@ -162,7 +162,7 @@ func (d *Db) Close() {
 	_ = d.cdxIndex.Close()
 }
 
-func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64) error {
+func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64, rle int) error {
 	record := &record{
 		id:       warcRecord.WarcHeader().Get(warcrecord.WarcRecordID),
 		filePath: filePath,
@@ -170,8 +170,9 @@ func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64
 	}
 
 	var err error
-	if warcRecord.Type() == warcrecord.RESPONSE || warcRecord.Type() == warcrecord.REVISIT {
-		record.cdx = NewCdxRecord(warcRecord, filePath, offset)
+	if warcRecord.Type() == warcrecord.RESPONSE || warcRecord.Type() == warcrecord.REVISIT ||
+		warcRecord.Type() == warcrecord.RESOURCE {
+		record.cdx = NewCdxRecord(warcRecord, filePath, offset, rle)
 	}
 	if err != nil {
 		return err
@@ -223,30 +224,6 @@ func (d *Db) AddBatch(records []*record) {
 	log.Debugf("flushing batch to DB")
 	//filepaths := make(map[string]string)
 	var err error
-
-	//for _, r := range records {
-	//	if _, ok := filepaths[r.filePath]; !ok {
-	//		r.filePath, err = filepath.Abs(r.filePath)
-	//		if err != nil {
-	//			log.Errorf("%v", err)
-	//		}
-	//		fileName := filepath.Base(r.filePath)
-	//		filepaths[r.filePath] = fileName
-	//	}
-	//}
-
-	//err = d.fileIndex.Update(func(txn *badger.Txn) error {
-	//	for filePath, fileName := range filepaths {
-	//		_, err := txn.Get([]byte(fileName))
-	//		if err == badger.ErrKeyNotFound {
-	//			err = txn.Set([]byte(fileName), []byte(filePath))
-	//		}
-	//	}
-	//	return err
-	//})
-	//if err != nil {
-	//	log.Errorf("%v", err)
-	//}
 
 	err = d.idIndex.Update(func(txn *badger.Txn) error {
 		for _, r := range records {

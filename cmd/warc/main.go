@@ -17,12 +17,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd"
 	"os"
 )
 
 func main() {
-	c := cmd.NewCommand()
+	c := NewCommand()
 	if err := c.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)

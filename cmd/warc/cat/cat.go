@@ -83,11 +83,13 @@ func runE(c *conf) error {
 func readFile(c *conf, fileName string) {
 	opts := &warcoptions.WarcOptions{Strict: c.strict}
 	wf, err := warcreader.NewWarcFilename(fileName, c.offset, opts)
-	defer wf.Close()
 	if err != nil {
 		fmt.Printf("Error opening file: %v\n", err)
 		return
 	}
+	defer func() {
+		_ = wf.Close()
+	}()
 
 	count := 0
 
@@ -116,13 +118,13 @@ func readFile(c *conf, fileName string) {
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}
-		os.Stdout.Write([]byte("\r\n"))
+		_, _ = os.Stdout.Write([]byte("\r\n"))
 
 		if c.recordCount > 0 && count >= c.recordCount {
 			break
 		}
 	}
-	fmt.Fprintln(os.Stderr, "Count: ", count)
+	_, _ = fmt.Fprintln(os.Stderr, "Count: ", count)
 }
 
 func contains(s []string, e string) bool {

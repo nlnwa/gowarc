@@ -128,6 +128,7 @@ func indexFile(db *Db, fileName string) {
 	}
 	defer wf.Close()
 
+	var prevOffset int64
 	count := 0
 	for {
 		wr, currentOffset, err := wf.Next()
@@ -139,8 +140,9 @@ func indexFile(db *Db, fileName string) {
 			break
 		}
 		count++
+		rle := currentOffset - prevOffset
 
-		db.Add(wr, fileName, currentOffset)
+		db.Add(wr, fileName, currentOffset, int(rle))
 	}
 	db.Flush()
 	db.UpdateFilePath(fileName)

@@ -24,6 +24,7 @@ import (
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
 	cdx "github.com/nlnwa/gowarc/proto"
+	"github.com/nlnwa/gowarc/warcfields"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/nlnwa/gowarc/warcwriter"
@@ -73,6 +74,8 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					return err
 				}
 				renderContent(w, v, r)
+			case warcrecord.ResourceBlock:
+				renderResource(w, v, warcRecord.WarcHeader())
 			default:
 				w.Header().Set("Content-Type", "text/plain")
 				warcRecord.WarcHeader().Write(w)
@@ -163,4 +166,16 @@ func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, r *http.Res
 		return
 	}
 	io.Copy(w, p)
+}
+
+func renderResource(w http.ResponseWriter, block warcrecord.ResourceBlock, fields warcfields.WarcFields) {
+	bytes, err := block.RawBytes()
+	if err != nil {
+		w.Header().Set("Content-Type", "text/plain")
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte("failed to get the raw bytes of the warc record contentblock\n"))
+	}
+	w.Header().Set("Content-Type", fields.Get(warcrecord.ContentType))
+	w.Header().Set("Content-Length", fields.Get(warcrecord.ContentLength))
+	_, _ = io.Copy(w, bytes)
 }

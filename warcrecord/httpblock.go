@@ -212,7 +212,6 @@ func NewHttpBlock(block Block) (PayloadBlock, error) {
 	b, err := rb.Peek(4)
 	if err != nil {
 		return nil, fmt.Errorf("not a http block %v", err)
-		return nil, err
 	}
 	if bytes.HasPrefix(b, []byte("HTTP")) {
 		return &httpResponseBlock{Block: block}, nil

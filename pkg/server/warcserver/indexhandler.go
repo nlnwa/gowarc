@@ -89,11 +89,11 @@ type pywbJson struct {
 	Timestamp string `json:"timestamp"`
 	Url       string `json:"url"`
 	Mime      string `json:"mime"`
-	Status    string `json:"status"`
-	Digest    string `json:"digest"`
-	Length    string `json:"length"`
-	Offset    string `json:"offset"`
-	Filename  string `json:"filename"`
+	Status    string `json:"status,omitempty"`
+	Digest    string `json:"digest,omitempty"`
+	Length    string `json:"length,omitempty"`
+	Offset    string `json:"offset,omitempty"`
+	Filename  string `json:"filename,omitempty"`
 }
 
 func cdxjTopywbJson(record *cdx.Cdx) *pywbJson {
@@ -105,8 +105,9 @@ func cdxjTopywbJson(record *cdx.Cdx) *pywbJson {
 		Status:    record.Hsc,
 		Digest:    record.Sha,
 		Length:    record.Rle,
-		Offset:    "",
-		Filename:  "",
+	}
+	if record.Hsc != "" {
+		js.Status = record.Hsc
 	}
 	return js
 }

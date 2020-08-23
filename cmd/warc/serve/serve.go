@@ -48,12 +48,6 @@ to quickly create a Cobra application.`,
 		},
 	}
 
-	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
-	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
-	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
-	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
-	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
-
 	return cmd
 }
 
@@ -67,7 +61,7 @@ func runE(c *conf) error {
 
 	log.Infof("Starting autoindexer")
 	if viper.GetBool("autoindex") {
-		autoindexer := index.NewAutoIndexer(db)
+		autoindexer := index.NewAutoIndexer(db, viper.GetStringSlice("warcdir"))
 		defer autoindexer.Shutdown()
 	}
 

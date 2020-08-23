@@ -26,8 +26,6 @@ import (
 	"sync"
 )
 
-const CRLF = "\r\n"
-
 type RevisitBlock struct {
 	Block
 	response         *http.Response

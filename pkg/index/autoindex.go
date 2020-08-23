@@ -19,7 +19,6 @@ package index
 import (
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,11 +30,11 @@ type autoindexer struct {
 	indexWorker *indexWorker
 }
 
-func NewAutoIndexer(db *Db) *autoindexer {
+func NewAutoIndexer(db *Db, dirs []string) *autoindexer {
 	a := &autoindexer{
 		indexWorker: NewIndexWorker(db, 8),
 	}
-	go a.fileWatcher()
+	go a.fileWatcher(dirs)
 	return a
 }
 
@@ -43,7 +42,7 @@ func (a *autoindexer) Shutdown() {
 	a.indexWorker.Shutdown()
 }
 
-func (a *autoindexer) fileWatcher() {
+func (a *autoindexer) fileWatcher(dirs []string) {
 	var err error
 	a.watcher, err = fsnotify.NewWatcher()
 	if err != nil {
@@ -72,7 +71,7 @@ func (a *autoindexer) fileWatcher() {
 		}
 	}()
 
-	for _, wd := range viper.GetStringSlice("warcdir") {
+	for _, wd := range dirs {
 		err := a.watcher.Add(wd)
 		if err != nil {
 			log.Fatal(err)
@@ -86,7 +85,7 @@ func (a *autoindexer) fileWatcher() {
 func (a *autoindexer) indexDir(dir string) {
 	f, err := os.Open(dir)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open index directory: %v", err)
 	}
 	files, err := f.Readdir(-1)
 	f.Close()

@@ -25,13 +25,13 @@ import (
 	"github.com/nlnwa/gowarc/pkg/countingreader"
 	"github.com/nlnwa/gowarc/warcfields"
 	"github.com/nlnwa/gowarc/warcoptions"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"strconv"
 	"strings"
 )
 
 const (
+	CRLF = "\r\n"
 	SPHTCRLF = " \t\r\n"
 	CR       = '\r'
 	LF       = '\n'
@@ -93,7 +93,6 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	}
 
 	if magic[0] == 0x1f && magic[1] == 0x8b {
-		log.Debug("detected gzip record")
 		var g *gzip.Reader
 		g, err = gzip.NewReader(b)
 		if err != nil {
@@ -146,6 +145,9 @@ func (wr *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 func (wr *unmarshaler) parseBlock(record *warcRecord) (err error) {
 	if record.recordType.id&(REVISIT.id) != 0 {
 		record.block, err = NewRevisitBlock(record.block)
+		if err != nil {
+			return err
+		}
 		return
 	}
 	contentType := strings.ToLower(record.headers.Get(ContentType))
@@ -158,6 +160,14 @@ func (wr *unmarshaler) parseBlock(record *warcRecord) (err error) {
 			record.block = httpBlock
 			return nil
 		}
+	}
+	if record.recordType.id&RESOURCE.id != 0 {
+		resourceBlock, err := NewResourceBlock(record.block)
+		if err != nil {
+			return err
+		}
+		record.block = resourceBlock
+		return nil
 	}
 	if strings.HasPrefix(contentType, "application/warc-fields") {
 		warcFieldsBlock, err := NewWarcFieldsBlock(record.block, wr.opts)
