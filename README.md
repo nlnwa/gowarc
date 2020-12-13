@@ -2,7 +2,7 @@
 
 # go-warc
 
-A tool for handling everything warc written, in go
+A tool for handling everything warc, written in go.
 
 # Requirements
 
