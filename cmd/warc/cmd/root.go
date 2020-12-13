@@ -17,6 +17,8 @@ package cmd
 
 import (
 	"fmt"
+	"runtime"
+
 	"github.com/fsnotify/fsnotify"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
@@ -25,7 +27,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"runtime"
 )
 
 type conf struct {
@@ -37,13 +38,8 @@ func NewCommand() *cobra.Command {
 	c := &conf{}
 	cmd := &cobra.Command{
 		Use:   "warc",
-		Short: "A brief description of your application",
-		Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+		Short: "A tool for handling warc files",
+		Long:  ``,
 
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			// Increase GOMAXPROCS as recommended by badger
