@@ -6,7 +6,7 @@ A tool for handling everything warc, written in go.
 
 # Requirements
 
-go 1.3 or newer
+go 1.13 or newer
 
 # Build
 
