@@ -14,5 +14,8 @@
 # Compiled binary
 warc
 
+# Gowarc cache
+warcdb
+
 .idea
 /proto/tools/
