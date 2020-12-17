@@ -17,16 +17,17 @@
 package index
 
 import (
-	"github.com/golang/protobuf/ptypes"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcreader"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
+
+	"github.com/golang/protobuf/ptypes"
+	"github.com/nlnwa/gowarc/warcoptions"
+	"github.com/nlnwa/gowarc/warcreader"
+	log "github.com/sirupsen/logrus"
 )
 
 type job struct {
@@ -85,6 +86,7 @@ func (iw *indexWorker) worker(id int) {
 func (iw *indexWorker) Queue(fileName string, batchWindow time.Duration) {
 	iw.mx.Lock()
 	defer iw.mx.Unlock()
+
 	timer, ok := iw.jobMap[fileName]
 	if ok {
 		timer.Stop()
@@ -102,6 +104,7 @@ func indexFile(db *Db, fileName string) {
 	if err != nil {
 		log.Errorf("%v", err)
 	}
+
 	fileSize := stat.Size()
 	fileLastModified := stat.ModTime()
 	fn := filepath.Base(fileName)

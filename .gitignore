@@ -17,5 +17,8 @@ warc
 # Gowarc cache
 warcdb
 
+# User specific config
+config.yaml
+
 .idea
 /proto/tools/

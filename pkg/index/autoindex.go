@@ -17,23 +17,26 @@
 package index
 
 import (
-	"github.com/fsnotify/fsnotify"
-	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/fsnotify/fsnotify"
+	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 type autoindexer struct {
 	watcher     *fsnotify.Watcher
 	indexWorker *indexWorker
+	watchDepth  int
 }
 
-func NewAutoIndexer(db *Db) *autoindexer {
+func NewAutoIndexer(db *Db, watchDepth int) *autoindexer {
 	a := &autoindexer{
 		indexWorker: NewIndexWorker(db, 8),
+		watchDepth:  watchDepth,
 	}
 	go a.fileWatcher()
 	return a
@@ -59,10 +62,31 @@ func (a *autoindexer) fileWatcher() {
 				if !ok {
 					return
 				}
-				if event.Op&fsnotify.Write == fsnotify.Write && !strings.HasSuffix(event.Name, "~") {
+
+				if strings.HasSuffix(event.Name, "~") {
+					continue
+				}
+
+				if event.Op&fsnotify.Write == fsnotify.Write {
 					log.Debugf("modified file: %v", event.Name)
 					a.indexWorker.Queue(event.Name, 10*time.Second)
+				} else if event.Op&fsnotify.Create == fsnotify.Create {
+					fStat, statErr := os.Stat(event.Name)
+					if statErr != nil {
+						// we don't panic if the program fails to listen
+						log.Error(err)
+					}
+
+					if !fStat.Mode().IsDir() {
+						continue
+					}
+
+					watchErr := a.watcher.Add(event.Name)
+					if watchErr != nil {
+						log.Errorf("Error occured when trying to listen to new directory '%v', err: %v", event.Name, err)
+					}
 				}
+
 			case err, ok := <-a.watcher.Errors:
 				if !ok {
 					return
@@ -73,30 +97,39 @@ func (a *autoindexer) fileWatcher() {
 	}()
 
 	for _, wd := range viper.GetStringSlice("warcdir") {
-		err := a.watcher.Add(wd)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		a.indexDir(wd)
+		a.addAndIndexDir(wd, 0)
 	}
 	<-done
 }
 
-func (a *autoindexer) indexDir(dir string) {
-	f, err := os.Open(dir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	files, err := f.Readdir(-1)
-	f.Close()
+// Recursively add directory to autoindexer watcher and index it.
+// This function will **panic** if path is a file or does not exist
+func (a *autoindexer) addAndIndexDir(path string, currentDepth int) {
+	err := a.watcher.Add(path)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	f, err := os.Open(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	files, err := f.Readdir(-1)
+	f.Close()
+	if err != nil {
+		log.Fatalf("%v: %v", f.Name(), err)
+	}
+
 	for _, file := range files {
-		if !file.IsDir() && !strings.HasSuffix(file.Name(), "~") {
-			a.indexWorker.Queue(filepath.Join(dir, file.Name()), 0)
+		if strings.HasSuffix(file.Name(), "~") {
+			continue
+		}
+
+		if !file.IsDir() {
+			a.indexWorker.Queue(filepath.Join(path, file.Name()), 0)
+		} else if currentDepth < a.watchDepth {
+			a.addAndIndexDir(filepath.Join(path, file.Name()), currentDepth+1)
 		}
 	}
 }
