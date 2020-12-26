@@ -69,6 +69,7 @@ func (c *conf) initConfig() {
 	viper.SetDefault("warcdir", []string{"."})
 	viper.SetDefault("indexdir", ".")
 	viper.SetDefault("autoindex", true)
+	viper.SetDefault("warcport", 9999)
 
 	viper.AutomaticEnv() // read in environment variables that match
 
