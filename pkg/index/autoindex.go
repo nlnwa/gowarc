@@ -75,6 +75,7 @@ func (a *autoindexer) fileWatcher() {
 					if statErr != nil {
 						// we don't panic if the program fails to listen
 						log.Error(err)
+						continue
 					}
 
 					if !fStat.Mode().IsDir() {
