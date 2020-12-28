@@ -64,7 +64,9 @@ func runE(c *conf) error {
 
 	if viper.GetBool("autoindex") {
 		log.Infof("Starting autoindexer")
-		autoindexer := index.NewAutoIndexer(db, c.watchDepth)
+		// TODO: get this from config. See issue #18 for relevant refactor
+		watchDir := viper.GetStringSlice("warcdir")
+		autoindexer := index.NewAutoIndexer(db, watchDir, c.watchDepth)
 		defer autoindexer.Shutdown()
 	}
 

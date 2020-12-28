@@ -24,7 +24,6 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	log "github.com/sirupsen/logrus"
-	"github.com/spf13/viper"
 )
 
 type autoindexer struct {
@@ -33,74 +32,72 @@ type autoindexer struct {
 	watchDepth  int
 }
 
-func NewAutoIndexer(db *Db, watchDepth int) *autoindexer {
+func NewAutoIndexer(db *Db, warcdirs []string, watchDepth int) *autoindexer {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	a := &autoindexer{
+		watcher:     watcher,
 		indexWorker: NewIndexWorker(db, 8),
 		watchDepth:  watchDepth,
 	}
-	go a.fileWatcher()
+
+	go a.watchFiles()
+
+	for _, wd := range warcdirs {
+		a.addAndIndexDir(wd, 0)
+	}
+
 	return a
 }
 
 func (a *autoindexer) Shutdown() {
+	a.watcher.Close()
 	a.indexWorker.Shutdown()
 }
 
-func (a *autoindexer) fileWatcher() {
-	var err error
-	a.watcher, err = fsnotify.NewWatcher()
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer a.watcher.Close()
+func (a *autoindexer) watchFiles() {
+	for {
+		select {
+		case event, ok := <-a.watcher.Events:
+			if !ok {
+				return
+			}
 
-	done := make(chan bool)
-	go func() {
-		for {
-			select {
-			case event, ok := <-a.watcher.Events:
-				if !ok {
-					return
-				}
+			if strings.HasSuffix(event.Name, "~") {
+				continue
+			}
 
-				if strings.HasSuffix(event.Name, "~") {
+			if event.Op&fsnotify.Write == fsnotify.Write {
+				log.Debugf("modified file: %v", event.Name)
+				a.indexWorker.Queue(event.Name, 10*time.Second)
+			} else if event.Op&fsnotify.Create == fsnotify.Create {
+				fStat, statErr := os.Stat(event.Name)
+				if statErr != nil {
+					// Don't panic if the program fails to listen
+					log.Errorf("Error on os.Stat with file %v, error: %v", event.Name, statErr)
 					continue
 				}
 
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					log.Debugf("modified file: %v", event.Name)
-					a.indexWorker.Queue(event.Name, 10*time.Second)
-				} else if event.Op&fsnotify.Create == fsnotify.Create {
-					fStat, statErr := os.Stat(event.Name)
-					if statErr != nil {
-						// we don't panic if the program fails to listen
-						log.Error(err)
-						continue
-					}
-
-					if !fStat.Mode().IsDir() {
-						continue
-					}
-
-					watchErr := a.watcher.Add(event.Name)
-					if watchErr != nil {
-						log.Errorf("Error occured when trying to listen to new directory '%v', err: %v", event.Name, err)
-					}
+				if !fStat.Mode().IsDir() {
+					continue
 				}
 
-			case err, ok := <-a.watcher.Errors:
-				if !ok {
-					return
+				watchErr := a.watcher.Add(event.Name)
+				if watchErr != nil {
+					log.Errorf("Error occured when trying to listen to new directory '%v', error: %v", event.Name, watchErr)
 				}
-				log.Println("error:", err)
 			}
-		}
-	}()
 
-	for _, wd := range viper.GetStringSlice("warcdir") {
-		a.addAndIndexDir(wd, 0)
+		case err, ok := <-a.watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Println("error:", err)
+		}
 	}
-	<-done
 }
 
 // Recursively add directory to autoindexer watcher and index it.
@@ -108,19 +105,19 @@ func (a *autoindexer) fileWatcher() {
 func (a *autoindexer) addAndIndexDir(path string, currentDepth int) {
 	err := a.watcher.Add(path)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to watch on path: %v, error: v%", path, err)
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("Failed to open file at: %v, error: %v", path, err)
 	}
 
 	files, err := f.Readdir(-1)
-	f.Close()
 	if err != nil {
-		log.Fatalf("%v: %v", f.Name(), err)
+		log.Fatalf("%Failed to read directory. Name: %v, error: %v", f.Name(), err)
 	}
+	f.Close()
 
 	for _, file := range files {
 		if strings.HasSuffix(file.Name(), "~") {
