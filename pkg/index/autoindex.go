@@ -106,17 +106,17 @@ func (a *autoindexer) watchFiles() {
 func (a *autoindexer) addAndIndexDir(path string, currentDepth int) {
 	err := a.watcher.Add(path)
 	if err != nil {
-		log.Fatalf("Failed to watch on path: %v, error: v%", path, err)
+		log.Fatalf("Failed to watch %v: %v", path, err)
 	}
 
 	f, err := os.Open(path)
 	if err != nil {
-		log.Fatalf("Failed to open file at: %v, error: %v", path, err)
+		log.Fatalf("Failed to open %v: %v", path, err)
 	}
 
 	files, err := f.Readdir(-1)
 	if err != nil {
-		log.Fatalf("%Failed to read directory. Name: %v, error: %v", f.Name(), err)
+		log.Fatalf("Failed to read %v: %v", path, err)
 	}
 	f.Close()
 
