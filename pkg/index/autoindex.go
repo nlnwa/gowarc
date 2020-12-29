@@ -95,7 +95,8 @@ func (a *autoindexer) watchFiles() {
 			if !ok {
 				return
 			}
-			log.Println("error:", err)
+
+			log.Errorf("Recieved error from watcher: %v", err)
 		}
 	}
 }
