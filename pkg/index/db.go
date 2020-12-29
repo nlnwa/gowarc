@@ -18,17 +18,18 @@ package index
 
 import (
 	"fmt"
+	"os"
+	"path"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/dgraph-io/badger/v2"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	gowarcpb "github.com/nlnwa/gowarc/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
-	"os"
-	"path"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 type record struct {
@@ -50,7 +51,7 @@ type Db struct {
 	batchMaxWait time.Duration
 	batchItems   []*record
 	batchMutex   *sync.RWMutex
-	/*notifier channel*/
+	// notifier channel
 	batchFlushChan chan []*record
 }
 
@@ -221,32 +222,8 @@ func (d *Db) UpdateFilePath(filePath string) {
 
 func (d *Db) AddBatch(records []*record) {
 	log.Debugf("flushing batch to DB")
-	//filepaths := make(map[string]string)
+
 	var err error
-
-	//for _, r := range records {
-	//	if _, ok := filepaths[r.filePath]; !ok {
-	//		r.filePath, err = filepath.Abs(r.filePath)
-	//		if err != nil {
-	//			log.Errorf("%v", err)
-	//		}
-	//		fileName := filepath.Base(r.filePath)
-	//		filepaths[r.filePath] = fileName
-	//	}
-	//}
-
-	//err = d.fileIndex.Update(func(txn *badger.Txn) error {
-	//	for filePath, fileName := range filepaths {
-	//		_, err := txn.Get([]byte(fileName))
-	//		if err == badger.ErrKeyNotFound {
-	//			err = txn.Set([]byte(fileName), []byte(filePath))
-	//		}
-	//	}
-	//	return err
-	//})
-	//if err != nil {
-	//	log.Errorf("%v", err)
-	//}
 
 	err = d.idIndex.Update(func(txn *badger.Txn) error {
 		for _, r := range records {
