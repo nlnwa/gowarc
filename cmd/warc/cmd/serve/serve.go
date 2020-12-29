@@ -24,13 +24,8 @@ import (
 )
 
 type conf struct {
-	offset      int64
-	watchDepth  int
-	recordCount int
-	header      bool
-	strict      bool
-	fileName    string
-	id          []string
+	warcDirs   []string
+	watchDepth int
 }
 
 func NewCommand() *cobra.Command {
@@ -40,16 +35,16 @@ func NewCommand() *cobra.Command {
 		Short: "Start the warc server to serve warc records",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				c.warcDirs = args
+			} else {
+				c.warcDirs = viper.GetStringSlice("warcdir")
+			}
 			return runE(c)
 		},
 	}
 
-	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
 	cmd.Flags().IntVarP(&c.watchDepth, "watch-depth", "w", 4, "The maximum depth when indexing warc")
-	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
-	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
-	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
-	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
 
 	return cmd
 }
@@ -64,9 +59,7 @@ func runE(c *conf) error {
 
 	if viper.GetBool("autoindex") {
 		log.Infof("Starting autoindexer")
-		// TODO: get this from config. See issue #18 for relevant refactor
-		watchDir := viper.GetStringSlice("warcdir")
-		autoindexer := index.NewAutoIndexer(db, watchDir, c.watchDepth)
+		autoindexer := index.NewAutoIndexer(db, c.warcDirs, c.watchDepth)
 		defer autoindexer.Shutdown()
 	}
 
