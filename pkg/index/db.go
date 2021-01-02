@@ -221,10 +221,9 @@ func (d *Db) UpdateFilePath(filePath string) {
 }
 
 func (d *Db) AddBatch(records []*record) {
-	log.Debugf("flushing batch to DB")
+	log.Debug("flushing batch to DB")
 
 	var err error
-
 	err = d.idIndex.Update(func(txn *badger.Txn) error {
 		for _, r := range records {
 			r.filePath, err = filepath.Abs(r.filePath)
@@ -274,10 +273,7 @@ func (d *Db) Flush() {
 		return
 	}
 
-	copiedItems := make([]*record, len(d.batchItems))
-	for idx, i := range d.batchItems {
-		copiedItems[idx] = i
-	}
+	copiedItems := d.batchItems
 	d.batchItems = d.batchItems[:0]
 	d.batchFlushChan <- copiedItems
 }
