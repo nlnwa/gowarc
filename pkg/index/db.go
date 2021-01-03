@@ -348,7 +348,7 @@ func (d *Db) Search(key string, reverse bool, f PerItemFunction, a AfterIteratio
 
 		seekKey := key
 		if reverse {
-			seekKey += string(0xff)
+			seekKey += string(rune(0xff))
 		}
 
 		for it.Seek([]byte(seekKey)); it.ValidForPrefix([]byte(key)); it.Next() {
