@@ -18,10 +18,11 @@ package warcserver
 
 import (
 	"fmt"
-	"github.com/dgraph-io/badger/v2"
-	"github.com/nlnwa/gowarc/pkg/timestamp"
 	"sort"
 	"strings"
+
+	"github.com/dgraph-io/badger/v2"
+	"github.com/nlnwa/gowarc/pkg/timestamp"
 )
 
 type sorter struct {
@@ -51,8 +52,8 @@ func (s *sorter) add(item *badger.Item) (stopIteration bool) {
 		return false
 	}
 
-	ts := timestamp.From14ToTime(strings.Split(string(item.Key()), " ")[1]).Unix()
-	v := []interface{}{ts, item.KeyCopy(nil)}
+	ts, _ := timestamp.From14ToTime(strings.Split(string(item.Key()), " ")[1])
+	v := []interface{}{ts.Unix(), item.KeyCopy(nil)}
 	s.values = append(s.values, v)
 
 	return false
@@ -74,7 +75,8 @@ func (s *sorter) write(txn *badger.Txn) error {
 }
 
 func (s *sorter) sort() {
-	closestTs := timestamp.From14ToTime(s.closest).Unix()
+	ts, _ := timestamp.From14ToTime(s.closest)
+	closestTs := ts.Unix()
 	sort.Slice(s.values, func(i, j int) bool {
 		ts1 := s.values[i][0].(int64)
 		ts2 := s.values[j][0].(int64)

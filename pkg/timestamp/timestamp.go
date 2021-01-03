@@ -16,18 +16,20 @@
 
 package timestamp
 
-import "time"
+import (
+	"time"
+)
 
-func To14(s string) string {
-	if t, err := time.Parse(time.RFC3339, s); err == nil {
-		return t.Format("20060102150405")
+func To14(s string) (string, error) {
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return "", err
 	}
-	return ""
+
+	return t.Format("20060102150405"), nil
 }
 
-func From14ToTime(s string) time.Time {
-	if t, err := time.Parse("20060102150405", s); err == nil {
-		return t
-	}
-	return time.Time{}
+func From14ToTime(s string) (time.Time, error) {
+	t, err := time.Parse("20060102150405", s)
+	return t, err
 }
