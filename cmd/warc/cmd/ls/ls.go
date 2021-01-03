@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/nlnwa/gowarc/pkg/utils"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/nlnwa/gowarc/warcrecord"
@@ -94,7 +95,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
+			if !utils.Contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
 				continue
 			}
 		}
@@ -110,21 +111,7 @@ func readFile(c *conf, fileName string) {
 }
 
 func printRecord(offset int64, record warcrecord.WarcRecord) {
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, record.WarcHeader().Get(warcrecord.WarcRecordID), record.Type(), cropString(record.WarcHeader().Get(warcrecord.WarcTargetURI), 100))
-}
-
-func cropString(s string, size int) string {
-	if len(s) > size {
-		s = s[:size-3] + "..."
-	}
-	return s
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
+	recordID := record.WarcHeader().Get(warcrecord.WarcRecordID)
+	targetURI := utils.CropString(record.WarcHeader().Get(warcrecord.WarcTargetURI), 100)
+	fmt.Printf("%v\t%s\t%s \t%s\n", offset, recordID, record.Type(), targetURI)
 }
