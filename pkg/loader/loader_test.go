@@ -18,9 +18,10 @@ package loader
 
 import (
 	"context"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"reflect"
 	"testing"
+
+	"github.com/nlnwa/gowarc/warcrecord"
 )
 
 func TestLoader_Get(t *testing.T) {
