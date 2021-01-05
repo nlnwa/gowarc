@@ -9,9 +9,9 @@ RUN go mod download
 
 COPY . .
 
-# Compile the binary statically, so it can be run without libraries.
-RUN CGO_ENABLED=0 GOOS=linux go install -a -ldflags '-extldflags "-s -w -static"' ./cmd/warc
-#RUN go test ./... && go install -v ./...
+# Compile the binary statically, so it can be run without dynamic libraries.
+RUN go test ./... && \ 
+    CGO_ENABLED=0 GOOS=linux go install -a -ldflags '-extldflags "-s -w -static"' ./cmd/warc
 
 # Now copy it into our base image.
 FROM gcr.io/distroless/base
