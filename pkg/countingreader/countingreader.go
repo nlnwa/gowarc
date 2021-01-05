@@ -23,17 +23,17 @@ import (
 
 // Reader counts the bytes read through it.
 type Reader struct {
-	r io.Reader
-	n int64
-	m int64
+	ioReader  io.Reader
+	bytesRead int64
+	maxBytes  int64
 }
 
 // NewReader makes a new Reader that counts the bytes
 // read through it.
 func New(r io.Reader) *Reader {
 	return &Reader{
-		r: r,
-		m: -1,
+		ioReader: r,
+		maxBytes: -1,
 	}
 }
 
@@ -44,26 +44,26 @@ func New(r io.Reader) *Reader {
 // return io.EOF even though the underlying reader has more data.
 func NewLimited(r io.Reader, maxBytes int64) *Reader {
 	return &Reader{
-		r: r,
-		m: maxBytes,
+		ioReader: r,
+		maxBytes: maxBytes,
 	}
 }
 
 func (r *Reader) Read(p []byte) (n int, err error) {
-	if r.m >= 0 {
-		remaining := r.m - r.N()
+	if r.maxBytes >= 0 {
+		remaining := r.maxBytes - r.N()
 		if int64(len(p)) > remaining {
 			p = p[:remaining]
 		}
-		n, err = r.r.Read(p)
-		atomic.AddInt64(&r.n, int64(n))
+		n, err = r.ioReader.Read(p)
+		atomic.AddInt64(&r.bytesRead, int64(n))
 
-		if r.N() >= r.m {
+		if r.N() >= r.maxBytes {
 			err = io.EOF
 		}
 	} else {
-		n, err = r.r.Read(p)
-		atomic.AddInt64(&r.n, int64(n))
+		n, err = r.ioReader.Read(p)
+		atomic.AddInt64(&r.bytesRead, int64(n))
 	}
 	return
 }
@@ -71,5 +71,5 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 // N gets the number of bytes that have been read
 // so far.
 func (r *Reader) N() int64 {
-	return atomic.LoadInt64(&r.n)
+	return atomic.LoadInt64(&r.bytesRead)
 }
