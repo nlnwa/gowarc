@@ -28,38 +28,24 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type cdxFormat struct {
-	name   string
-	writer index.CdxWriter
-}
-
-func (c *cdxFormat) String() string {
-	return "cdx"
-}
-func (c *cdxFormat) Set(name string) error {
-	switch name {
+func parseFormat(format string) (index.CdxWriter, error) {
+	switch format {
 	case "cdx":
-		c.writer = &index.CdxLegacy{}
+		return &index.CdxLegacy{}, nil
 	case "cdxj":
-		c.writer = &index.CdxJ{}
+		return &index.CdxJ{}, nil
 	case "cdxpb":
-		c.writer = &index.CdxPb{}
+		return &index.CdxPb{}, nil
 	case "db":
-		c.writer = &index.CdxDb{}
-	default:
-		return fmt.Errorf("unknwon format %v", name)
+		return &index.CdxDb{}, nil
 	}
-	c.name = name
-	return nil
-}
-func (c *cdxFormat) Type() string {
-	return "cdxFormat"
+	return nil, fmt.Errorf("unknwon format %v, valid formats are: 'cdx', 'cdxj', 'cdxpb', 'db'", format)
 }
 
 type conf struct {
-	fileName string
-	format   cdxFormat
-	writer   index.CdxWriter
+	fileName     string
+	writerFormat string
+	writer       index.CdxWriter
 }
 
 func NewCommand() *cobra.Command {
@@ -73,27 +59,36 @@ func NewCommand() *cobra.Command {
 				return errors.New("missing file name")
 			}
 			c.fileName = args[0]
-			c.writer = c.format.writer
+
+			var err error
+			c.writer, err = parseFormat(c.writerFormat)
+			if err != nil {
+				return err
+			}
+
 			return runE(c)
 		},
 	}
 
-	cmd.Flags().VarP(&c.format, "format", "f", "cdx format")
+	cmd.Flags().StringVarP(&c.writerFormat, "format", "f", "cdx", "set the index format type")
 
 	return cmd
 }
 
 func runE(c *conf) error {
-	fmt.Printf("Format: %v\n", c.format)
+	fmt.Printf("Format: %v\n", c.writerFormat)
+
 	err := c.writer.Init()
 	if err != nil {
 		return err
 	}
 	defer c.writer.Close()
+
 	readFile(c)
 	return nil
 }
 
+// TODO: return error
 func readFile(c *conf) {
 	opts := &warcoptions.WarcOptions{Strict: false}
 	wf, err := warcreader.NewWarcFilename(c.fileName, 0, opts)
