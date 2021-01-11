@@ -17,11 +17,12 @@
 package index
 
 import (
+	"strconv"
+
 	"github.com/nlnwa/gowarc/pkg/surt"
 	"github.com/nlnwa/gowarc/pkg/timestamp"
 	cdx "github.com/nlnwa/gowarc/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
-	"strconv"
 )
 
 func NewCdxRecord(wr warcrecord.WarcRecord, fileName string, offset int64) *cdx.Cdx {
@@ -41,7 +42,7 @@ func NewCdxRecord(wr warcrecord.WarcRecord, fileName string, offset int64) *cdx.
 	if ssu, err := surt.SsurtString(wr.WarcHeader().Get(warcrecord.WarcTargetURI), true); err == nil {
 		cdx.Ssu = ssu
 	}
-	cdx.Sts = timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))
+	cdx.Sts, _ = timestamp.To14(wr.WarcHeader().Get(warcrecord.WarcDate))
 	cdx.Srt = wr.Type().String()
 
 	switch v := wr.Block().(type) {

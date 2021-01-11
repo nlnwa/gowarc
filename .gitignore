@@ -12,13 +12,13 @@
 *.out
 
 # Compiled binary
-warc
+/warc
 
 # Gowarc cache
-warcdb
+/warcdb
 
 # User specific config
-config.yaml
+/config.yaml
 
 .idea
 /proto/tools/

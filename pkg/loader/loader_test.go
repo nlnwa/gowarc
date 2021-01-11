@@ -18,9 +18,10 @@ package loader
 
 import (
 	"context"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"reflect"
 	"testing"
+
+	"github.com/nlnwa/gowarc/warcrecord"
 )
 
 func TestLoader_Get(t *testing.T) {
@@ -32,6 +33,10 @@ func TestLoader_Get(t *testing.T) {
 	type args struct {
 		warcId string
 	}
+
+	v1InfoRecord := warcrecord.New(warcrecord.V1_0, warcrecord.WARCINFO)
+	v1ResponseRecord := warcrecord.New(warcrecord.V1_0, warcrecord.RESPONSE)
+	v1RequestRecord := warcrecord.New(warcrecord.V1_0, warcrecord.REQUEST)
 	tests := []struct {
 		name       string
 		args       args
@@ -41,55 +46,48 @@ func TestLoader_Get(t *testing.T) {
 		{
 			"base1",
 			args{"urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008"},
-			nil,
+			v1InfoRecord,
 			false,
 		},
 		{
 			"base2",
 			args{"urn:uuid:a9c51e3e-0221-11e7-bf66-0242ac120005"},
-			nil,
+			v1ResponseRecord,
 			false,
 		},
 		{
 			"base3",
 			args{"urn:uuid:e9a0ee48-0221-11e7-adb1-0242ac120008"},
-			nil,
+			v1InfoRecord,
 			false,
 		},
 		{
 			"base4",
 			args{"urn:uuid:a9c5c23a-0221-11e7-8fe3-0242ac120007"},
-			nil,
+			v1RequestRecord,
 			false,
 		},
-		//{
-		//	"revisit",
-		//	args{"urn:uuid:e6e395ca-0221-11e7-a18d-0242ac120005"},
-		//	nil,
-		//	false,
-		//},
 		{
-			"base6",
+			"base5",
 			args{"urn:uuid:e6e41fea-0221-11e7-8fe3-0242ac120007"},
-			nil,
+			v1RequestRecord,
 			false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
 			gotRecord, err := loader.Get(ctx, tt.args.warcId)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Loader.Get() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			// TODO: Fix test
-			if false {
-				if !reflect.DeepEqual(gotRecord, tt.wantRecord) {
-					t.Errorf("Loader.Get() = \n%v, want %v", gotRecord, tt.wantRecord)
-				}
+
+			if reflect.DeepEqual(gotRecord, tt.wantRecord) {
+				t.Errorf("\nLoader.Get() = \n%v\nWant = \n%v", gotRecord, tt.wantRecord)
 			}
-			cancel()
 		})
 	}
 }
