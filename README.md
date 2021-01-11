@@ -22,3 +22,4 @@ You can configure certain aspect of gowarc with a config file. Here are all posi
 | warcdir       |  List of paths | The register of all directories where warcs will be located  | ["."] |
 | indexdir      |  path          | The root directory for indices files  | "." |
 | autoindex     |  bool          | Whether gowarc should index from the warcdir(s) when serving automatically or not  | true |
+| loglevel      |  string        | Change the application log level manually | "info" |
