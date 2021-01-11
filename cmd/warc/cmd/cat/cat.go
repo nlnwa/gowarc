@@ -34,7 +34,6 @@ import (
 type conf struct {
 	offset      int64
 	recordCount int
-	header      bool
 	strict      bool
 	fileName    string
 	id          []string
@@ -44,7 +43,7 @@ func NewCommand() *cobra.Command {
 	c := &conf{}
 	var cmd = &cobra.Command{
 		Use:   "cat",
-		Short: "Concatenate warc file records onto another",
+		Short: "Concatenate and print warc files",
 		Long:  ``,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -64,7 +63,6 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
 	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
-	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
 	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
 	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
 

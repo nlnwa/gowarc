@@ -32,7 +32,6 @@ import (
 type conf struct {
 	offset      int64
 	recordCount int
-	header      bool
 	strict      bool
 	fileName    string
 	id          []string
@@ -62,9 +61,8 @@ func NewCommand() *cobra.Command {
 
 	cmd.Flags().Int64VarP(&c.offset, "offset", "o", -1, "record offset")
 	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
-	cmd.Flags().BoolVar(&c.header, "header", false, "show header")
 	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
-	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "id")
+	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "specify record ids to ls")
 
 	return cmd
 }
