@@ -24,6 +24,7 @@ import (
 )
 
 type conf struct {
+	port       int
 	warcDirs   []string
 	watchDepth int
 }
@@ -44,12 +45,17 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
+	cmd.Flags().IntVarP(&c.port, "port", "p", -1, "the port that should be used to serve, will use config value otherwise")
 	cmd.Flags().IntVarP(&c.watchDepth, "watch-depth", "w", 4, "The maximum depth when indexing warc")
 
 	return cmd
 }
 
 func runE(c *conf) error {
+	if c.port < 0 {
+		c.port = viper.GetInt("warcport")
+	}
+
 	dbDir := viper.GetString("indexdir")
 	db, err := index.NewIndexDb(dbDir)
 	if err != nil {
@@ -63,7 +69,7 @@ func runE(c *conf) error {
 		defer autoindexer.Shutdown()
 	}
 
-	log.Infof("Starting web server")
-	server.Serve(db)
+	log.Infof("Starting web server at http://localhost:%v", c.port)
+	server.Serve(db, c.port)
 	return nil
 }

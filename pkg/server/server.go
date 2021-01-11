@@ -18,9 +18,11 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -32,7 +34,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func Serve(db *index.Db) {
+func Serve(db *index.Db, port int) {
 	l := &loader.Loader{
 		Resolver: &storageRefResolver{db: db},
 		Loader: &loader.FileStorageLoader{FilePathResolver: func(fileName string) (filePath string, err error) {
@@ -55,8 +57,9 @@ func Serve(db *index.Db) {
 	}
 	r.Use(loggingMw)
 
+	portStr := strconv.Itoa(port)
 	httpServer := &http.Server{
-		Addr: ":9999",
+		Addr: fmt.Sprintf(":%v", portStr),
 	}
 
 	sigs := make(chan os.Signal, 1)
