@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package cat
 
 import (
@@ -23,6 +24,7 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/nlnwa/gowarc/pkg/utils"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/nlnwa/gowarc/warcrecord"
@@ -100,7 +102,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
+			if !utils.Contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
 				continue
 			}
 		}
@@ -117,13 +119,4 @@ func readFile(c *conf, fileName string) {
 		}
 	}
 	fmt.Fprintln(os.Stderr, "Count: ", count)
-}
-
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }

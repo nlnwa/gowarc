@@ -14,22 +14,30 @@
  * limitations under the License.
  */
 
-package timestamp
+package utils
 
-import (
-	"time"
-)
-
-func To14(s string) (string, error) {
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return "", err
+// Searches string array s from string e
+func Contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
 	}
-
-	return t.Format("20060102150405"), nil
+	return false
 }
 
-func From14ToTime(s string) (time.Time, error) {
-	t, err := time.Parse("20060102150405", s)
-	return t, err
+// Crops a given string if it is bigger than size
+func CropString(s string, size int) string {
+	if len(s) > size {
+		s = s[:size-3] + "..."
+	}
+	return s
+}
+
+// Source: http://cavaliercoder.com/blog/optimized-abs-for-int64-in-go.html:
+//
+// Takes an int64 and returns the absolute value
+func AbsInt64(n int64) int64 {
+	y := n >> 63
+	return (n ^ y) - y
 }

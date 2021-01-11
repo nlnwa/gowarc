@@ -19,10 +19,11 @@ package warcrecord
 import (
 	"bufio"
 	"fmt"
-	"github.com/nlnwa/gowarc/warcfields"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/nlnwa/gowarc/warcfields"
 )
 
 type WarcRecord interface {
