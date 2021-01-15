@@ -3,7 +3,7 @@ module github.com/nlnwa/gowarc
 go 1.13
 
 require (
-	github.com/dgraph-io/badger/v2 v2.0.2
+	github.com/dgraph-io/badger/v2 v2.2007.2
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/golang/protobuf v1.4.0-rc.4
 	github.com/gorilla/handlers v1.4.2

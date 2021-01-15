@@ -17,24 +17,14 @@
 package server
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"os"
-	"os/signal"
-	"strconv"
-	"syscall"
-	"time"
-
-	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
 	"github.com/nlnwa/gowarc/pkg/server/warcserver"
-	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
-func Serve(db *index.Db, port int) {
+func Handler(db *index.Db, middlewares ...func (http.Handler) http.Handler) http.Handler {
 	l := &loader.Loader{
 		Resolver: &storageRefResolver{db: db},
 		Loader: &loader.FileStorageLoader{FilePathResolver: func(fileName string) (filePath string, err error) {
@@ -50,28 +40,12 @@ func Serve(db *index.Db, port int) {
 	r.Handle("/search", &searchHandler{l, db})
 	warcserverRoutes := r.PathPrefix("/warcserver").Subrouter()
 	warcserver.RegisterRoutes(warcserverRoutes, db, l)
-	http.Handle("/", r)
 
-	loggingMw := func(h http.Handler) http.Handler {
-		return handlers.CombinedLoggingHandler(os.Stdout, h)
-	}
-	r.Use(loggingMw)
-
-	portStr := strconv.Itoa(port)
-	httpServer := &http.Server{
-		Addr: fmt.Sprintf(":%v", portStr),
+	for _, middleware := range middlewares {
+		r.Use(middleware)
 	}
 
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		httpServer.Shutdown(ctx)
-	}()
-
-	log.Info(httpServer.ListenAndServe())
+	return r
 }
 
 type storageRefResolver struct {

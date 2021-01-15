@@ -46,6 +46,11 @@ type Db struct {
 	cdxIndex     *badger.DB
 	dbGcInterval *time.Ticker
 
+	// cache settings
+	fileIndexCacheSize int64
+	cdxIndexCacheSize int64
+	idIndexCacheSize int64
+
 	// batch settings
 	batchMaxSize int
 	batchMaxWait time.Duration
@@ -55,8 +60,8 @@ type Db struct {
 	batchFlushChan chan []*record
 }
 
-func NewIndexDb(dbDir string) (*Db, error) {
-	dbDir = path.Join(dbDir, "warcdb")
+func NewIndexDb(opts Options) (*Db, error) {
+	dbDir := path.Join(opts.Dir, "warcdb")
 	idIndexDir := path.Join(dbDir, "id-index")
 	fileIndexDir := path.Join(dbDir, "file-index")
 	cdxIndexDir := path.Join(dbDir, "cdx-index")
@@ -93,17 +98,17 @@ func NewIndexDb(dbDir string) (*Db, error) {
 	// Open db
 	var err error
 
-	d.idIndex, err = openIndex(idIndexDir)
+	d.idIndex, err = openIndex(idIndexDir, opts.IdCacheSize)
 	if err != nil {
 		return nil, err
 	}
 
-	d.fileIndex, err = openIndex(fileIndexDir)
+	d.fileIndex, err = openIndex(fileIndexDir, opts.FileCacheSize)
 	if err != nil {
 		return nil, err
 	}
 
-	d.cdxIndex, err = openIndex(cdxIndexDir)
+	d.cdxIndex, err = openIndex(cdxIndexDir, opts.CdxCacheSize)
 	if err != nil {
 		return nil, err
 	}
@@ -117,11 +122,11 @@ func NewIndexDb(dbDir string) (*Db, error) {
 	return d, nil
 }
 
-func openIndex(indexDir string) (db *badger.DB, err error) {
-	if err := os.MkdirAll(indexDir, 0777); err != nil {
+func openIndex(dir string, cacheSize int64) (db *badger.DB, err error) {
+	if err := os.MkdirAll(dir, 0777); err != nil {
 		return nil, err
 	}
-	opts := badger.DefaultOptions(indexDir)
+	opts := badger.DefaultOptions(dir).WithIndexCacheSize(cacheSize)
 	opts.Logger = log.StandardLogger()
 	db, err = badger.Open(opts)
 	return
@@ -221,12 +226,18 @@ func (d *Db) UpdateFilePath(filePath string) {
 }
 
 func (d *Db) AddBatch(records []*record) {
-	log.Debugf("flushing batch to DB")
+	log.Debug("Flushing batch to DB")
 
 	var err error
 
 	err = d.idIndex.Update(func(txn *badger.Txn) error {
 		for _, r := range records {
+			if r == nil {
+				log.Warn("Record is nil")
+				continue
+			} else if r.filePath == "" {
+				log.Warn("Empty filepath")
+			}
 			r.filePath, err = filepath.Abs(r.filePath)
 			if err != nil {
 				log.Errorf("%v", err)
@@ -274,10 +285,7 @@ func (d *Db) Flush() {
 		return
 	}
 
-	copiedItems := make([]*record, len(d.batchItems))
-	for idx, i := range d.batchItems {
-		copiedItems[idx] = i
-	}
+	copiedItems := d.batchItems
 	d.batchItems = d.batchItems[:0]
 	d.batchFlushChan <- copiedItems
 }

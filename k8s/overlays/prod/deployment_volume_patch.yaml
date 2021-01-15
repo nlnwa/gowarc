@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gowarc-server
+spec:
+  template:
+    spec:
+      containers:
+        - name: gowarc-server
+          resources:
+            limits:
+              memory: 30Gi
+          volumeMounts:
+            - mountPath: /etc/warc
+              name: gowarc-config
+            - mountPath: /warcindex
+              name: warcindex
+              subPath: nettaviser/nettaviser_2020
+            - mountPath: /warcfiles
+              name: warcfiles
+              subPath: veidemann/validwarcs/nettaviser/nettaviser_2020
+      volumes:
+        - name: gowarc-config
+          configMap:
+            name: gowarc-config
+        - name: warcindex
+          persistentVolumeClaim:
+            claimName: loke-b11
+        - name: warcfiles
+          persistentVolumeClaim:
+            claimName: nettarkivet-0
+            readOnly: true

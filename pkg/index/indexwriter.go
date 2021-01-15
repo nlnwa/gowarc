@@ -22,7 +22,6 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
 	"github.com/nlnwa/gowarc/warcrecord"
-	"github.com/spf13/viper"
 )
 
 type CdxWriter interface {
@@ -44,8 +43,7 @@ type CdxDb struct {
 }
 
 func (c *CdxDb) Init() (err error) {
-	dbDir := viper.GetString("indexdir")
-	c.db, err = NewIndexDb(dbDir)
+	c.db, err = NewIndexDb(DefaultOptions())
 	if err != nil {
 		return err
 	}

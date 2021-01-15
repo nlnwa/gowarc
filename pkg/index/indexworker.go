@@ -102,7 +102,7 @@ func indexFile(db *Db, fileName string) {
 	// Check if file is indexed and has not changed since indexing
 	stat, err := os.Stat(fileName)
 	if err != nil {
-		log.Errorf("%v", err)
+		log.Errorf("Failed to stat file %v: %v", fileName, err)
 	}
 
 	fileSize := stat.Size()
@@ -111,7 +111,7 @@ func indexFile(db *Db, fileName string) {
 	if fileInfo, err := db.GetFilePath(fn); err == nil {
 		fileInfoLastModified, err := ptypes.Timestamp(fileInfo.LastModified)
 		if err != nil {
-			log.Errorf("%v", err)
+			log.Errorf("Failed to convert timestamp: %v", err)
 		}
 		if fileInfo.Size == fileSize && fileInfoLastModified.Equal(fileLastModified) {
 			log.Debugf("Already indexed %v", fileName)
