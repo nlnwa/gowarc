@@ -17,8 +17,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd"
 	"os"
+
+	"github.com/nlnwa/gowarc/cmd/warc/cmd"
 )
 
 func main() {
