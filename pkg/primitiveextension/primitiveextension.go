@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package utils
+package primitiveextension
 
 // Searches string array s from string e
 func Contains(s []string, e string) bool {

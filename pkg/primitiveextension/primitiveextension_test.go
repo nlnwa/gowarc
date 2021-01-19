@@ -1,16 +1,16 @@
-package utils_test
+package primitiveextension_test
 
 import (
 	"testing"
 
-	"github.com/nlnwa/gowarc/pkg/utils"
+	ext "github.com/nlnwa/gowarc/pkg/primitiveextension"
 )
 
 func TestContainsMatchOnMatching(t *testing.T) {
 	needle := "needle"
 	haystack := []string{"hay1", "hay2", needle, "hay3", "hay5"}
 
-	if !utils.Contains(haystack, needle) {
+	if !ext.Contains(haystack, needle) {
 		t.Error("Failed to find needle")
 	}
 }
@@ -19,7 +19,7 @@ func TestContainsNonMatchOnNonMatching(t *testing.T) {
 	needle := "needle"
 	haystack := []string{"hay1", "hay2", "hay4", "hay3", "hay5"}
 
-	if utils.Contains(haystack, needle) {
+	if ext.Contains(haystack, needle) {
 		t.Error("Found element that does not exist in slice")
 	}
 }
@@ -28,7 +28,7 @@ func TestCropStringCrops(t *testing.T) {
 	input := "123456789"
 	expected := "12..."
 
-	actual := utils.CropString(input, 5)
+	actual := ext.CropString(input, 5)
 
 	if actual != expected {
 		t.Errorf("Expected %s got %s", expected, actual)
@@ -37,7 +37,7 @@ func TestCropStringCrops(t *testing.T) {
 
 func TestAbsInt64NegativeInput(t *testing.T) {
 	const input int64 = -10
-	actual := utils.AbsInt64(input)
+	actual := ext.AbsInt64(input)
 
 	const expected int64 = 10
 	if actual != expected {
@@ -47,7 +47,7 @@ func TestAbsInt64NegativeInput(t *testing.T) {
 
 func TestAbsInt64PositiveInput(t *testing.T) {
 	const input int64 = 10
-	actual := utils.AbsInt64(input)
+	actual := ext.AbsInt64(input)
 
 	const expected int64 = 10
 	if actual != expected {
