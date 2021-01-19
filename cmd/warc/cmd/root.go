@@ -21,9 +21,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/ls"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/serve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -71,8 +69,6 @@ func NewCommand() *cobra.Command {
 	// Subcommands
 	cmd.AddCommand(ls.NewCommand())
 	cmd.AddCommand(cat.NewCommand())
-	cmd.AddCommand(serve.NewCommand())
-	cmd.AddCommand(index.NewCommand())
 
 	return cmd
 }

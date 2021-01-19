@@ -24,12 +24,11 @@ import (
 	"sort"
 	"strconv"
 
-	"github.com/nlnwa/gowarc/pkg/utils"
+	ext "github.com/nlnwa/gowarc/pkg/primitiveextension"
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/nlnwa/gowarc/warcwriter"
-
 	"github.com/spf13/cobra"
 )
 
@@ -102,7 +101,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !utils.Contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
+			if !ext.Contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
 				continue
 			}
 		}

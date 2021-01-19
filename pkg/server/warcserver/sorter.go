@@ -22,8 +22,9 @@ import (
 	"strings"
 
 	"github.com/dgraph-io/badger/v2"
+	"github.com/nlnwa/gowarc/pkg/primitiveextension"
+	ext "github.com/nlnwa/gowarc/pkg/primitiveextension"
 	"github.com/nlnwa/gowarc/pkg/timestamp"
-	"github.com/nlnwa/gowarc/pkg/utils"
 )
 
 type sorter struct {
@@ -81,6 +82,6 @@ func (s *sorter) sort() {
 	sort.Slice(s.values, func(i, j int) bool {
 		ts1 := s.values[i][0].(int64)
 		ts2 := s.values[j][0].(int64)
-		return utils.AbsInt64(closestTs-ts1) < utils.AbsInt64(closestTs-ts2)
+		return primitiveextension.AbsInt64(closestTs-ts1) < ext.AbsInt64(closestTs-ts2)
 	})
 }
