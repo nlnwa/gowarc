@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package warcfields
+package warcrecord
 
 import (
 	"bufio"
-	"github.com/nlnwa/gowarc/warcoptions"
 	"reflect"
 	"strings"
 	"testing"
@@ -27,12 +26,12 @@ import (
 func TestParseWarcHeader(t *testing.T) {
 	type args struct {
 		data string
-		opts *warcoptions.WarcOptions
+		opts *options
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *WarcFields
+		want    *warcFields
 		wantErr bool
 	}{
 		{
@@ -44,7 +43,7 @@ func TestParseWarcHeader(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: &warcoptions.WarcOptions{Strict: false},
+				opts: NewOptions(WithStrict(false)),
 			},
 			nil,
 			false,
@@ -53,7 +52,7 @@ func TestParseWarcHeader(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := bufio.NewReader(strings.NewReader(tt.args.data))
-			p := &Parser{Options: tt.args.opts}
+			p := &warcfieldsParser{Options: tt.args.opts}
 			got, err := p.Parse(r, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ParseWarcHeader() error = %v, wantErr %v", err, tt.wantErr)

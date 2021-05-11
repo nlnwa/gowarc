@@ -342,12 +342,12 @@ func (d *Db) Search(key string, reverse bool, f PerItemFunction, a AfterIteratio
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		seekKey := key
+		seekKey := []byte(key)
 		if reverse {
-			seekKey += string(rune(0xff))
+			seekKey = append(seekKey, 0xff)
 		}
 
-		for it.Seek([]byte(seekKey)); it.ValidForPrefix([]byte(key)); it.Next() {
+		for it.Seek(seekKey); it.ValidForPrefix([]byte(key)); it.Next() {
 			item := it.Item()
 			if f(item) {
 				break

@@ -49,9 +49,11 @@ const (
 	WarcWarcinfoID            = "WARC-Warcinfo-ID"
 )
 
+var requiredFields = []string{WarcRecordID, ContentLength, WarcDate, WarcType}
+
 type fieldDef struct {
 	name           string
-	validationFunc func(name, value string, wr *warcRecord, def fieldDef, strict bool) (validatedValue string, err error)
+	validationFunc func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (validatedValue string, err error)
 	repeatable     bool
 	supportedRec   uint8
 	supportedSpec  uint8
@@ -144,17 +146,17 @@ func NormalizeName(name string) (string, fieldDef) {
 }
 
 var (
-	pUnknown = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
+	pUnknown = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
 		return value, nil
 	}
-	pString = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pString = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
-	pTime = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pTime = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		if _, err := time.Parse(time.RFC3339, value); err != nil {
@@ -162,17 +164,17 @@ var (
 		}
 		return value, nil
 	}
-	pWarcType = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if value != wr.recordType.txt {
-			return "", fmt.Errorf("not allowed to change record type")
-		}
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pWarcType = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		//if value != wr.recordType.txt {
+		//	return "", fmt.Errorf("not allowed to change record type")
+		//}
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
-	pWarcId = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pWarcId = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
@@ -182,8 +184,8 @@ var (
 		//}
 		//return v, nil
 	}
-	pInt = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pInt = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		if _, err := strconv.Atoi(value); err != nil {
@@ -191,8 +193,8 @@ var (
 		}
 		return value, nil
 	}
-	pLong = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pLong = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		if _, err := strconv.ParseInt(value, 0, 64); err != nil {
@@ -200,31 +202,28 @@ var (
 		}
 		return value, nil
 	}
-	pDigest = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pDigest = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		// TODO: Check Digest
 		return value, nil
 	}
-	pTruncReason = func(name, value string, wr *warcRecord, def fieldDef, strict bool) (string, error) {
-		if err := checkLegal(name, value, wr, def, strict); err != nil {
+	pTruncReason = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
 )
 
-func checkLegal(name, value string, wr *warcRecord, def fieldDef, strict bool) (err error) {
-	if strict && wr.version.id&def.supportedSpec == 0 {
+func checkLegal(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (err error) {
+	if opts.strict && version.id&def.supportedSpec == 0 {
 		return
 	}
-	if strict && wr.recordType.id&def.supportedRec == 0 {
-		err = fmt.Errorf("illegal field '%v' in record type '%v'", name, wr.recordType.txt)
+	if opts.strict && recordType.id&def.supportedRec == 0 {
+		err = fmt.Errorf("illegal field '%v' in record type '%v'", name, recordType.txt)
 		return
-	}
-	if strict && !def.repeatable && wr.headers.Has(name) {
-		err = fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, wr.recordType.txt)
 	}
 	return
 }

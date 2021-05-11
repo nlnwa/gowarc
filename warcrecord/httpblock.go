@@ -19,204 +19,253 @@ package warcrecord
 import (
 	"bufio"
 	"bytes"
+	"crypto/sha1"
 	"fmt"
+	"hash"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"sync"
 )
 
 type HttpRequestBlock interface {
 	PayloadBlock
-	Request() (*http.Request, error)
+	HttpRequestLine() string
+	HttpHeader() *http.Header
+	HttpHeaderBytes() []byte
 }
 
 type HttpResponseBlock interface {
 	PayloadBlock
-	Response() (*http.Response, error)
+	HttpStatusLine() string
+	HttpStatusCode() int
+	HttpHeader() *http.Header
+	HttpHeaderBytes() []byte
 }
 
 type httpRequestBlock struct {
-	Block
-	request         *http.Request
-	requestRawBytes []byte
-	once            sync.Once
+	httpRequestLine string
+	httpHeader      *http.Header
+	httpHeaderBytes []byte
+	payload         io.Reader
+	blockDigest     hash.Hash
+	payloadDigest   hash.Hash
+	readOp          readOp
+	parseHeaderOnce sync.Once
 }
 
-func (block *httpRequestBlock) RawBytes() (*bufio.Reader, error) {
-	if block.requestRawBytes == nil {
-		return block.Block.RawBytes()
+func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
+	if block.readOp != opInitial {
+		return nil, errContentReAccessed
 	}
+	block.readOp = opRawBytes
+	return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+}
 
-	r1, err := block.RequestBytes()
-	if err != nil {
-		return nil, err
-	}
-	r2, err := block.Block.RawBytes()
-	if err != nil {
-		return nil, err
-	}
-	return bufio.NewReader(io.MultiReader(r1, r2)), nil
+func (block *httpRequestBlock) BlockDigest() string {
+	//if block.readOp == opInitial {
+	//	block.RawBytes()
+	//}
+	block.readOp = opRawBytes
+	io.Copy(ioutil.Discard, block.payload)
+	h := block.blockDigest.Sum(nil)
+	return fmt.Sprintf("request digest %x", h)
+	//return "request digest"
 }
 
 func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
-	_, err := block.Request()
-	if err != nil {
-		return nil, err
+	if block.readOp != opInitial {
+		return nil, errContentReAccessed
 	}
-	return block.Block.RawBytes()
+	block.readOp = opPayloadBytes
+	return block.payload, nil
 }
 
-func (block *httpRequestBlock) RequestBytes() (io.Reader, error) {
-	var err error
-	block.once.Do(func() {
-		rb, e := block.RawBytes()
+func (block *httpRequestBlock) PayloadDigest() string {
+	block.readOp = opRawBytes
+	io.Copy(ioutil.Discard, block.payload)
+	h := block.payloadDigest.Sum(nil)
+	return fmt.Sprintf("request payload digest %x", h)
+	//return "request payload digest"
+}
+
+func (block *httpRequestBlock) HttpHeaderBytes() []byte {
+	return block.httpHeaderBytes
+}
+
+func (block *httpRequestBlock) HttpRequestLine() string {
+	block.parseHeaders()
+	return block.httpRequestLine
+}
+
+func (block *httpRequestBlock) HttpHeader() *http.Header {
+	block.parseHeaders()
+	return block.httpHeader
+}
+
+func (block *httpRequestBlock) parseHeaders() (err error) {
+	block.parseHeaderOnce.Do(func() {
+		request, e := http.ReadRequest(bufio.NewReader(bytes.NewReader(block.httpHeaderBytes)))
 		if e != nil {
 			err = e
+			return
 		}
-
-		var buf bytes.Buffer
-		var line []byte
-		var n, l int
-		for {
-			line, err = rb.ReadSlice('\n')
-			if err != nil {
-				break
-			}
-			n++
-			l += len(line)
-			buf.Write(line)
-			if len(line) < 3 {
-				break
-			}
-		}
-		block.requestRawBytes = buf.Bytes()
+		block.httpRequestLine = request.RequestURI
+		block.httpHeader = &request.Header
 	})
-	return bytes.NewBuffer(block.requestRawBytes), err
-}
-
-func (block *httpRequestBlock) Request() (*http.Request, error) {
-	var err error
-	block.once.Do(func() {
-		rb, e := block.RequestBytes()
-		if e != nil {
-			err = e
-		}
-		block.request, err = http.ReadRequest(bufio.NewReader(rb))
-	})
-	return block.request, err
-}
-
-func (block *httpRequestBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	var p *bufio.Reader
-	p, err = block.RawBytes()
-	if err != nil {
-		return
-	}
-	bytesWritten, err = io.Copy(w, p)
-	if err != nil {
-		return
-	}
-	w.Write([]byte(CRLF))
-	bytesWritten += 2
 	return
+}
+
+func (block *httpRequestBlock) Write(w io.Writer) (int64, error) {
+	p, err := block.RawBytes()
+	if err != nil {
+		return 0, err
+	}
+	bytesWritten, err := io.Copy(w, p)
+	if err != nil {
+		return bytesWritten, err
+	}
+	_, err = w.Write([]byte(CRLF))
+	bytesWritten += 2
+	return bytesWritten, err
 }
 
 type httpResponseBlock struct {
-	Block
-	response         *http.Response
-	responseRawBytes []byte
-	once             sync.Once
+	httpStatusLine  string
+	httpStatusCode  int
+	httpHeader      *http.Header
+	httpHeaderBytes []byte
+	payload         io.Reader
+	blockDigest     hash.Hash
+	payloadDigest   hash.Hash
+	readOp          readOp
+	parseHeaderOnce sync.Once
 }
 
-func (block *httpResponseBlock) RawBytes() (*bufio.Reader, error) {
-	if block.responseRawBytes == nil {
-		return block.Block.RawBytes()
+func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
+	if block.readOp != opInitial {
+		return nil, errContentReAccessed
 	}
+	block.readOp = opRawBytes
+	return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+}
 
-	r1, err := block.ResponseBytes()
-	if err != nil {
-		return nil, err
-	}
-	r2, err := block.Block.RawBytes()
-	if err != nil {
-		return nil, err
-	}
-	return bufio.NewReader(io.MultiReader(r1, r2)), nil
+func (block *httpResponseBlock) BlockDigest() string {
+	block.readOp = opRawBytes
+	io.Copy(ioutil.Discard, block.payload)
+	h := block.blockDigest.Sum(nil)
+	return fmt.Sprintf("response digest sha1:%x", h)
 }
 
 func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {
-	_, err := block.Response()
-	if err != nil {
-		return nil, err
+	if block.readOp != opInitial {
+		return nil, errContentReAccessed
 	}
-	return block.Block.RawBytes()
+	block.readOp = opPayloadBytes
+	return block.payload, nil
 }
 
-func (block *httpResponseBlock) ResponseBytes() (io.Reader, error) {
-	var err error
-	block.once.Do(func() {
-		rb, e := block.RawBytes()
+func (block *httpResponseBlock) PayloadDigest() string {
+	block.readOp = opRawBytes
+	io.Copy(ioutil.Discard, block.payload)
+	h := block.payloadDigest.Sum(nil)
+	return fmt.Sprintf("response payload digest %x", h)
+}
+
+func (block *httpResponseBlock) HttpHeaderBytes() []byte {
+	return block.httpHeaderBytes
+}
+
+func (block *httpResponseBlock) HttpStatusLine() string {
+	block.parseHeaders()
+	return block.httpStatusLine
+}
+
+func (block *httpResponseBlock) HttpStatusCode() int {
+	block.parseHeaders()
+	return block.httpStatusCode
+}
+
+func (block *httpResponseBlock) HttpHeader() *http.Header {
+	block.parseHeaders()
+	return block.httpHeader
+}
+
+func (block *httpResponseBlock) parseHeaders() (err error) {
+	block.parseHeaderOnce.Do(func() {
+		response, e := http.ReadResponse(bufio.NewReader(bytes.NewReader(block.httpHeaderBytes)), nil)
 		if e != nil {
 			err = e
+			return
 		}
-
-		var buf bytes.Buffer
-		var line []byte
-		var n, l int
-		for {
-			line, err = rb.ReadSlice('\n')
-			if err != nil {
-				break
-			}
-			n++
-			l += len(line)
-			buf.Write(line)
-			if len(line) < 3 {
-				break
-			}
-		}
-		block.responseRawBytes = buf.Bytes()
+		block.httpStatusLine = response.Status
+		block.httpStatusCode = response.StatusCode
+		block.httpHeader = &response.Header
 	})
-	return bytes.NewBuffer(block.responseRawBytes), err
-}
-
-func (block *httpResponseBlock) Response() (*http.Response, error) {
-	rb, err := block.ResponseBytes()
-	if err != nil {
-		return nil, err
-	}
-	block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
-	return block.response, err
-}
-
-func (block *httpResponseBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	var p *bufio.Reader
-	p, err = block.RawBytes()
-	if err != nil {
-		return
-	}
-	bytesWritten, err = io.Copy(w, p)
-	if err != nil {
-		return
-	}
-	w.Write([]byte(CRLF))
-	bytesWritten += 2
 	return
 }
 
-func NewHttpBlock(block Block) (PayloadBlock, error) {
-	rb, err := block.RawBytes()
+func (block *httpResponseBlock) Write(w io.Writer) (int64, error) {
+	p, err := block.RawBytes()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
+	bytesWritten, err := io.Copy(w, p)
+	if err != nil {
+		return bytesWritten, err
+	}
+	_, err = w.Write([]byte(CRLF))
+	bytesWritten += 2
+	return bytesWritten, err
+}
+
+// headerBytes reads the http-headers into a byte array.
+func headerBytes(r *bufio.Reader) []byte {
+	result := bytes.Buffer{}
+	for {
+		line, err := r.ReadBytes('\n')
+		if err != nil {
+			break
+		}
+		result.Write(line)
+		if len(line) < 3 {
+			break
+		}
+	}
+	return result.Bytes()
+}
+
+func NewHttpBlock(r io.Reader) (PayloadBlock, error) {
+	//r := block.rawBytes
+	//if err != nil {
+	//	return nil, err
+	//}
+	rb := bufio.NewReader(r)
 	b, err := rb.Peek(4)
 	if err != nil {
-		return nil, fmt.Errorf("not a http block %v", err)
-		return nil, err
+		return nil, fmt.Errorf("not a http block: %w", err)
 	}
+
+	hb := headerBytes(rb)
+	blockDigest := sha1.New()
+	blockDigest.Write(hb)
+	payloadDigest := sha1.New()
+	payload := io.TeeReader(io.TeeReader(rb, blockDigest), payloadDigest)
 	if bytes.HasPrefix(b, []byte("HTTP")) {
-		return &httpResponseBlock{Block: block}, nil
+		resp := &httpResponseBlock{
+			httpHeaderBytes: hb,
+			payload:         payload,
+			blockDigest:     blockDigest,
+			payloadDigest:   payloadDigest,
+		}
+		return resp, nil
 	} else {
-		return &httpRequestBlock{Block: block}, nil
+		resp := &httpRequestBlock{
+			httpHeaderBytes: hb,
+			payload:         payload,
+			blockDigest:     blockDigest,
+			payloadDigest:   payloadDigest,
+		}
+		return resp, nil
 	}
 }

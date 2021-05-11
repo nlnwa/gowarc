@@ -25,11 +25,7 @@ import (
 	"strconv"
 
 	"github.com/nlnwa/gowarc/pkg/utils"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/nlnwa/gowarc/warcrecord"
-	"github.com/nlnwa/gowarc/warcwriter"
-
 	"github.com/spf13/cobra"
 )
 
@@ -77,8 +73,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := &warcoptions.WarcOptions{Strict: c.strict}
-	wf, err := warcreader.NewWarcFilename(fileName, c.offset, opts)
+	opts := warcrecord.NewOptions(warcrecord.WithStrict(c.strict))
+	wf, err := warcrecord.NewWarcFilename(fileName, c.offset, opts)
 	defer wf.Close()
 	if err != nil {
 		fmt.Printf("Error opening file: %v\n", err)
@@ -87,10 +83,7 @@ func readFile(c *conf, fileName string) {
 
 	count := 0
 
-	ww := warcwriter.NewWriter(&warcoptions.WarcOptions{
-		Strict:   false,
-		Compress: false,
-	})
+	ww := warcrecord.NewWriter(warcrecord.NewOptions(warcrecord.WithStrict(false), warcrecord.WithCompression(false)))
 
 	for {
 		wr, _, err := wf.Next()

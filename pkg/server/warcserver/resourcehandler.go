@@ -24,9 +24,7 @@ import (
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
 	cdx "github.com/nlnwa/gowarc/proto"
-	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcrecord"
-	"github.com/nlnwa/gowarc/warcwriter"
 	"io"
 	"net/http"
 	"strings"
@@ -66,13 +64,9 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				if err != nil {
 					return err
 				}
-				renderContent(w, v, r)
+				renderContent(w, v, r.StatusCode, &r.Header)
 			case warcrecord.HttpResponseBlock:
-				r, err := v.Response()
-				if err != nil {
-					return err
-				}
-				renderContent(w, v, r)
+				renderContent(w, v, v.HttpStatusCode(), v.HttpHeader())
 			default:
 				w.Header().Set("Content-Type", "text/plain")
 				warcRecord.WarcHeader().Write(w)
@@ -141,23 +135,20 @@ func renderWarcContent(w http.ResponseWriter, warcRecord warcrecord.WarcRecord, 
 	w.Header().Set("Memento-Datetime", warcRecord.WarcHeader().Get(warcrecord.WarcDate))
 	w.Header().Set("Warcserver-Type", "warc")
 
-	warcWriter := warcwriter.NewWriter(&warcoptions.WarcOptions{
-		Strict:   false,
-		Compress: false,
-	})
+	warcWriter := warcrecord.NewWriter(warcrecord.NewOptions(warcrecord.WithCompression(false)))
 	_, err := warcWriter.WriteRecord(w, warcRecord)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
 }
 
-func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, r *http.Response) {
-	for k, vl := range r.Header {
+func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, statusCode int, header *http.Header) {
+	for k, vl := range *header {
 		for _, v := range vl {
 			w.Header().Set(k, v)
 		}
 	}
-	w.WriteHeader(r.StatusCode)
+	w.WriteHeader(statusCode)
 	p, err := v.PayloadBytes()
 	if err != nil {
 		return

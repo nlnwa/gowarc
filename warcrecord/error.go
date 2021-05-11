@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,17 @@
  * limitations under the License.
  */
 
-package warcoptions
+package warcrecord
 
-type WarcOptions struct {
-	Strict   bool
-	Compress bool
+type Warning struct {
+}
+
+func (w *Warning) Error() string {
+	panic("implement me")
+}
+
+type Error string
+
+func (e Error) Error() string {
+	return "gowarc: " + string(e)
 }

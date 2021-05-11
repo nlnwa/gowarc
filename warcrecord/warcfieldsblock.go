@@ -17,38 +17,49 @@
 package warcrecord
 
 import (
-	"github.com/nlnwa/gowarc/warcfields"
-	"github.com/nlnwa/gowarc/warcoptions"
+	"bufio"
+	"bytes"
 	"io"
+	"io/ioutil"
 )
 
 type WarcFieldsBlock interface {
 	Block
-	WarcFields() warcfields.WarcFields
+	WarcFields() *warcFields
 }
 
 type warcFieldsBlock struct {
-	Block
-	warcFields warcfields.WarcFields
+	content    []byte
+	warcFields *warcFields
 }
 
-func (b *warcFieldsBlock) WarcFields() warcfields.WarcFields {
+func (b *warcFieldsBlock) WarcFields() *warcFields {
 	return b.warcFields
 }
 
-func NewWarcFieldsBlock(block Block, options *warcoptions.WarcOptions) (WarcFieldsBlock, error) {
-	rb, err := block.RawBytes()
+func NewWarcFieldsBlock(rb io.Reader, options *options) (WarcFieldsBlock, error) {
+	wfb := &warcFieldsBlock{}
+	//rb, err := block.RawBytes()
+	//if err != nil {
+	//	return nil, err
+	//}
+	var err error
+	wfb.content, err = ioutil.ReadAll(rb)
+	p := &warcfieldsParser{options}
+	wfb.warcFields, err = p.Parse(bufio.NewReader(rb), nil)
 	if err != nil {
 		return nil, err
 	}
 
-	p := warcfields.NewParser(options)
-	wf, err := p.Parse(rb, nil)
-	if err != nil {
-		return nil, err
-	}
+	return wfb, nil
+}
 
-	return &warcFieldsBlock{Block: block, warcFields: wf.(warcfields.WarcFields)}, nil
+func (b *warcFieldsBlock) RawBytes() (io.Reader, error) {
+	return bytes.NewReader(b.content), nil
+}
+
+func (block *warcFieldsBlock) BlockDigest() string {
+	return "warcfields digest"
 }
 
 func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {

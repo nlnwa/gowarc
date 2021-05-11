@@ -34,9 +34,10 @@ func TestLoader_Get(t *testing.T) {
 		warcId string
 	}
 
-	v1InfoRecord := warcrecord.New(warcrecord.V1_0, warcrecord.WARCINFO)
-	v1ResponseRecord := warcrecord.New(warcrecord.V1_0, warcrecord.RESPONSE)
-	v1RequestRecord := warcrecord.New(warcrecord.V1_0, warcrecord.REQUEST)
+	opts := warcrecord.NewOptions()
+	v1InfoRecord, _ := warcrecord.NewRecordBuilder(opts, warcrecord.WARCINFO).Finalize()
+	v1ResponseRecord, _ := warcrecord.NewRecordBuilder(opts, warcrecord.RESPONSE).Finalize()
+	v1RequestRecord, _ := warcrecord.NewRecordBuilder(opts, warcrecord.REQUEST).Finalize()
 	tests := []struct {
 		name       string
 		args       args

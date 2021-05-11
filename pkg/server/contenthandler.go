@@ -56,13 +56,9 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		renderContent(w, v, r)
+		renderContent(w, v, &r.Header)
 	case warcrecord.HttpResponseBlock:
-		r, err := v.Response()
-		if err != nil {
-			return
-		}
-		renderContent(w, v, r)
+		renderContent(w, v, v.HttpHeader())
 	default:
 		w.Header().Set("Content-Type", "text/plain")
 		record.WarcHeader().Write(w)
@@ -75,8 +71,8 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, r *http.Response) {
-	for k, vl := range r.Header {
+func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, header *http.Header) {
+	for k, vl := range *header {
 		for _, v := range vl {
 			w.Header().Set(k, v)
 		}

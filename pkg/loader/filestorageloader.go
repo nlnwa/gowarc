@@ -19,8 +19,6 @@ package loader
 import (
 	"context"
 	"fmt"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcreader"
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -39,8 +37,8 @@ func (f *FileStorageLoader) Load(ctx context.Context, storageRef string) (record
 	}
 	log.Debugf("loading record from file: %s, offset: %v", filePath, offset)
 
-	opts := &warcoptions.WarcOptions{Strict: false}
-	wf, err := warcreader.NewWarcFilename(filePath, offset, opts)
+	opts := warcrecord.NewOptions()
+	wf, err := warcrecord.NewWarcFilename(filePath, offset, opts)
 	if err != nil {
 		return
 	}

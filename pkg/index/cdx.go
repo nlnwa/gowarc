@@ -47,11 +47,9 @@ func NewCdxRecord(wr warcrecord.WarcRecord, fileName string, offset int64) *cdx.
 
 	switch v := wr.Block().(type) {
 	case warcrecord.HttpResponseBlock:
-		if resp, err := v.Response(); err == nil {
-			cdx.Hsc = strconv.Itoa(resp.StatusCode)
-			cdx.Mct = resp.Header.Get("Content-Type")
-			cdx.Ple = resp.Header.Get("Content-Length")
-		}
+		cdx.Hsc = strconv.Itoa(v.HttpStatusCode())
+		cdx.Mct = v.HttpHeader().Get("Content-Type")
+		cdx.Ple = v.HttpHeader().Get("Content-Length")
 	case *warcrecord.RevisitBlock:
 		if resp, err := v.Response(); err == nil {
 			cdx.Hsc = strconv.Itoa(resp.StatusCode)

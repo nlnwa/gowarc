@@ -17,6 +17,7 @@
 package index
 
 import (
+	"github.com/nlnwa/gowarc/warcrecord"
 	"io"
 	"os"
 	"path/filepath"
@@ -25,8 +26,6 @@ import (
 	"time"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcreader"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -123,8 +122,8 @@ func indexFile(db *Db, fileName string) {
 
 	log.Infof("indexing %v", fileName)
 	start := time.Now()
-	opts := &warcoptions.WarcOptions{Strict: false}
-	wf, err := warcreader.NewWarcFilename(fileName, 0, opts)
+	opts := warcrecord.NewOptions()
+	wf, err := warcrecord.NewWarcFilename(fileName, 0, opts)
 	if err != nil {
 		log.Warnf("error while indexing %v: %v", fileName, err)
 		return

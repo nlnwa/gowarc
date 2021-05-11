@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,11 @@
  * limitations under the License.
  */
 
-package warcreader
+package warcrecord
 
 import (
 	"bufio"
 	"github.com/nlnwa/gowarc/pkg/countingreader"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"os"
 )
 
@@ -28,13 +26,13 @@ type WarcFile struct {
 	file           *os.File
 	initialOffset  int64
 	offset         int64
-	warcReader     warcrecord.Unmarshaler
+	warcReader     Unmarshaler
 	countingReader *countingreader.Reader
 	bufferedReader *bufio.Reader
-	currentRecord  warcrecord.WarcRecord
+	currentRecord  WarcRecord
 }
 
-func NewWarcFilename(filename string, offset int64, opts *warcoptions.WarcOptions) (*WarcFile, error) {
+func NewWarcFilename(filename string, offset int64, opts *options) (*WarcFile, error) {
 	file, err := os.Open(filename) // For read access.
 	if err != nil {
 		return nil, err
@@ -43,11 +41,11 @@ func NewWarcFilename(filename string, offset int64, opts *warcoptions.WarcOption
 	return NewWarcFile(file, offset, opts)
 }
 
-func NewWarcFile(file *os.File, offset int64, opts *warcoptions.WarcOptions) (*WarcFile, error) {
+func NewWarcFile(file *os.File, offset int64, opts *options) (*WarcFile, error) {
 	wf := &WarcFile{
 		file:       file,
 		offset:     offset,
-		warcReader: warcrecord.NewUnmarshaler(opts),
+		warcReader: NewUnmarshaler(opts),
 	}
 	_, err := file.Seek(offset, 0)
 	if err != nil {
@@ -60,7 +58,7 @@ func NewWarcFile(file *os.File, offset int64, opts *warcoptions.WarcOptions) (*W
 	return wf, nil
 }
 
-func (wf *WarcFile) Next() (warcrecord.WarcRecord, int64, error) {
+func (wf *WarcFile) Next() (WarcRecord, int64, error) {
 	if wf.currentRecord != nil {
 		wf.currentRecord.Close()
 	}

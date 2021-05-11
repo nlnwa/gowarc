@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package warcfields
+package warcrecord
 
 import (
 	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/nlnwa/gowarc/warcoptions"
 	"io"
 	"mime"
 )
@@ -31,24 +30,11 @@ var (
 	EndOfHeaders = errors.New("EOH")
 )
 
-const (
-	SPHTCRLF = " \t\r\n"
-	CR       = '\r'
-	LF       = '\n'
-	SP       = ' '
-	HT       = '\t'
-)
-
-type Parser struct {
-	Options *warcoptions.WarcOptions
-	NewFunc func(nv []NameValue, ctx interface{}) (WarcFields, error)
+type warcfieldsParser struct {
+	Options *options
 }
 
-func NewParser(options *warcoptions.WarcOptions) *Parser {
-	return &Parser{Options: options}
-}
-
-func (p *Parser) parseLine(line []byte, nv []NameValue) ([]NameValue, error) {
+func (p *warcfieldsParser) parseLine(line []byte, nv warcFields) (warcFields, error) {
 	line = bytes.TrimRight(line, SPHTCRLF)
 
 	// Support for ‘encoded-word’ mechanism of [RFC2047]
@@ -68,11 +54,12 @@ func (p *Parser) parseLine(line []byte, nv []NameValue) ([]NameValue, error) {
 	name := string(bytes.Trim(fv[0], SPHTCRLF))
 	value := string(bytes.Trim(fv[1], SPHTCRLF))
 
-	nv = append(nv, NameValue{Name: name, Value: value})
+	//nv = append(nv, &NameValue{Name: name, Value: value})
+	nv.Add(name, value)
 	return nv, nil
 }
 
-func (p *Parser) readLine(r *bufio.Reader) (line []byte, next byte, err error) {
+func (p *warcfieldsParser) readLine(r *bufio.Reader) (line []byte, nextChar byte, err error) {
 	l, err := r.ReadBytes('\n')
 	if err != nil {
 		if err == io.EOF {
@@ -80,7 +67,7 @@ func (p *Parser) readLine(r *bufio.Reader) (line []byte, next byte, err error) {
 		}
 		return
 	}
-	if p.Options.Strict && l[len(l)-2] != '\r' {
+	if p.Options.strict && l[len(l)-2] != '\r' {
 		err = fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
 		return
 	}
@@ -94,14 +81,15 @@ func (p *Parser) readLine(r *bufio.Reader) (line []byte, next byte, err error) {
 		return
 	}
 
-	next = n[0]
+	nextChar = n[0]
 	return
 }
 
-func (p *Parser) Parse(r *bufio.Reader, ctx interface{}) (WarcFields, error) {
-	nv := make([]NameValue, 0, 10)
+func (p *warcfieldsParser) Parse(r *bufio.Reader, ctx interface{}) (*warcFields, error) {
+	wf := warcFields{}
+	//nv := make([]NameValue, 0, 10)
 	for {
-		line, n, err := p.readLine(r)
+		line, nc, err := p.readLine(r)
 		if err != nil {
 			if err == EndOfHeaders {
 				break
@@ -110,9 +98,9 @@ func (p *Parser) Parse(r *bufio.Reader, ctx interface{}) (WarcFields, error) {
 		}
 
 		// Check for continuation
-		for n == SP || n == HT {
+		for nc == SP || nc == HT {
 			var l []byte
-			l, n, err = p.readLine(r)
+			l, nc, err = p.readLine(r)
 			if err != nil {
 				return nil, err
 			}
@@ -120,31 +108,26 @@ func (p *Parser) Parse(r *bufio.Reader, ctx interface{}) (WarcFields, error) {
 			line = append(line, l...)
 		}
 
-		nv, err = p.parseLine(line, nv)
+		wf, err = p.parseLine(line, wf)
 		if err != nil {
 			return nil, err
 		}
 
-		if n == CR {
+		if nc == CR {
 			l, err := r.ReadBytes('\n')
 			if len(l) != 2 || err != nil {
 				return nil, errors.New("missing End of WARC-Fields marker")
 			}
 			break
 		}
-	}
-
-	var err error
-	if p.NewFunc == nil {
-		wf := New()
-		for _, f := range nv {
-			err = wf.Add(f.Name, f.Value)
-			if err != nil {
-				return wf, err
+		// Handle missing carriage return in line endings
+		if nc == LF {
+			l, err := r.ReadBytes('\n')
+			if len(l) > 2 || err != nil {
+				return nil, errors.New("missing End of WARC-Fields marker")
 			}
+			break
 		}
-		return wf, nil
-	} else {
-		return p.NewFunc(nv, ctx)
 	}
+	return &wf, nil
 }

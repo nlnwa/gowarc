@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package warcwriter
+package warcrecord
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcreader"
 	"os"
 	"testing"
 )
 
 func TestWarcWriter_WriteRecord(t *testing.T) {
-	wf, err := warcreader.NewWarcFilename("../../testdata/example.warc", 0, &warcoptions.WarcOptions{Strict: false})
+	wf, err := NewWarcFilename("../testdata/example.warc", 0, NewOptions(WithStrict(true)))
 	if err != nil {
 		return
 	}
@@ -33,12 +31,13 @@ func TestWarcWriter_WriteRecord(t *testing.T) {
 
 	wr, offset, err := wf.Next()
 	if err != nil {
+		t.Errorf("juhu %+v", err)
 		return
 	}
 
-	fmt.Printf("offset: %v\n", offset)
-	var wantBytesWritten int64 = 0
-	ww := NewWriter(&warcoptions.WarcOptions{})
+	fmt.Printf("offset: %v %s\n", offset, wr.Block().(WarcFieldsBlock).WarcFields())
+	var wantBytesWritten int64 = 488
+	ww := NewWriter(NewOptions(WithCompression(false)))
 	gotBytesWritten, err := ww.WriteRecord(os.Stdout, wr)
 
 	if err != nil {

@@ -17,45 +17,45 @@
 package warcrecord
 
 import (
-	"bufio"
 	"fmt"
 	"io"
-	"strconv"
+	"os"
 	"strings"
-
-	"github.com/nlnwa/gowarc/warcfields"
+	"sync"
 )
 
 type WarcRecord interface {
 	Version() *version
 	Type() *recordType
-	WarcHeader() warcfields.WarcFields
+	WarcHeader() *warcFields
 	Block() Block
 	String() string
+	//Finalize() error
 	Close()
 }
 
-type Block interface {
-	RawBytes() (*bufio.Reader, error)
-}
-
-type PayloadBlock interface {
-	Block
-	PayloadBytes() (io.Reader, error)
-}
-
 type version struct {
-	id  uint8
-	txt string
+	id    uint8
+	txt   string
+	major uint8
+	minor uint8
 }
 
 func (v *version) String() string {
 	return "WARC/" + v.txt
 }
 
+func (v *version) Major() uint8 {
+	return v.major
+}
+
+func (v *version) Minor() uint8 {
+	return v.minor
+}
+
 var (
-	V1_0 = &version{id: 1, txt: "1.0"}
-	V1_1 = &version{id: 2, txt: "1.1"}
+	V1_0 = &version{id: 1, txt: "1.0", major: 1, minor: 0}
+	V1_1 = &version{id: 2, txt: "1.1", major: 1, minor: 1}
 )
 
 type recordType struct {
@@ -89,124 +89,76 @@ var recordTypeStringToType = map[string]*recordType{
 	CONTINUATION.txt: CONTINUATION,
 }
 
-func New(version *version, recordType *recordType) WarcRecord {
-	r := &warcRecord{
-		version:    version,
-		recordType: recordType,
-		block:      nil,
-		strict:     false,
-	}
-	r.headers = &warcHeader{
-		WarcFields: warcfields.New(),
-		wr:         r,
-	}
-	return r
+type warcRecord struct {
+	opts         *options
+	version      *version
+	headers      *warcFields
+	recordType   *recordType
+	block        Block
+	finalizeOnce sync.Once
+	closer       func() error
 }
 
-type warcRecord struct {
-	version    *version
-	headers    warcfields.WarcFields
-	recordType *recordType
-
-	block  Block
-	strict bool
+func newRecord(opts *options, version *version) *warcRecord {
+	wr := &warcRecord{
+		opts:       opts,
+		version:    version,
+		headers:    &warcFields{},
+		recordType: nil,
+		block:      nil,
+	}
+	return wr
 }
 
 func (wr *warcRecord) Version() *version { return wr.version }
 
 func (wr *warcRecord) Type() *recordType { return wr.recordType }
 
-func (wr *warcRecord) WarcHeader() warcfields.WarcFields { return wr.headers }
-
-type warcHeader struct {
-	warcfields.WarcFields
-	wr *warcRecord
-}
-
-func (wh *warcHeader) Get(name string) string {
-	name, _ = NormalizeName(name)
-	return wh.WarcFields.Get(name)
-}
-
-func (wh *warcHeader) GetAll(name string) []string {
-	name, _ = NormalizeName(name)
-	return wh.WarcFields.GetAll(name)
-}
-
-func (wh *warcHeader) Has(name string) bool {
-	name, _ = NormalizeName(name)
-	return wh.WarcFields.Has(name)
-}
-
-func (wh *warcHeader) Add(name string, value string) error {
-	var def fieldDef
-	var err error
-	name, def = NormalizeName(name)
-	value, err = def.validationFunc(name, value, wh.wr, def, wh.wr.strict)
-	if err != nil {
-		return err
-	}
-	return wh.WarcFields.Add(name, value)
-}
-
-func (wh *warcHeader) Set(name string, value string) error {
-	var def fieldDef
-	var err error
-	name, def = NormalizeName(name)
-	value, err = def.validationFunc(name, value, wh.wr, def, wh.wr.strict)
-	if err != nil {
-		return err
-	}
-	return wh.WarcFields.Set(name, value)
-}
-
-func (wh *warcHeader) Delete(name string) {
-	name, _ = NormalizeName(name)
-	wh.WarcFields.Delete(name)
-}
-
-func (wh *warcHeader) Sort() {
-	wh.WarcFields.Sort()
-}
-
-func (wh *warcHeader) Write(w io.Writer) (int64, error) {
-	return wh.WarcFields.Write(w)
-}
+func (wr *warcRecord) WarcHeader() *warcFields { return wr.headers }
 
 func (wr *warcRecord) Block() Block {
 	return wr.block
 }
 
 func (wr *warcRecord) String() string {
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "Type: %v\n", wr.Type())
-	fmt.Fprintf(&sb, "Version: %v\n", wr.version.txt)
-	return sb.String()
+	return fmt.Sprintf("WARC record: version: %s, type: %s", wr.version, wr.Type())
 }
 
 func (wr *warcRecord) Close() {
-	rb, err := wr.Block().RawBytes()
-	if err != nil {
+	if v, ok := wr.block.(PayloadBlock); ok {
+		fmt.Fprintf(os.Stderr, "Payload digest: %s, ", v.PayloadDigest())
+	}
+	fmt.Fprintf(os.Stderr, "Block digest: %s\n", wr.block.BlockDigest())
+	if wr.closer != nil {
+		wr.closer()
+	}
+}
+
+func (wr *warcRecord) parseBlock(reader io.Reader) (err error) {
+	if wr.recordType.id&(REVISIT.id) != 0 {
+		wr.block, err = NewRevisitBlock(wr.block)
 		return
 	}
-
-	remaining, _ := strconv.Atoi(wr.headers.Get(ContentLength))
-	for remaining > 0 {
-		n, err := rb.Discard(int(remaining))
-		if err != nil {
-			break
+	contentType := strings.ToLower(wr.headers.Get(ContentType))
+	if wr.recordType.id&(RESPONSE.id|RESOURCE.id|REQUEST.id|CONVERSION.id|CONTINUATION.id) != 0 {
+		if strings.HasPrefix(contentType, "application/http") {
+			httpBlock, err := NewHttpBlock(reader)
+			if err != nil {
+				return err
+			}
+			wr.block = httpBlock
+			return nil
 		}
-		remaining = remaining - n
 	}
-}
+	if strings.HasPrefix(contentType, "application/warc-fields") {
+		warcFieldsBlock, err := NewWarcFieldsBlock(reader, wr.opts)
+		if err != nil {
+			return err
+		}
+		wr.block = warcFieldsBlock
+		return nil
+	}
 
-type HttpPayload struct {
-}
-
-type genericBlock struct {
-	rawBytes *bufio.Reader
-}
-
-func (p *genericBlock) RawBytes() (*bufio.Reader, error) {
-	return p.rawBytes, nil
+	wr.block = &genericBlock{rawBytes: reader}
+	return
 }

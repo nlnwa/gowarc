@@ -26,8 +26,6 @@ import (
 	"sync"
 )
 
-const CRLF = "\r\n"
-
 type RevisitBlock struct {
 	Block
 	response         *http.Response
@@ -36,23 +34,23 @@ type RevisitBlock struct {
 	data             io.Reader
 }
 
-func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
-	if block.responseRawBytes == nil {
-		return block.Block.RawBytes()
-	}
-
-	r1, err := block.ResponseBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	r2, err := block.PayloadBytes()
-	if err != nil {
-		return nil, err
-	}
-
-	return bufio.NewReader(io.MultiReader(r1, r2)), nil
-}
+//func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
+//	if block.responseRawBytes == nil {
+//		return block.Block.RawBytes()
+//	}
+//
+//	r1, err := block.ResponseBytes()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	r2, err := block.PayloadBytes()
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return bufio.NewReader(io.MultiReader(r1, r2)), nil
+//}
 
 func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
 	if block.data == nil {
@@ -61,35 +59,39 @@ func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
 	return block.data, nil
 }
 
+func (block *RevisitBlock) BlockDigest() string {
+	return "revisit digest"
+}
+
+func (block *RevisitBlock) PayloadDigest() string {
+	return "revisit payload digest"
+}
+
 func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
 	var err error
 	block.once.Do(func() {
-		rb, e := block.RawBytes()
-		if e != nil {
-			err = e
-		}
-
-		var buf bytes.Buffer
-		var line []byte
-		var n, l int
-		for {
-			line, err = rb.ReadSlice('\n')
-			if err != nil {
-				if err == io.EOF {
-					line = append(line, []byte(CRLF)...)
-					err = nil
-				} else {
-					break
-				}
-			}
-			n++
-			l += len(line)
-			buf.Write(line)
-			if len(line) < 3 {
-				break
-			}
-		}
-		block.responseRawBytes = buf.Bytes()
+		//rb := block.RawBytes()
+		//var buf bytes.Buffer
+		//var line []byte
+		//var n, l int
+		//for {
+		//	line, err = rb.ReadBytes('\n')
+		//	if err != nil {
+		//		if err == io.EOF {
+		//			line = append(line, []byte(CRLF)...)
+		//			err = nil
+		//		} else {
+		//			break
+		//		}
+		//	}
+		//	n++
+		//	l += len(line)
+		//	buf.Write(line)
+		//	if len(line) < 3 {
+		//		break
+		//	}
+		//}
+		//block.responseRawBytes = buf.Bytes()
 	})
 	return bytes.NewBuffer(block.responseRawBytes), err
 }
@@ -104,17 +106,14 @@ func (block *RevisitBlock) Response() (*http.Response, error) {
 }
 
 func (block *RevisitBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	var p *bufio.Reader
-	p, err = block.RawBytes()
-	if err != nil {
-		return
-	}
-	bytesWritten, err = io.Copy(w, p)
-	if err != nil {
-		return
-	}
-	w.Write([]byte(CRLF))
-	bytesWritten += 2
+	//var p diskbuffer.Buffer
+	//p = block.RawBytes()
+	//bytesWritten, err = io.Copy(w, p)
+	//if err != nil {
+	//	return
+	//}
+	//w.Write([]byte(CRLF))
+	//bytesWritten += 2
 	return
 }
 
