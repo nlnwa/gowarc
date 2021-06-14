@@ -18,6 +18,7 @@ package index
 
 import (
 	"fmt"
+	"github.com/nlnwa/gowarc"
 	"os"
 	"path"
 	"path/filepath"
@@ -28,7 +29,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	gowarcpb "github.com/nlnwa/gowarc/proto"
-	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -163,15 +163,15 @@ func (d *Db) Close() {
 	_ = d.cdxIndex.Close()
 }
 
-func (d *Db) Add(warcRecord warcrecord.WarcRecord, filePath string, offset int64) error {
+func (d *Db) Add(warcRecord gowarc.WarcRecord, filePath string, offset int64) error {
 	record := &record{
-		id:       warcRecord.WarcHeader().Get(warcrecord.WarcRecordID),
+		id:       warcRecord.WarcHeader().Get(gowarc.WarcRecordID),
 		filePath: filePath,
 		offset:   offset,
 	}
 
 	var err error
-	if warcRecord.Type() == warcrecord.RESPONSE || warcRecord.Type() == warcrecord.REVISIT {
+	if warcRecord.Type() == gowarc.RESPONSE || warcRecord.Type() == gowarc.REVISIT {
 		record.cdx = NewCdxRecord(warcRecord, filePath, offset)
 	}
 	if err != nil {

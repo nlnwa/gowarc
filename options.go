@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package warcrecord
+package gowarc
 
 type options struct {
 	strict      bool

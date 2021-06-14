@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package warcrecord
+package gowarc
 
 import (
 	"fmt"
@@ -22,6 +22,16 @@ import (
 	"os"
 	"strings"
 	"sync"
+)
+
+const (
+	SPHTCRLF = " \t\r\n"
+	CR       = '\r'
+	LF       = '\n'
+	SP       = ' '
+	HT       = '\t'
+	CRLF     = "\r\n"
+	CRLFCRLF = "\r\n\r\n"
 )
 
 type WarcRecord interface {

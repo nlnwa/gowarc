@@ -18,17 +18,17 @@ package index
 
 import (
 	"fmt"
+	"github.com/nlnwa/gowarc"
 
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/golang/protobuf/proto"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/spf13/viper"
 )
 
 type CdxWriter interface {
 	Init() error
 	Close()
-	Write(wr warcrecord.WarcRecord, fileName string, offset int64) error
+	Write(wr gowarc.WarcRecord, fileName string, offset int64) error
 }
 
 type CdxLegacy struct {
@@ -57,7 +57,7 @@ func (c *CdxDb) Close() {
 	c.db.Close()
 }
 
-func (c *CdxDb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
+func (c *CdxDb) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
 	return c.db.Add(wr, fileName, offset)
 }
 
@@ -68,7 +68,7 @@ func (c *CdxLegacy) Init() (err error) {
 func (c *CdxLegacy) Close() {
 }
 
-func (c *CdxLegacy) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
+func (c *CdxLegacy) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
 	return nil
 }
 
@@ -80,8 +80,8 @@ func (c *CdxJ) Init() (err error) {
 func (c *CdxJ) Close() {
 }
 
-func (c *CdxJ) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
-	if wr.Type() == warcrecord.RESPONSE {
+func (c *CdxJ) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
+	if wr.Type() == gowarc.RESPONSE {
 		rec := NewCdxRecord(wr, fileName, offset)
 		cdxj, err := c.jsonMarshaler.MarshalToString(rec)
 		if err != nil {
@@ -99,8 +99,8 @@ func (c *CdxPb) Init() (err error) {
 func (c *CdxPb) Close() {
 }
 
-func (c *CdxPb) Write(wr warcrecord.WarcRecord, fileName string, offset int64) error {
-	if wr.Type() == warcrecord.RESPONSE {
+func (c *CdxPb) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
+	if wr.Type() == gowarc.RESPONSE {
 		rec := NewCdxRecord(wr, fileName, offset)
 		cdxpb, err := proto.Marshal(rec)
 		if err != nil {

@@ -18,10 +18,9 @@ package loader
 
 import (
 	"context"
+	"github.com/nlnwa/gowarc"
 	"reflect"
 	"testing"
-
-	"github.com/nlnwa/gowarc/warcrecord"
 )
 
 func TestLoader_Get(t *testing.T) {
@@ -34,14 +33,14 @@ func TestLoader_Get(t *testing.T) {
 		warcId string
 	}
 
-	opts := warcrecord.NewOptions()
-	v1InfoRecord, _ := warcrecord.NewRecordBuilder(opts, warcrecord.WARCINFO).Finalize()
-	v1ResponseRecord, _ := warcrecord.NewRecordBuilder(opts, warcrecord.RESPONSE).Finalize()
-	v1RequestRecord, _ := warcrecord.NewRecordBuilder(opts, warcrecord.REQUEST).Finalize()
+	opts := gowarc.NewOptions()
+	v1InfoRecord, _ := gowarc.NewRecordBuilder(opts, gowarc.WARCINFO).Finalize()
+	v1ResponseRecord, _ := gowarc.NewRecordBuilder(opts, gowarc.RESPONSE).Finalize()
+	v1RequestRecord, _ := gowarc.NewRecordBuilder(opts, gowarc.REQUEST).Finalize()
 	tests := []struct {
 		name       string
 		args       args
-		wantRecord warcrecord.WarcRecord
+		wantRecord gowarc.WarcRecord
 		wantErr    bool
 	}{
 		{

@@ -20,8 +20,8 @@ import (
 	"context"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/nlnwa/gowarc"
 	"github.com/nlnwa/gowarc/pkg/loader"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/sirupsen/logrus"
 	"io"
 	"net/http"
@@ -51,13 +51,13 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer record.Close()
 
 	switch v := record.Block().(type) {
-	case *warcrecord.RevisitBlock:
+	case *gowarc.RevisitBlock:
 		r, err := v.Response()
 		if err != nil {
 			return
 		}
 		renderContent(w, v, &r.Header)
-	case warcrecord.HttpResponseBlock:
+	case gowarc.HttpResponseBlock:
 		renderContent(w, v, v.HttpHeader())
 	default:
 		w.Header().Set("Content-Type", "text/plain")
@@ -71,7 +71,7 @@ func (h *contentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, header *http.Header) {
+func renderContent(w http.ResponseWriter, v gowarc.PayloadBlock, header *http.Header) {
 	for k, vl := range *header {
 		for _, v := range vl {
 			w.Header().Set(k, v)

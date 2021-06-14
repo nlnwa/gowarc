@@ -18,7 +18,7 @@ package index
 import (
 	"errors"
 	"fmt"
-	"github.com/nlnwa/gowarc/warcrecord"
+	"github.com/nlnwa/gowarc"
 	"io"
 	"os"
 	"strconv"
@@ -89,8 +89,8 @@ func runE(c *conf) error {
 
 // TODO: return error
 func readFile(c *conf) {
-	opts := warcrecord.NewOptions()
-	wf, err := warcrecord.NewWarcFilename(c.fileName, 0, opts)
+	opts := gowarc.NewOptions()
+	wf, err := gowarc.NewWarcFilename(c.fileName, 0, opts)
 	if err != nil {
 		return
 	}

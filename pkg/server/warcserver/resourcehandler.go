@@ -21,10 +21,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/dgraph-io/badger/v2"
+	"github.com/nlnwa/gowarc"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
 	cdx "github.com/nlnwa/gowarc/proto"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"io"
 	"net/http"
 	"strings"
@@ -59,13 +59,13 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			renderWarcContent(w, warcRecord, cdxApi, fmt.Sprintf("%s\n", cdxj))
 		case "content":
 			switch v := warcRecord.Block().(type) {
-			case *warcrecord.RevisitBlock:
+			case *gowarc.RevisitBlock:
 				r, err := v.Response()
 				if err != nil {
 					return err
 				}
 				renderContent(w, v, r.StatusCode, &r.Header)
-			case warcrecord.HttpResponseBlock:
+			case gowarc.HttpResponseBlock:
 				renderContent(w, v, v.HttpStatusCode(), v.HttpHeader())
 			default:
 				w.Header().Set("Content-Type", "text/plain")
@@ -126,23 +126,23 @@ func (h *resourceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func renderWarcContent(w http.ResponseWriter, warcRecord warcrecord.WarcRecord, cdxApi *cdxServerApi, cdx string) {
+func renderWarcContent(w http.ResponseWriter, warcRecord gowarc.WarcRecord, cdxApi *cdxServerApi, cdx string) {
 	w.Header().Set("Warcserver-Cdx", cdx)
-	w.Header().Set("Link", "<"+warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI)+">; rel=\"original\"")
-	w.Header().Set("WARC-Target-URI", warcRecord.WarcHeader().Get(warcrecord.WarcTargetURI))
+	w.Header().Set("Link", "<"+warcRecord.WarcHeader().Get(gowarc.WarcTargetURI)+">; rel=\"original\"")
+	w.Header().Set("WARC-Target-URI", warcRecord.WarcHeader().Get(gowarc.WarcTargetURI))
 	w.Header().Set("Warcserver-Source-Coll", cdxApi.collection)
 	w.Header().Set("Content-Type", "application/warc-record")
-	w.Header().Set("Memento-Datetime", warcRecord.WarcHeader().Get(warcrecord.WarcDate))
+	w.Header().Set("Memento-Datetime", warcRecord.WarcHeader().Get(gowarc.WarcDate))
 	w.Header().Set("Warcserver-Type", "warc")
 
-	warcWriter := warcrecord.NewWriter(warcrecord.NewOptions(warcrecord.WithCompression(false)))
+	warcWriter := gowarc.NewWriter(gowarc.NewOptions(gowarc.WithCompression(false)))
 	_, err := warcWriter.WriteRecord(w, warcRecord)
 	if err != nil {
 		fmt.Printf("Error: %v\n", err)
 	}
 }
 
-func renderContent(w http.ResponseWriter, v warcrecord.PayloadBlock, statusCode int, header *http.Header) {
+func renderContent(w http.ResponseWriter, v gowarc.PayloadBlock, statusCode int, header *http.Header) {
 	for k, vl := range *header {
 		for _, v := range vl {
 			w.Header().Set(k, v)

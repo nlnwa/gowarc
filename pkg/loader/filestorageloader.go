@@ -19,7 +19,7 @@ package loader
 import (
 	"context"
 	"fmt"
-	"github.com/nlnwa/gowarc/warcrecord"
+	"github.com/nlnwa/gowarc"
 	log "github.com/sirupsen/logrus"
 	"os"
 	"strconv"
@@ -30,15 +30,15 @@ type FileStorageLoader struct {
 	FilePathResolver func(fileName string) (filePath string, err error)
 }
 
-func (f *FileStorageLoader) Load(ctx context.Context, storageRef string) (record warcrecord.WarcRecord, err error) {
+func (f *FileStorageLoader) Load(ctx context.Context, storageRef string) (record gowarc.WarcRecord, err error) {
 	filePath, offset, err := f.parseStorageRef(storageRef)
 	if err != nil {
 		return nil, err
 	}
 	log.Debugf("loading record from file: %s, offset: %v", filePath, offset)
 
-	opts := warcrecord.NewOptions()
-	wf, err := warcrecord.NewWarcFilename(filePath, offset, opts)
+	opts := gowarc.NewOptions()
+	wf, err := gowarc.NewWarcFilename(filePath, offset, opts)
 	if err != nil {
 		return
 	}

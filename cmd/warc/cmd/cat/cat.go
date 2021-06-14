@@ -19,13 +19,13 @@ package cat
 import (
 	"errors"
 	"fmt"
+	"github.com/nlnwa/gowarc"
 	"io"
 	"os"
 	"sort"
 	"strconv"
 
 	"github.com/nlnwa/gowarc/pkg/utils"
-	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/spf13/cobra"
 )
 
@@ -73,8 +73,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := warcrecord.NewOptions(warcrecord.WithStrict(c.strict))
-	wf, err := warcrecord.NewWarcFilename(fileName, c.offset, opts)
+	opts := gowarc.NewOptions(gowarc.WithStrict(c.strict))
+	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
 	defer wf.Close()
 	if err != nil {
 		fmt.Printf("Error opening file: %v\n", err)
@@ -83,7 +83,7 @@ func readFile(c *conf, fileName string) {
 
 	count := 0
 
-	ww := warcrecord.NewWriter(warcrecord.NewOptions(warcrecord.WithStrict(false), warcrecord.WithCompression(false)))
+	ww := gowarc.NewWriter(gowarc.NewOptions(gowarc.WithStrict(false), gowarc.WithCompression(false)))
 
 	for {
 		wr, _, err := wf.Next()
@@ -95,7 +95,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !utils.Contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
+			if !utils.Contains(c.id, wr.WarcHeader().Get(gowarc.WarcRecordID)) {
 				continue
 			}
 		}

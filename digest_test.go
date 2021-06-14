@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package warcrecord
+package gowarc
 
 import (
 	assert "github.com/stretchr/testify/assert"
