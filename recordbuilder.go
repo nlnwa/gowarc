@@ -18,7 +18,7 @@ package gowarc
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc/pkg/diskbuffer"
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"strconv"
 )
