@@ -171,7 +171,7 @@ func (d *Db) Add(warcRecord gowarc.WarcRecord, filePath string, offset int64) er
 	}
 
 	var err error
-	if warcRecord.Type() == gowarc.RESPONSE || warcRecord.Type() == gowarc.REVISIT {
+	if warcRecord.Type() == gowarc.Response || warcRecord.Type() == gowarc.Revisit {
 		record.cdx = NewCdxRecord(warcRecord, filePath, offset)
 	}
 	if err != nil {

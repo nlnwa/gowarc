@@ -35,7 +35,7 @@ type recordBuilder struct {
 	opts       *options
 	version    *version
 	headers    *warcFields
-	recordType *recordType
+	recordType recordType
 	content    diskbuffer.Buffer
 }
 
@@ -124,7 +124,7 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 	return validation, nil
 }
 
-func NewRecordBuilder(opts *options, recordType *recordType) *recordBuilder {
+func NewRecordBuilder(opts *options, recordType recordType) *recordBuilder {
 	if opts == nil {
 		o := defaultOptions()
 		opts = &o
@@ -136,6 +136,8 @@ func NewRecordBuilder(opts *options, recordType *recordType) *recordBuilder {
 		headers:    &warcFields{},
 		content:    diskbuffer.New(),
 	}
-	rb.headers.Set(WarcType, recordType.txt)
+	if recordType != 0 {
+		rb.headers.Set(WarcType, recordType.String())
+	}
 	return rb
 }

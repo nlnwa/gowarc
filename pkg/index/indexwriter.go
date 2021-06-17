@@ -81,7 +81,7 @@ func (c *CdxJ) Close() {
 }
 
 func (c *CdxJ) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
-	if wr.Type() == gowarc.RESPONSE {
+	if wr.Type() == gowarc.Response {
 		rec := NewCdxRecord(wr, fileName, offset)
 		cdxj, err := c.jsonMarshaler.MarshalToString(rec)
 		if err != nil {
@@ -100,7 +100,7 @@ func (c *CdxPb) Close() {
 }
 
 func (c *CdxPb) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
-	if wr.Type() == gowarc.RESPONSE {
+	if wr.Type() == gowarc.Response {
 		rec := NewCdxRecord(wr, fileName, offset)
 		cdxpb, err := proto.Marshal(rec)
 		if err != nil {

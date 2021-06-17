@@ -127,7 +127,7 @@ func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 		return nil, fmt.Errorf("unknown record implementation")
 	}
 
-	m.recordType = RESPONSE
+	m.recordType = Response
 	err := m.headers.Set(WarcType, "response")
 	if err != nil {
 		log.Warnf("Merge err1: %v", err)

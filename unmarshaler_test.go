@@ -29,7 +29,7 @@ import (
 func Test_unmarshaler_Unmarshal(t *testing.T) {
 	type expected struct {
 		version    *version
-		recordType *recordType
+		recordType recordType
 		headers    *warcFields
 		content    []byte
 	}
@@ -56,7 +56,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			"\r\n\r\n",
 			expected{
 				version:    V1_0,
-				recordType: WARCINFO,
+				recordType: Warcinfo,
 				headers: &warcFields{
 					{WarcDate, "2017-03-06T04:03:53Z"},
 					{WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -83,7 +83,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			"\n\n",
 			expected{
 				version:    V1_0,
-				recordType: WARCINFO,
+				recordType: Warcinfo,
 				headers: &warcFields{
 					{WarcDate, "2017-03-06T04:03:53Z"},
 					{WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},

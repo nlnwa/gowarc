@@ -25,7 +25,7 @@ import (
 func TestRecordBuilder(t *testing.T) {
 	type args struct {
 		opts       *options
-		recordType *recordType
+		recordType recordType
 		headers    *warcFields
 		data       string
 	}
@@ -44,8 +44,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid warcinfo record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail)),
-				WARCINFO,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Warcinfo,
 				&warcFields{
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -83,8 +83,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid response record",
 			args{
-				NewOptions(WithCompression(false)),
-				RESPONSE,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Response,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -116,8 +116,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid request record",
 			args{
-				NewOptions(WithCompression(false)),
-				REQUEST,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Request,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -155,8 +155,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid metadata record",
 			args{
-				NewOptions(WithCompression(false)),
-				METADATA,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Metadata,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -190,8 +190,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid resource record",
 			args{
-				NewOptions(WithCompression(false)),
-				RESOURCE,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Resource,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -229,8 +229,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid revisit record",
 			args{
-				NewOptions(WithCompression(false)),
-				REVISIT,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Revisit,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -276,8 +276,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid conversion record",
 			args{
-				NewOptions(WithCompression(false)),
-				CONVERSION,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Conversion,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -309,8 +309,8 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid continuation record",
 			args{
-				NewOptions(WithCompression(false)),
-				CONTINUATION,
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				Continuation,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -341,6 +341,40 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"... last part of data\n",
+				&Validation{},
+			},
+			false,
+		},
+		{
+			"valid unknown record type",
+			args{
+				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				0,
+				&warcFields{
+					&NameValue{Name: WarcType, Value: "myType"},
+					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&NameValue{Name: "My-Field", Value: "MyValue"},
+					&NameValue{Name: ContentType, Value: "text/plain"},
+					&NameValue{Name: WarcBlockDigest, Value: "sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1"},
+					&NameValue{Name: ContentLength, Value: "8"},
+				},
+				"content\n",
+			},
+			want{
+				&warcFields{
+					&NameValue{Name: WarcType, Value: "myType"},
+					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&NameValue{Name: "My-Field", Value: "MyValue"},
+					&NameValue{Name: WarcBlockDigest, Value: "sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1"},
+					&NameValue{Name: ContentType, Value: "text/plain"},
+					&NameValue{Name: ContentLength, Value: "8"},
+				},
+				&genericBlock{},
+				"content\n",
 				&Validation{},
 			},
 			false,

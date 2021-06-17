@@ -17,13 +17,14 @@
 package gowarc
 
 type options struct {
-	compress         bool
-	warcVersion      *version
-	errSyntax        errorPolicy
-	errSpec          errorPolicy
-	addMissingFields bool
-	fixContentLength bool
-	fixDigest        bool
+	compress            bool
+	warcVersion         *version
+	errSyntax           errorPolicy
+	errSpec             errorPolicy
+	errUnknowRecordType errorPolicy
+	addMissingFields    bool
+	fixContentLength    bool
+	fixDigest           bool
 }
 
 // The errorPolicy constants describe how to handle WARC record errors.
@@ -64,19 +65,27 @@ func newFuncOption(f func(*options)) *funcOption {
 
 func defaultOptions() options {
 	return options{
-		compress:         true,
-		warcVersion:      V1_1,
-		errSyntax:        ErrWarn,
-		errSpec:          ErrWarn,
-		addMissingFields: true,
-		fixContentLength: true,
-		fixDigest:        true,
+		compress:            true,
+		warcVersion:         V1_1,
+		errSyntax:           ErrWarn,
+		errSpec:             ErrWarn,
+		errUnknowRecordType: ErrWarn,
+		addMissingFields:    true,
+		fixContentLength:    true,
+		fixDigest:           true,
 	}
 }
 
 // New creates a new configuration with the supplied options.
 func NewOptions(opts ...Option) *options {
 	o := defaultOptions()
+	for _, opt := range opts {
+		opt.apply(&o)
+	}
+	return &o
+}
+
+func (o options) NewOptions(opts ...Option) *options {
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
@@ -112,6 +121,14 @@ func WithSyntaxErrorPolicy(policy errorPolicy) Option {
 func WithSpecViolationPolicy(policy errorPolicy) Option {
 	return newFuncOption(func(o *options) {
 		o.errSpec = policy
+	})
+}
+
+// WithUnknownRecordTypePolicy sets the policy for handling unknown record types
+// defaults to ErrWarn
+func WithUnknownRecordTypePolicy(policy errorPolicy) Option {
+	return newFuncOption(func(o *options) {
+		o.errUnknowRecordType = policy
 	})
 }
 

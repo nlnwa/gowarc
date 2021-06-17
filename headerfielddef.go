@@ -51,7 +51,7 @@ const (
 )
 
 // ValidateHeader validates a warcFields object as a WARC-record header
-func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validation, *recordType, error) {
+func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validation, recordType, error) {
 	v := &Validation{}
 
 	rt, err := resolveRecordType(wf, v, opts)
@@ -70,9 +70,9 @@ func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validatio
 		if opts.errSpec > ErrIgnore && !def.repeatable && len(wf.GetAll(name)) > 1 {
 			switch opts.errSpec {
 			case ErrWarn:
-				v.AddError(fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.txt))
+				v.AddError(fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String()))
 			case ErrFail:
-				return v, rt, fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.txt)
+				return v, rt, fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String())
 			}
 		}
 	}
@@ -84,18 +84,19 @@ func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validatio
 		}
 	}
 	contentLength, _ := strconv.ParseInt(wf.Get(ContentLength), 10, 64)
-	if rt != CONTINUATION && contentLength > 0 && !wf.Has(ContentType) {
+	if rt != Continuation && contentLength > 0 && !wf.Has(ContentType) {
 		return v, rt, fmt.Errorf("missing required field: %s", ContentType)
 	}
 
 	// Check for illegal fields
-	if (WARCINFO.id|CONVERSION.id|CONTINUATION.id)&rt.id != 0 && wf.Has(WarcConcurrentTo) {
-		return v, rt, fmt.Errorf("field %s not allowed for record type %s :: %b %b %b", WarcConcurrentTo, rt, (WARCINFO.id | CONVERSION.id | CONTINUATION.id), rt.id, (WARCINFO.id|CONVERSION.id|CONTINUATION.id)&rt.id)
+	if (Warcinfo|Conversion|Continuation)&rt != 0 && wf.Has(WarcConcurrentTo) {
+		return v, rt, fmt.Errorf("field %s not allowed for record type %s :: %b %b %b",
+			WarcConcurrentTo, rt, (Warcinfo | Conversion | Continuation), rt, (Warcinfo|Conversion|Continuation)&rt)
 	}
 	return v, rt, nil
 }
 
-func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (*recordType, error) {
+func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (recordType, error) {
 	typeFieldNameLc := "warc-type"
 	var typeField string
 	for _, f := range *wf {
@@ -105,9 +106,9 @@ func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (*
 		}
 	}
 
-	var rt *recordType
+	var rt recordType
 	if typeField == "" {
-		rt = &recordType{id: 0, txt: "MISSING"}
+		rt = 0
 		switch opts.errSpec {
 		case ErrIgnore:
 		case ErrWarn:
@@ -117,16 +118,14 @@ func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (*
 		}
 	}
 	typeFieldValLc := strings.ToLower(typeField)
-	var ok bool
-	rt, ok = recordTypeStringToType[typeFieldValLc]
-	if !ok {
-		rt = &recordType{id: 0, txt: typeField}
-		switch opts.errSpec {
+	rt = StringToRecordType(typeFieldValLc)
+	if rt == 0 {
+		switch opts.errUnknowRecordType {
 		case ErrIgnore:
 		case ErrWarn:
-			validation.AddError(fmt.Errorf("unrecognized value in field WARC-Type '%s'", typeField))
+			validation.AddError(fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField))
 		case ErrFail:
-			return rt, fmt.Errorf("unrecognized value in field WARC-Type '%s'", typeField)
+			return rt, fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField)
 		}
 	}
 
@@ -137,78 +136,78 @@ var requiredFields = []string{WarcRecordID, ContentLength, WarcDate, WarcType}
 
 type fieldDef struct {
 	name           string
-	validationFunc func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (validatedValue string, err error)
+	validationFunc func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (validatedValue string, err error)
 	repeatable     bool
-	supportedRec   uint8
+	supportedRec   recordType
 	supportedSpec  uint8
 }
 
 var fieldDefs = []fieldDef{
 	{"", pUnknown, true,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{ContentLength, pLong, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{ContentType, pString, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcBlockDigest, pDigest, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcConcurrentTo, pWarcId, true,
-		RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id,
+		Response | Resource | Request | Metadata | Revisit,
 		V1_0.id | V1_1.id},
 	{WarcDate, pTime, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcFilename, pString, false,
-		WARCINFO.id,
+		Warcinfo,
 		V1_0.id | V1_1.id},
 	{WarcIPAddress, pString, false,
-		RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id,
+		Response | Resource | Request | Metadata | Revisit,
 		V1_0.id | V1_1.id},
 	{WarcIdentifiedPayloadType, pString, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcPayloadDigest, pDigest, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcProfile, pString, false,
-		REVISIT.id,
+		Revisit,
 		V1_0.id | V1_1.id},
 	{WarcRecordID, pWarcId, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcRefersTo, pWarcId, false,
-		METADATA.id | REVISIT.id | CONVERSION.id,
+		Metadata | Revisit | Conversion,
 		V1_0.id | V1_1.id},
 	{WarcRefersToDate, pTime, false,
-		REVISIT.id,
+		Revisit,
 		V1_1.id},
 	{WarcRefersToTargetURI, pString, false,
-		REVISIT.id,
+		Revisit,
 		V1_1.id},
 	{WarcSegmentNumber, pInt, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcSegmentOriginID, pWarcId, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcSegmentTotalLength, pLong, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcTargetURI, pString, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcTruncated, pTruncReason, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcType, pWarcType, false,
-		WARCINFO.id | RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcWarcinfoID, pWarcId, false,
-		RESPONSE.id | RESOURCE.id | REQUEST.id | METADATA.id | REVISIT.id | CONVERSION.id | CONTINUATION.id,
+		Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 }
 
@@ -230,16 +229,16 @@ func NormalizeName(name string) (string, fieldDef) {
 }
 
 var (
-	pUnknown = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pUnknown = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		return value, nil
 	}
-	pString = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pString = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
-	pTime = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pTime = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -248,8 +247,8 @@ var (
 		}
 		return value, nil
 	}
-	pWarcType = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
-		//if value != wr.recordType.txt {
+	pWarcType = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+		//if value != wr.recordType.String() {
 		//	return "", fmt.Errorf("not allowed to change record type")
 		//}
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
@@ -257,7 +256,7 @@ var (
 		}
 		return value, nil
 	}
-	pWarcId = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pWarcId = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -268,7 +267,7 @@ var (
 		//}
 		//return v, nil
 	}
-	pInt = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pInt = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -277,7 +276,7 @@ var (
 		}
 		return value, nil
 	}
-	pLong = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pLong = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -286,14 +285,14 @@ var (
 		}
 		return value, nil
 	}
-	pDigest = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pDigest = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		// TODO: Check Digest
 		return value, nil
 	}
-	pTruncReason = func(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (string, error) {
+	pTruncReason = func(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -301,12 +300,17 @@ var (
 	}
 )
 
-func checkLegal(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (err error) {
+func checkLegal(opts *options, name, value string, version *version, recordType recordType, def fieldDef) (err error) {
+	// All fields are allowed for unknown record types
+	if recordType == 0 {
+		return
+	}
+
 	if opts.errSpec > ErrIgnore && version.id&def.supportedSpec == 0 {
 		return
 	}
-	if opts.errSpec > ErrIgnore && recordType.id&def.supportedRec == 0 {
-		err = fmt.Errorf("illegal field '%v' in record type '%v'", name, recordType.txt)
+	if opts.errSpec > ErrIgnore && recordType&def.supportedRec == 0 {
+		err = fmt.Errorf("illegal field '%v' in record type '%v'", name, recordType.String())
 		return
 	}
 	return

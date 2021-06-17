@@ -36,7 +36,7 @@ const (
 
 type WarcRecord interface {
 	Version() *version
-	Type() *recordType
+	Type() recordType
 	WarcHeader() *warcFields
 	Block() Block
 	String() string
@@ -68,42 +68,70 @@ var (
 	V1_1 = &version{id: 2, txt: "1.1", major: 1, minor: 1}
 )
 
-type recordType struct {
-	id  uint8
-	txt string
+type recordType uint16
+
+func (rt recordType) String() string {
+	switch rt {
+	case 1:
+		return "warcinfo"
+	case 2:
+		return "response"
+	case 4:
+		return "resource"
+	case 8:
+		return "request"
+	case 16:
+		return "metadata"
+	case 32:
+		return "revisit"
+	case 64:
+		return "conversion"
+	case 128:
+		return "continuation"
+	default:
+		return "unknown"
+	}
 }
 
-func (rt *recordType) String() string {
-	return rt.txt
+func StringToRecordType(rt string) recordType {
+	switch rt {
+	case "warcinfo":
+		return 1
+	case "response":
+		return 2
+	case "resource":
+		return 4
+	case "request":
+		return 8
+	case "metadata":
+		return 16
+	case "revisit":
+		return 32
+	case "conversion":
+		return 64
+	case "continuation":
+		return 128
+	default:
+		return 0
+	}
 }
 
-var (
-	WARCINFO     = &recordType{id: 1, txt: "warcinfo"}
-	RESPONSE     = &recordType{id: 2, txt: "response"}
-	RESOURCE     = &recordType{id: 4, txt: "resource"}
-	REQUEST      = &recordType{id: 8, txt: "request"}
-	METADATA     = &recordType{id: 16, txt: "metadata"}
-	REVISIT      = &recordType{id: 32, txt: "revisit"}
-	CONVERSION   = &recordType{id: 64, txt: "conversion"}
-	CONTINUATION = &recordType{id: 128, txt: "continuation"}
+const (
+	Warcinfo     = 1
+	Response     = 2
+	Resource     = 4
+	Request      = 8
+	Metadata     = 16
+	Revisit      = 32
+	Conversion   = 64
+	Continuation = 128
 )
-
-var recordTypeStringToType = map[string]*recordType{
-	WARCINFO.txt:     WARCINFO,
-	RESPONSE.txt:     RESPONSE,
-	RESOURCE.txt:     RESOURCE,
-	REQUEST.txt:      REQUEST,
-	METADATA.txt:     METADATA,
-	REVISIT.txt:      REVISIT,
-	CONVERSION.txt:   CONVERSION,
-	CONTINUATION.txt: CONTINUATION,
-}
 
 type warcRecord struct {
 	opts         *options
 	version      *version
 	headers      *warcFields
-	recordType   *recordType
+	recordType   recordType
 	block        Block
 	finalizeOnce sync.Once
 	closer       func() error
@@ -114,7 +142,7 @@ func newRecord(opts *options, version *version) *warcRecord {
 		opts:       opts,
 		version:    version,
 		headers:    &warcFields{},
-		recordType: nil,
+		recordType: 0,
 		block:      nil,
 	}
 	return wr
@@ -122,7 +150,7 @@ func newRecord(opts *options, version *version) *warcRecord {
 
 func (wr *warcRecord) Version() *version { return wr.version }
 
-func (wr *warcRecord) Type() *recordType { return wr.recordType }
+func (wr *warcRecord) Type() recordType { return wr.recordType }
 
 func (wr *warcRecord) WarcHeader() *warcFields { return wr.headers }
 
@@ -145,12 +173,12 @@ func (wr *warcRecord) Close() {
 }
 
 func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
-	//if wr.recordType.id&(REVISIT.id) != 0 {
+	//if wr.recordType.id&(Revisit.id) != 0 {
 	//	wr.block, err = NewRevisitBlock(wr.block)
 	//	return
 	//}
 	contentType := strings.ToLower(wr.headers.Get(ContentType))
-	if wr.recordType.id&(RESPONSE.id|RESOURCE.id|REQUEST.id|CONVERSION.id|CONTINUATION.id) != 0 {
+	if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 		if strings.HasPrefix(contentType, "application/http") {
 			httpBlock, err := NewHttpBlock(reader)
 			if err != nil {
