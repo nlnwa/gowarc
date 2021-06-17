@@ -17,28 +17,35 @@
 package gowarc
 
 import (
-	"compress/gzip"
 	"fmt"
 	"io"
 )
 
-type writer struct {
-	opts *options
+type Marshaler interface {
+	// Marshal converts a WARC record to its serialized form.
+	Marshal(record WarcRecord) (WarcRecord, int64, error)
 }
 
-func NewWriter(opts *options) *writer {
-	return &writer{
-		opts: opts,
-	}
+type WarcFileMarshaler struct {
+	opts       *options
+	LastOffset int64
+	writer     io.Writer
 }
 
-func (m *writer) WriteRecord(w io.Writer, record WarcRecord) (int64, error) {
-	if m.opts.compress {
-		gz := gzip.NewWriter(w)
-		defer gz.Close()
-		w = gz
+func NewWarcFileMarshaler(opts *options) *WarcFileMarshaler {
+	u := &WarcFileMarshaler{
+		opts:   opts,
+		writer: nil,
 	}
+	return u
+}
 
+func (m *WarcFileMarshaler) Marshal(record WarcRecord) (WarcRecord, int64, error) {
+	size, err := m.writeRecord(m.writer, record)
+	return nil, size, err
+}
+
+func (m *WarcFileMarshaler) writeRecord(w io.Writer, record WarcRecord) (int64, error) {
 	//if err := record.Finalize(); err != nil {
 	//	return 0, err
 	//}

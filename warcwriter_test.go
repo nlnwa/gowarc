@@ -23,7 +23,7 @@ import (
 )
 
 func TestWarcWriter_WriteRecord(t *testing.T) {
-	wf, err := NewWarcFilename("../testdata/example.warc", 0, NewOptions(WithStrict(true)))
+	wf, err := NewWarcFilename("../testdata/example.warc", 0, NewOptions())
 	if err != nil {
 		return
 	}

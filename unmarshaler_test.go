@@ -97,7 +97,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := NewUnmarshaler(NewOptions(WithStrict(true)))
+			u := NewUnmarshaler(NewOptions())
 			data := bufio.NewReader(strings.NewReader(tt.input))
 			gotRecord, gotBytesRead, err := u.Unmarshal(data)
 

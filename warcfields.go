@@ -17,17 +17,19 @@
 package gowarc
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"sort"
-	"strconv"
 	"strings"
 )
 
 type NameValue struct {
 	Name  string
 	Value string
+}
+
+func (n *NameValue) String() string {
+	return n.Name + ": " + n.Value
 }
 
 type warcFields []*NameValue
@@ -115,7 +117,7 @@ func (wf *warcFields) Sort() {
 func (wf *warcFields) Write(w io.Writer) (bytesWritten int64, err error) {
 	var n int
 	for _, field := range *wf {
-		n, err = fmt.Fprintf(w, "%v: %v\r\n", field.Name, field.Value)
+		n, err = fmt.Fprintf(w, "%s: %s\r\n", field.Name, field.Value)
 		bytesWritten += int64(n)
 		if err != nil {
 			return
@@ -128,72 +130,4 @@ func (wf *warcFields) String() string {
 	sb := &strings.Builder{}
 	wf.Write(sb)
 	return sb.String()
-}
-
-// ValidateHeader validates a warcFields object as a WARC-record header
-func (wf *warcFields) ValidateHeader(opts *options, version *version) (*recordType, error) {
-	rt, err := wf.resolveRecordType(opts)
-	if err != nil {
-		return rt, err
-	}
-
-	for _, nv := range *wf {
-		name, def := NormalizeName(nv.Name)
-		value, err := def.validationFunc(opts, name, nv.Value, version, rt, def)
-		nv.Name = name
-		nv.Value = value
-		if err != nil {
-			return rt, err
-		}
-		if opts.strict && !def.repeatable && len(wf.GetAll(name)) > 1 {
-			return rt, fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.txt)
-		}
-	}
-
-	// Check for required fields
-	for _, f := range requiredFields {
-		if !wf.Has(f) {
-			return rt, fmt.Errorf("missing required field: %s", f)
-		}
-	}
-	contentLength, _ := strconv.ParseInt(wf.Get(ContentLength), 10, 64)
-	if rt != CONTINUATION && contentLength > 0 && !wf.Has(ContentType) {
-		return rt, fmt.Errorf("missing required field: %s", ContentType)
-	}
-
-	// Check for illegal fields
-	if (WARCINFO.id|CONVERSION.id|CONTINUATION.id)&rt.id != 0 && wf.Has(WarcConcurrentTo) {
-		return rt, fmt.Errorf("field %s not allowed for record type %s :: %b %b %b", WarcConcurrentTo, rt, (WARCINFO.id | CONVERSION.id | CONTINUATION.id), rt.id, (WARCINFO.id|CONVERSION.id|CONTINUATION.id)&rt.id)
-	}
-	return rt, nil
-}
-
-func (wf *warcFields) resolveRecordType(opts *options) (*recordType, error) {
-	typeFieldNameLc := "warc-type"
-	var typeField string
-	for _, f := range *wf {
-		if strings.ToLower(f.Name) == typeFieldNameLc {
-			typeField = f.Value
-			break
-		}
-	}
-
-	var rt *recordType
-	if typeField == "" {
-		rt = &recordType{id: 0, txt: "MISSING"}
-		if opts.strict {
-			return rt, errors.New("missing required field WARC-Type")
-		}
-	}
-	typeFieldValLc := strings.ToLower(typeField)
-	var ok bool
-	rt, ok = recordTypeStringToType[typeFieldValLc]
-	if !ok {
-		rt = &recordType{id: 0, txt: typeField}
-		if opts.strict {
-			return rt, fmt.Errorf("unrecognized value in field WARC-Type '%s'", typeField)
-		}
-	}
-
-	return rt, nil
 }

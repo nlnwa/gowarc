@@ -61,6 +61,8 @@ func newDigest(digestString string) (*digest, error) {
 		return &digest{sha256.New(), algorithm, hash}, nil
 	case "sha512":
 		return &digest{sha512.New(), algorithm, hash}, nil
+	case "":
+		return &digest{sha1.New(), "sha1", hash}, nil
 	default:
 		return nil, fmt.Errorf("unsupported digest algorithm '%s'", algorithm)
 	}

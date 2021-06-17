@@ -34,9 +34,9 @@ func TestLoader_Get(t *testing.T) {
 	}
 
 	opts := gowarc.NewOptions()
-	v1InfoRecord, _ := gowarc.NewRecordBuilder(opts, gowarc.WARCINFO).Finalize()
-	v1ResponseRecord, _ := gowarc.NewRecordBuilder(opts, gowarc.RESPONSE).Finalize()
-	v1RequestRecord, _ := gowarc.NewRecordBuilder(opts, gowarc.REQUEST).Finalize()
+	v1InfoRecord, _, _ := gowarc.NewRecordBuilder(opts, gowarc.WARCINFO).Finalize()
+	v1ResponseRecord, _, _ := gowarc.NewRecordBuilder(opts, gowarc.RESPONSE).Finalize()
+	v1RequestRecord, _, _ := gowarc.NewRecordBuilder(opts, gowarc.REQUEST).Finalize()
 	tests := []struct {
 		name       string
 		args       args

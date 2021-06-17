@@ -78,7 +78,7 @@ func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
 		//	line, err = rb.ReadBytes('\n')
 		//	if err != nil {
 		//		if err == io.EOF {
-		//			line = append(line, []byte(CRLF)...)
+		//			line = append(line, []byte(crlf)...)
 		//			err = nil
 		//		} else {
 		//			break
@@ -112,7 +112,7 @@ func (block *RevisitBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 	//if err != nil {
 	//	return
 	//}
-	//w.Write([]byte(CRLF))
+	//w.Write([]byte(crlf))
 	//bytesWritten += 2
 	return
 }

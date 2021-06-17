@@ -20,13 +20,12 @@ import (
 	"bufio"
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"mime"
 )
 
 var (
-	COLON        = []byte{':'}
+	colon        = []byte{':'}
 	EndOfHeaders = errors.New("EOH")
 )
 
@@ -34,50 +33,57 @@ type warcfieldsParser struct {
 	Options *options
 }
 
-func (p *warcfieldsParser) parseLine(line []byte, nv warcFields) (warcFields, error) {
-	line = bytes.TrimRight(line, SPHTCRLF)
+func (p *warcfieldsParser) parseLine(line []byte, nv warcFields, pos *position) (warcFields, error) {
+	line = bytes.TrimRight(line, sphtcrlf)
 
 	// Support for ‘encoded-word’ mechanism of [RFC2047]
 	d := mime.WordDecoder{}
 	l, err := d.DecodeHeader(string(line))
 	if err != nil {
-		return nil, err
+		return nv, NewWrappedSyntaxError("error decoding line", pos, err)
 	}
 	line = []byte(l)
 
-	fv := bytes.SplitN(line, COLON, 2)
+	fv := bytes.SplitN(line, colon, 2)
 	if len(fv) != 2 {
-		err = errors.New("could not parse header line. Missing ':' in " + string(fv[0]))
-		return nil, err
+		err = NewSyntaxError("could not parse header line. Missing ':' in "+string(fv[0]), pos)
+		return nv, err
 	}
 
-	name := string(bytes.Trim(fv[0], SPHTCRLF))
-	value := string(bytes.Trim(fv[1], SPHTCRLF))
+	name := string(bytes.Trim(fv[0], sphtcrlf))
+	value := string(bytes.Trim(fv[1], sphtcrlf))
 
-	//nv = append(nv, &NameValue{Name: name, Value: value})
 	nv.Add(name, value)
 	return nv, nil
 }
 
-func (p *warcfieldsParser) readLine(r *bufio.Reader) (line []byte, nextChar byte, err error) {
-	l, err := r.ReadBytes('\n')
-	if err != nil {
-		if err == io.EOF {
-			err = EndOfHeaders
+// readLine reads the next line from r.
+// error is returned for syntax error or if r returns an error. If the error is fatal then line is nil.
+// If line is not null it means that readLine was able to get something useful which could be used by a lenient
+// parser even though err was not nil.
+// nextChar returns the first character a new call to readLine would process.
+func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte, nextChar byte, err error) {
+	l, e := r.ReadBytes('\n')
+	if e != nil {
+		if e == io.EOF {
+			e = EndOfHeaders
 		}
-		return
+		return l, nextChar, e
 	}
-	if p.Options.strict && l[len(l)-2] != '\r' {
-		err = fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
-		return
+	if p.Options.errSyntax > ErrIgnore && l[len(l)-2] != '\r' {
+		err = NewSyntaxError("missing carriage return", pos)
+		if p.Options.errSyntax == ErrFail {
+			return nil, nextChar, err
+		}
 	}
-	line = bytes.Trim(l, SPHTCRLF)
+	line = bytes.Trim(l, sphtcrlf)
 
-	n, err := r.Peek(1)
-	if err == io.EOF {
+	n, e := r.Peek(1)
+	if e == io.EOF {
 		return line, 0, nil
 	}
-	if err != nil {
+	if e != nil {
+		err = e
 		return
 	}
 
@@ -85,35 +91,64 @@ func (p *warcfieldsParser) readLine(r *bufio.Reader) (line []byte, nextChar byte
 	return
 }
 
-func (p *warcfieldsParser) Parse(r *bufio.Reader, ctx interface{}) (*warcFields, error) {
+func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *position) (*warcFields, error) {
 	wf := warcFields{}
-	//nv := make([]NameValue, 0, 10)
+	eoh := false
+
 	for {
-		line, nc, err := p.readLine(r)
+		line, nc, err := p.readLine(r, pos.incrLineNumber())
 		if err != nil {
 			if err == EndOfHeaders {
-				break
+				err = nil
+				eoh = true
+				if len(line) > 0 && p.Options.errSyntax > ErrIgnore {
+					switch p.Options.errSyntax {
+					case ErrIgnore:
+					case ErrWarn:
+						validation.AddError(NewSyntaxError("missing newline", pos))
+					case ErrFail:
+						return nil, NewSyntaxError("missing newline", pos)
+					}
+				}
 			}
-			return nil, err
+			if line == nil {
+				return nil, err
+			}
+			if !eoh {
+				validation.AddError(err)
+			}
 		}
 
 		// Check for continuation
-		for nc == SP || nc == HT {
+		for nc == sp || nc == ht {
 			var l []byte
-			l, nc, err = p.readLine(r)
+			l, nc, err = p.readLine(r, pos.incrLineNumber())
 			if err != nil {
-				return nil, err
+				if l == nil {
+					return nil, err
+				}
+				validation.AddError(err)
 			}
 			line = append(line, ' ')
 			line = append(line, l...)
 		}
 
-		wf, err = p.parseLine(line, wf)
+		wf, err = p.parseLine(line, wf, pos)
 		if err != nil {
-			return nil, err
+			switch p.Options.errSyntax {
+			case ErrIgnore:
+			case ErrWarn:
+				validation.AddError(err)
+			case ErrFail:
+				return nil, err
+			}
 		}
 
-		if nc == CR {
+		if eoh {
+			break
+		}
+
+		if nc == cr {
 			l, err := r.ReadBytes('\n')
 			if len(l) != 2 || err != nil {
 				return nil, errors.New("missing End of WARC-Fields marker")
@@ -121,7 +156,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, ctx interface{}) (*warcFields,
 			break
 		}
 		// Handle missing carriage return in line endings
-		if nc == LF {
+		if nc == lf {
 			l, err := r.ReadBytes('\n')
 			if len(l) > 2 || err != nil {
 				return nil, errors.New("missing End of WARC-Fields marker")

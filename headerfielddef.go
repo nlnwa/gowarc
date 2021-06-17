@@ -17,6 +17,7 @@
 package gowarc
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -24,8 +25,8 @@ import (
 	"time"
 )
 
-// WARC header field names
 const (
+	// WARC header field name constants
 	ContentLength             = "Content-Length"
 	ContentType               = "Content-Type"
 	WarcBlockDigest           = "WARC-Block-Digest"
@@ -48,6 +49,89 @@ const (
 	WarcType                  = "WARC-Type"
 	WarcWarcinfoID            = "WARC-Warcinfo-ID"
 )
+
+// ValidateHeader validates a warcFields object as a WARC-record header
+func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validation, *recordType, error) {
+	v := &Validation{}
+
+	rt, err := resolveRecordType(wf, v, opts)
+	if err != nil {
+		return v, rt, err
+	}
+
+	for _, nv := range *wf {
+		name, def := NormalizeName(nv.Name)
+		value, err := def.validationFunc(opts, name, nv.Value, version, rt, def)
+		nv.Name = name
+		nv.Value = value
+		if err != nil {
+			return v, rt, err
+		}
+		if opts.errSpec > ErrIgnore && !def.repeatable && len(wf.GetAll(name)) > 1 {
+			switch opts.errSpec {
+			case ErrWarn:
+				v.AddError(fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.txt))
+			case ErrFail:
+				return v, rt, fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.txt)
+			}
+		}
+	}
+
+	// Check for required fields
+	for _, f := range requiredFields {
+		if !wf.Has(f) {
+			return v, rt, fmt.Errorf("missing required field: %s", f)
+		}
+	}
+	contentLength, _ := strconv.ParseInt(wf.Get(ContentLength), 10, 64)
+	if rt != CONTINUATION && contentLength > 0 && !wf.Has(ContentType) {
+		return v, rt, fmt.Errorf("missing required field: %s", ContentType)
+	}
+
+	// Check for illegal fields
+	if (WARCINFO.id|CONVERSION.id|CONTINUATION.id)&rt.id != 0 && wf.Has(WarcConcurrentTo) {
+		return v, rt, fmt.Errorf("field %s not allowed for record type %s :: %b %b %b", WarcConcurrentTo, rt, (WARCINFO.id | CONVERSION.id | CONTINUATION.id), rt.id, (WARCINFO.id|CONVERSION.id|CONTINUATION.id)&rt.id)
+	}
+	return v, rt, nil
+}
+
+func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (*recordType, error) {
+	typeFieldNameLc := "warc-type"
+	var typeField string
+	for _, f := range *wf {
+		if strings.ToLower(f.Name) == typeFieldNameLc {
+			typeField = f.Value
+			break
+		}
+	}
+
+	var rt *recordType
+	if typeField == "" {
+		rt = &recordType{id: 0, txt: "MISSING"}
+		switch opts.errSpec {
+		case ErrIgnore:
+		case ErrWarn:
+			validation.AddError(errors.New("missing required field WARC-Type"))
+		case ErrFail:
+			return rt, errors.New("missing required field WARC-Type")
+		}
+	}
+	typeFieldValLc := strings.ToLower(typeField)
+	var ok bool
+	rt, ok = recordTypeStringToType[typeFieldValLc]
+	if !ok {
+		rt = &recordType{id: 0, txt: typeField}
+		switch opts.errSpec {
+		case ErrIgnore:
+		case ErrWarn:
+			validation.AddError(fmt.Errorf("unrecognized value in field WARC-Type '%s'", typeField))
+		case ErrFail:
+			return rt, fmt.Errorf("unrecognized value in field WARC-Type '%s'", typeField)
+		}
+	}
+
+	return rt, nil
+}
 
 var requiredFields = []string{WarcRecordID, ContentLength, WarcDate, WarcType}
 
@@ -218,10 +302,10 @@ var (
 )
 
 func checkLegal(opts *options, name, value string, version *version, recordType *recordType, def fieldDef) (err error) {
-	if opts.strict && version.id&def.supportedSpec == 0 {
+	if opts.errSpec > ErrIgnore && version.id&def.supportedSpec == 0 {
 		return
 	}
-	if opts.strict && recordType.id&def.supportedRec == 0 {
+	if opts.errSpec > ErrIgnore && recordType.id&def.supportedRec == 0 {
 		err = fmt.Errorf("illegal field '%v' in record type '%v'", name, recordType.txt)
 		return
 	}

@@ -37,19 +37,15 @@ func (b *warcFieldsBlock) WarcFields() *warcFields {
 	return b.warcFields
 }
 
-func NewWarcFieldsBlock(rb io.Reader, options *options) (WarcFieldsBlock, error) {
+func NewWarcFieldsBlock(rb io.Reader, validation *Validation, options *options) (WarcFieldsBlock, error) {
 	wfb := &warcFieldsBlock{}
-	//rb, err := block.RawBytes()
-	//if err != nil {
-	//	return nil, err
-	//}
 	var err error
 	wfb.content, err = ioutil.ReadAll(rb)
 	p := &warcfieldsParser{options}
-	wfb.warcFields, err = p.Parse(bufio.NewReader(rb), nil)
 	if err != nil {
 		return nil, err
 	}
+	wfb.warcFields, err = p.Parse(bufio.NewReader(rb), validation, &position{})
 
 	return wfb, nil
 }
@@ -64,7 +60,7 @@ func (block *warcFieldsBlock) BlockDigest() string {
 
 func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 	bytesWritten, err = b.warcFields.Write(w)
-	w.Write([]byte(CRLF))
+	w.Write([]byte(crlf))
 	bytesWritten += 2
 	return
 }

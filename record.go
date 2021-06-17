@@ -25,13 +25,13 @@ import (
 )
 
 const (
-	SPHTCRLF = " \t\r\n"
-	CR       = '\r'
-	LF       = '\n'
-	SP       = ' '
-	HT       = '\t'
-	CRLF     = "\r\n"
-	CRLFCRLF = "\r\n\r\n"
+	sphtcrlf = " \t\r\n"  // Space, Tab, Carriage return, Newline
+	cr       = '\r'       // Carriage return
+	lf       = '\n'       // Newline
+	sp       = ' '        // Space
+	ht       = '\t'       // Tab
+	crlf     = "\r\n"     // Carriage return, Newline
+	crlfcrlf = "\r\n\r\n" // Carriage return, Newline, Carriage return, Newline
 )
 
 type WarcRecord interface {
@@ -131,7 +131,7 @@ func (wr *warcRecord) Block() Block {
 }
 
 func (wr *warcRecord) String() string {
-	return fmt.Sprintf("WARC record: version: %s, type: %s", wr.version, wr.Type())
+	return fmt.Sprintf("WARC record: version: %s, type: %s, id: %s", wr.version, wr.Type(), wr.WarcHeader().Get(WarcRecordID))
 }
 
 func (wr *warcRecord) Close() {
@@ -144,11 +144,11 @@ func (wr *warcRecord) Close() {
 	}
 }
 
-func (wr *warcRecord) parseBlock(reader io.Reader) (err error) {
-	if wr.recordType.id&(REVISIT.id) != 0 {
-		wr.block, err = NewRevisitBlock(wr.block)
-		return
-	}
+func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
+	//if wr.recordType.id&(REVISIT.id) != 0 {
+	//	wr.block, err = NewRevisitBlock(wr.block)
+	//	return
+	//}
 	contentType := strings.ToLower(wr.headers.Get(ContentType))
 	if wr.recordType.id&(RESPONSE.id|RESOURCE.id|REQUEST.id|CONVERSION.id|CONTINUATION.id) != 0 {
 		if strings.HasPrefix(contentType, "application/http") {
@@ -161,7 +161,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader) (err error) {
 		}
 	}
 	if strings.HasPrefix(contentType, "application/warc-fields") {
-		warcFieldsBlock, err := NewWarcFieldsBlock(reader, wr.opts)
+		warcFieldsBlock, err := NewWarcFieldsBlock(reader, validation, wr.opts)
 		if err != nil {
 			return err
 		}

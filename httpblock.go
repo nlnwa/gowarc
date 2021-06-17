@@ -125,7 +125,7 @@ func (block *httpRequestBlock) Write(w io.Writer) (int64, error) {
 	if err != nil {
 		return bytesWritten, err
 	}
-	_, err = w.Write([]byte(CRLF))
+	_, err = w.Write([]byte(crlf))
 	bytesWritten += 2
 	return bytesWritten, err
 }
@@ -214,7 +214,7 @@ func (block *httpResponseBlock) Write(w io.Writer) (int64, error) {
 	if err != nil {
 		return bytesWritten, err
 	}
-	_, err = w.Write([]byte(CRLF))
+	_, err = w.Write([]byte(crlf))
 	bytesWritten += 2
 	return bytesWritten, err
 }

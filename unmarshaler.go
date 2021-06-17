@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
-	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/countingreader"
 	log "github.com/sirupsen/logrus"
@@ -50,6 +49,7 @@ func NewUnmarshaler(opts *options) *unmarshaler {
 func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	var r *bufio.Reader
 	var offset int64
+	validation := &Validation{}
 
 	magic, err := b.Peek(5)
 	if err != nil {
@@ -57,7 +57,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	}
 	// Search for start of new record
 	for !(magic[0] == 0x1f && magic[1] == 0x8b) && !bytes.Equal(magic, []byte("WARC/")) {
-		if u.opts.strict {
+		if u.opts.errSyntax > ErrIgnore {
 			return nil, offset, fmt.Errorf("expected start of record")
 		}
 		b.Discard(1)
@@ -82,32 +82,39 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	}
 
 	// Find WARC version
+	pos := &position{}
 	l := make([]byte, 5)
 	i, err := io.ReadFull(r, l)
 	if err != nil {
 		return nil, offset, err
 	}
+	pos.incrLineNumber()
 	if i != 5 || !bytes.Equal(l, []byte("WARC/")) {
-		return nil, offset, errors.New("missing record version")
+		return nil, offset, NewSyntaxError("missing record version", pos)
 	}
 	l, err = r.ReadBytes('\n')
 	if err != nil {
 		return nil, offset, err
 	}
-	if u.opts.strict && l[len(l)-2] != '\r' {
-		return nil, offset, fmt.Errorf("missing carriage return on line '%s'", bytes.Trim(l, SPHTCRLF))
+	if l[len(l)-2] != '\r' {
+		switch u.opts.errSyntax {
+		case ErrWarn:
+			return nil, offset, NewSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
+		case ErrFail:
+			return nil, offset, NewSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
+		}
 	}
-	version, err := u.resolveRecordVersion(string(bytes.Trim(l, SPHTCRLF)))
+	version, err := u.resolveRecordVersion(string(bytes.Trim(l, sphtcrlf)))
 	if err != nil {
 		return nil, offset, err
 	}
 
 	// Parse WARC header
-	wf, err := u.warcFieldsParser.Parse(r, version)
+	wf, err := u.warcFieldsParser.Parse(r, validation, pos)
 	if err != nil {
 		return nil, offset, err
 	}
-	rt, err := wf.ValidateHeader(u.opts, version)
+	_, rt, err := ValidateHeader(wf, version, u.opts)
 	if err != nil {
 		return nil, offset, err
 	}
@@ -132,7 +139,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 		return err
 	}
 
-	err = record.parseBlock(bufio.NewReader(c2))
+	err = record.parseBlock(bufio.NewReader(c2), validation)
 
 	return record, offset, nil
 }
@@ -144,9 +151,12 @@ func (u *unmarshaler) resolveRecordVersion(s string) (*version, error) {
 	case V1_1.txt:
 		return V1_1, nil
 	default:
-		if u.opts.strict {
+		switch u.opts.errSpec {
+		case ErrWarn:
+			return &version{txt: s}, fmt.Errorf("unsupported WARC version: %v", s)
+		case ErrFail:
 			return nil, fmt.Errorf("unsupported WARC version: %v", s)
-		} else {
+		default:
 			return &version{txt: s}, nil
 		}
 	}

@@ -16,15 +16,42 @@
 
 package gowarc
 
-type Warning struct {
+import "fmt"
+
+// HeaderFieldError is used for violations of WARC header specification
+type HeaderFieldError struct {
+	field string
+	msg   string
+	line  int
 }
 
-func (w *Warning) Error() string {
-	panic("implement me")
+func (e *HeaderFieldError) Error() string {
+	return "gowarc: " + e.msg
 }
 
-type Error string
+// SyntaxError is used for syntactical errors like wrong line endings
+type SyntaxError struct {
+	msg     string
+	line    int
+	wrapped error
+}
 
-func (e Error) Error() string {
-	return "gowarc: " + string(e)
+func NewSyntaxError(msg string, pos *position) *SyntaxError {
+	return &SyntaxError{msg: msg, line: pos.lineNumber}
+}
+
+func NewWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxError {
+	return &SyntaxError{msg: msg, line: pos.lineNumber, wrapped: wrapped}
+}
+
+func (e *SyntaxError) Error() string {
+	if e.line > 0 {
+		return fmt.Sprintf("gowarc: %v at line %d", e.msg, e.line)
+	} else {
+		return fmt.Sprintf("gowarc: %v", e.msg)
+	}
+}
+
+func (e *SyntaxError) Unwrap() error {
+	return e.wrapped
 }

@@ -72,7 +72,7 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := gowarc.NewOptions(gowarc.WithStrict(c.strict))
+	opts := gowarc.NewOptions()
 	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
 	defer wf.Close()
 	if err != nil {

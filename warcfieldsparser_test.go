@@ -18,24 +18,25 @@ package gowarc
 
 import (
 	"bufio"
-	"reflect"
+	"github.com/stretchr/testify/assert"
 	"strings"
 	"testing"
 )
 
-func TestParseWarcHeader(t *testing.T) {
+func TestParseWarcFields(t *testing.T) {
 	type args struct {
 		data string
 		opts *options
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    *warcFields
-		wantErr bool
+		name           string
+		args           args
+		want           *warcFields
+		wantValidation *Validation
+		wantErr        bool
 	}{
 		{
-			"1",
+			"valid",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -43,27 +44,274 @@ func TestParseWarcHeader(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithStrict(false)),
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{},
+			false,
+		},
+		{
+			"missing carriage return",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\n" +
+					"WARC-Type: warcinfo\n" +
+					"Content-Type: application/warc-fields\n" +
+					"Content-Length: 249\n\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{},
+			false,
+		},
+		{
+			"missing colon",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type application/warc-fields\r\n" +
+					"Content-Length: 249\r\n\r\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{},
+			false,
+		},
+		{
+			"missing last line ending",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type: application/warc-fields\r\n" +
+					"Content-Length: 249",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{},
+			false,
+		},
+		{
+			"valid",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type: application/warc-fields\r\n" +
+					"Content-Length: 249\r\n\r\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{},
+			false,
+		},
+		{
+			"missing carriage return",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\n" +
+					"WARC-Type: warcinfo\n" +
+					"Content-Type: application/warc-fields\n" +
+					"Content-Length: 249\n\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{
+				&SyntaxError{msg: "missing carriage return", line: 1},
+				&SyntaxError{msg: "missing carriage return", line: 2},
+				&SyntaxError{msg: "missing carriage return", line: 3},
+				&SyntaxError{msg: "missing carriage return", line: 4},
+				&SyntaxError{msg: "missing carriage return", line: 5},
+				&SyntaxError{msg: "missing carriage return", line: 6},
+			},
+			false,
+		},
+		{
+			"missing colon",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type application/warc-fields\r\n" +
+					"Content-Length: 249\r\n\r\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{
+				&SyntaxError{msg: "could not parse header line. Missing ':' in Content-Type application/warc-fields", line: 5},
+			},
+			false,
+		},
+		{
+			"missing last line ending",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type: application/warc-fields\r\n" +
+					"Content-Length: 249",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{
+				&SyntaxError{msg: "missing newline", line: 6},
+			},
+			false,
+		},
+		{
+			"valid",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type: application/warc-fields\r\n" +
+					"Content-Length: 249\r\n\r\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+			},
+			&warcFields{
+				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&NameValue{Name: WarcType, Value: "warcinfo"},
+				&NameValue{Name: ContentType, Value: "application/warc-fields"},
+				&NameValue{Name: ContentLength, Value: "249"},
+			},
+			&Validation{},
+			false,
+		},
+		{
+			"missing carriage return",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\n" +
+					"WARC-Type: warcinfo\n" +
+					"Content-Type: application/warc-fields\n" +
+					"Content-Length: 249\n\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			false,
+			&Validation{},
+			true,
+		},
+		{
+			"missing colon",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type application/warc-fields\r\n" +
+					"Content-Length: 249\r\n\r\n",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+			},
+			nil,
+			&Validation{},
+			true,
+		},
+		{
+			"missing last line ending",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+					"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
+					"WARC-Type: warcinfo\r\n" +
+					"Content-Type: application/warc-fields\r\n" +
+					"Content-Length: 249",
+				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+			},
+			nil,
+			&Validation{},
+			true,
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		var name string
+		switch tt.args.opts.errSyntax {
+		case ErrIgnore:
+			name = "policy_ignore/" + tt.name
+		case ErrWarn:
+			name = "policy_warn/" + tt.name
+		case ErrFail:
+			name = "policy_fail/" + tt.name
+		}
+		t.Run(name, func(t *testing.T) {
 			r := bufio.NewReader(strings.NewReader(tt.args.data))
 			p := &warcfieldsParser{Options: tt.args.opts}
-			got, err := p.Parse(r, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseWarcHeader() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			validation := &Validation{}
+			got, err := p.Parse(r, validation, &position{})
+
+			assert := assert.New(t)
+			if tt.wantErr {
+				assert.Error(err)
+			} else {
+				assert.NoError(err)
 			}
-			// TODO: Fix test
-			if false {
-				if !reflect.DeepEqual(got, tt.want) {
-					t.Errorf("ParseWarcHeader() got = %v, want %v", got, tt.want)
-				}
-			}
+			assert.Equal(tt.want, got)
+			assert.Equal(tt.wantValidation, validation)
 		})
 	}
 }

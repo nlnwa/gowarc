@@ -17,12 +17,10 @@
 package gowarc
 
 import (
-	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/pkg/diskbuffer"
 	"io"
 	"strconv"
-	"strings"
 )
 
 type WarcRecordBuilder interface {
@@ -30,7 +28,7 @@ type WarcRecordBuilder interface {
 	io.StringWriter
 	io.ReaderFrom
 	AddWarcHeader(name string, value string)
-	Finalize() (WarcRecord, error)
+	Finalize() (WarcRecord, *Validation, error)
 }
 
 type recordBuilder struct {
@@ -57,68 +55,80 @@ func (rb recordBuilder) AddWarcHeader(name string, value string) {
 	rb.headers.Add(name, value)
 }
 
-func (rb recordBuilder) Finalize() (WarcRecord, error) {
+func (rb recordBuilder) Finalize() (WarcRecord, *Validation, error) {
 	wr := &warcRecord{
 		opts:       rb.opts,
 		version:    rb.version,
 		recordType: rb.recordType,
 		headers:    rb.headers,
-		//block: &genericBlock{
-		//	rawBytes: rb.content,
-		//},
 		closer: func() error {
 			return rb.content.Close()
 		},
 	}
 
-	err := rb.validate(wr)
-	return wr, err
+	validation, err := rb.validate(wr)
+	if err != nil {
+		return wr, validation, err
+	}
+	err = wr.parseBlock(rb.content, validation)
+	return wr, validation, err
 }
 
-func (rb *recordBuilder) validate(wr *warcRecord) error {
-	_, err := rb.headers.ValidateHeader(wr.opts, wr.version)
+func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
+	validation, _, err := ValidateHeader(rb.headers, wr.version, wr.opts)
 	if err != nil {
-		return err
+		return validation, err
 	}
 
-	size := strconv.FormatInt(rb.content.Size(), 10)
-	if wr.WarcHeader().Has(ContentLength) {
-		if size != wr.headers.Get(ContentLength) {
-			return errors.New("content length mismatch")
-		}
-	} else {
-		if err := wr.WarcHeader().Set(ContentLength, size); err != nil {
-			return err
+	if rb.opts.errSpec > ErrIgnore {
+		size := strconv.FormatInt(rb.content.Size(), 10)
+		if wr.WarcHeader().Has(ContentLength) {
+			if size != wr.headers.Get(ContentLength) {
+				switch rb.opts.errSpec {
+				case ErrWarn:
+					validation.AddError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
+					if rb.opts.fixContentLength {
+						if err := wr.WarcHeader().Set(ContentLength, size); err != nil {
+							return validation, err
+						}
+					}
+				case ErrFail:
+					return validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
+				}
+			}
+			//} else if rb.opts.fixContentLength {
+			//	if err := wr.WarcHeader().Set(ContentLength, size); err != nil {
+			//		return validation, err
+			//	}
 		}
 	}
 
 	d, err := newDigest(wr.WarcHeader().Get(WarcBlockDigest))
 	if err != nil {
-		return err
+		return validation, err
 	}
 	io.Copy(d, rb.content)
 	if err := d.validate(); err != nil {
-		fmt.Printf("%v\n", err)
-		//return fmt.Errorf("wrong block digest")
+		switch rb.opts.errSpec {
+		case ErrIgnore:
+		case ErrWarn:
+			validation.AddError(err)
+			if rb.opts.fixDigest {
+				wr.WarcHeader().Set(WarcBlockDigest, d.format())
+			}
+		case ErrFail:
+			return validation, fmt.Errorf("wrong block digest " + err.Error())
+		}
 	}
 	rb.content.Seek(0, io.SeekStart)
-
-	if strings.HasPrefix(wr.headers.Get(ContentType), "application/http") {
-		httpBlock, err := NewHttpBlock(rb.content)
-		if err != nil {
-			return err
-		}
-		wr.block = httpBlock
-	} else {
-		wr.block = &genericBlock{
-			rawBytes: rb.content,
-		}
-	}
-	//wr.block.finalize()
-	return nil
+	return validation, nil
 }
 
 func NewRecordBuilder(opts *options, recordType *recordType) *recordBuilder {
+	if opts == nil {
+		o := defaultOptions()
+		opts = &o
+	}
 	rb := &recordBuilder{
 		opts:       opts,
 		version:    opts.warcVersion,
@@ -127,15 +137,5 @@ func NewRecordBuilder(opts *options, recordType *recordType) *recordBuilder {
 		content:    diskbuffer.New(),
 	}
 	rb.headers.Set(WarcType, recordType.txt)
-	return rb
-}
-
-func NewResponseRecord(opts *options) WarcRecordBuilder {
-	rb := NewRecordBuilder(opts, RESPONSE)
-
-	rb.headers.Set(ContentType, "application/http;msgtype=response")
-	rb.headers.Set(WarcBlockDigest, "sha1:UZY6ND6CCHXETFVJD2MSS7ZENMWF7KQ2")
-	rb.headers.Set(WarcPayloadDigest, "sha1:CCHXETFVJD2MUZY6ND6SS7ZENMWF7KQ2")
-
 	return rb
 }

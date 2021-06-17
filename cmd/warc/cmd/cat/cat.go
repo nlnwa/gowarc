@@ -73,7 +73,7 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := gowarc.NewOptions(gowarc.WithStrict(c.strict))
+	opts := gowarc.NewOptions()
 	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
 	defer wf.Close()
 	if err != nil {
@@ -83,7 +83,7 @@ func readFile(c *conf, fileName string) {
 
 	count := 0
 
-	ww := gowarc.NewWriter(gowarc.NewOptions(gowarc.WithStrict(false), gowarc.WithCompression(false)))
+	ww := gowarc.NewWriter(gowarc.NewOptions(gowarc.WithCompression(false)))
 
 	for {
 		wr, _, err := wf.Next()

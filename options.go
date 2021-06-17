@@ -17,20 +17,22 @@
 package gowarc
 
 type options struct {
-	strict      bool
-	compress    bool
-	warcVersion *version
-	errEOL      errorPolicy // How to handle missing carriage return in record
+	compress         bool
+	warcVersion      *version
+	errSyntax        errorPolicy
+	errSpec          errorPolicy
+	addMissingFields bool
+	fixContentLength bool
+	fixDigest        bool
 }
 
 // The errorPolicy constants describe how to handle WARC record errors.
 type errorPolicy int8
 
 const (
-	errIgnore errorPolicy = 0 // Ignore the given error.
-	errWarn   errorPolicy = 1 // Ignore given error, but submit a warning.
-	errFail   errorPolicy = 2 // Fail on given error.
-	errFix    errorPolicy = 4 // Try to fix the given error.
+	ErrIgnore errorPolicy = 0 // Ignore the given error.
+	ErrWarn   errorPolicy = 1 // Ignore given error, but submit a warning.
+	ErrFail   errorPolicy = 2 // Fail on given error.
 )
 
 // Option configures validation, serialization and deserialization of WARC record.
@@ -62,9 +64,13 @@ func newFuncOption(f func(*options)) *funcOption {
 
 func defaultOptions() options {
 	return options{
-		strict:      false,
-		compress:    true,
-		warcVersion: V1_1,
+		compress:         true,
+		warcVersion:      V1_1,
+		errSyntax:        ErrWarn,
+		errSpec:          ErrWarn,
+		addMissingFields: true,
+		fixContentLength: true,
+		fixDigest:        true,
 	}
 }
 
@@ -75,14 +81,6 @@ func NewOptions(opts ...Option) *options {
 		opt.apply(&o)
 	}
 	return &o
-}
-
-// WithStrict decides if record is reuired to strictly follwing the WARC spec
-// defaults to false
-func WithStrict(strict bool) Option {
-	return newFuncOption(func(o *options) {
-		o.strict = strict
-	})
 }
 
 // WithCompression sets if writer should write compressed WARC files.
@@ -101,10 +99,45 @@ func WithVersion(version *version) Option {
 	})
 }
 
-// WithVersion sets the WARC version to use for new records
-// defaults to WARC/1.1
-func WithEOLPolicy(policy errorPolicy) Option {
+// WithSyntaxErrorPolicy sets the policy for handling syntax errors in WARC records
+// defaults to ErrWarn
+func WithSyntaxErrorPolicy(policy errorPolicy) Option {
 	return newFuncOption(func(o *options) {
-		o.errEOL = policy
+		o.errSyntax = policy
+	})
+}
+
+// WithSpecViolationPolicy sets the policy for handling violations of the WARC specification in WARC records
+// defaults to ErrWarn
+func WithSpecViolationPolicy(policy errorPolicy) Option {
+	return newFuncOption(func(o *options) {
+		o.errSpec = policy
+	})
+}
+
+// WithAddMissingFields sets if missing WARC-header fields should be added.
+// Only fields which can be generated automaticly are added. That includes WarcRecordID, ContentLength, BlockDigest and PayloadDigest.
+// defaults to true
+func WithAddMissingFields(addMissingFields bool) Option {
+	return newFuncOption(func(o *options) {
+		o.addMissingFields = addMissingFields
+	})
+}
+
+// WithFixContentLength sets if a ContentLength header with value which do not match the actual content length should be set to the real value.
+// This will not have any impact if SpecViolationPolicy is ErrIgnore
+// defaults to true
+func WithFixContentLength(fixContentLength bool) Option {
+	return newFuncOption(func(o *options) {
+		o.fixContentLength = fixContentLength
+	})
+}
+
+// WithFixDigest sets if a BlockDigest header or a PayloadDigest header with a value which do not match the actual content should be recalculated.
+// This will not have any impact if SpecViolationPolicy is ErrIgnore
+// defaults to true
+func WithFixDigest(fixDigest bool) Option {
+	return newFuncOption(func(o *options) {
+		o.fixDigest = fixDigest
 	})
 }
