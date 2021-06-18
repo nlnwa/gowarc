@@ -50,8 +50,8 @@ const (
 	WarcWarcinfoID            = "WARC-Warcinfo-ID"
 )
 
-// ValidateHeader validates a warcFields object as a WARC-record header
-func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validation, recordType, error) {
+// validateHeader validates a warcFields object as a WARC-record header
+func validateHeader(wf *warcFields, version *version, opts *options) (*Validation, recordType, error) {
 	v := &Validation{}
 
 	rt, err := resolveRecordType(wf, v, opts)
@@ -70,7 +70,7 @@ func ValidateHeader(wf *warcFields, version *version, opts *options) (*Validatio
 		if opts.errSpec > ErrIgnore && !def.repeatable && len(wf.GetAll(name)) > 1 {
 			switch opts.errSpec {
 			case ErrWarn:
-				v.AddError(fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String()))
+				v.addError(fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String()))
 			case ErrFail:
 				return v, rt, fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String())
 			}
@@ -112,7 +112,7 @@ func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (r
 		switch opts.errSpec {
 		case ErrIgnore:
 		case ErrWarn:
-			validation.AddError(errors.New("missing required field WARC-Type"))
+			validation.addError(errors.New("missing required field WARC-Type"))
 		case ErrFail:
 			return rt, errors.New("missing required field WARC-Type")
 		}
@@ -123,7 +123,7 @@ func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (r
 		switch opts.errUnknowRecordType {
 		case ErrIgnore:
 		case ErrWarn:
-			validation.AddError(fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField))
+			validation.addError(fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField))
 		case ErrFail:
 			return rt, fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField)
 		}

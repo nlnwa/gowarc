@@ -41,7 +41,7 @@ func (v *Validation) String() string {
 	return sb.String()
 }
 
-func (v *Validation) AddError(err error) {
+func (v *Validation) addError(err error) {
 	*v = append(*v, err)
 }
 

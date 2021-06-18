@@ -75,7 +75,7 @@ func (rb recordBuilder) Finalize() (WarcRecord, *Validation, error) {
 }
 
 func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
-	validation, _, err := ValidateHeader(rb.headers, wr.version, wr.opts)
+	validation, _, err := validateHeader(rb.headers, wr.version, wr.opts)
 	if err != nil {
 		return validation, err
 	}
@@ -86,7 +86,7 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 			if size != wr.headers.Get(ContentLength) {
 				switch rb.opts.errSpec {
 				case ErrWarn:
-					validation.AddError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
+					validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
 					if rb.opts.fixContentLength {
 						if err := wr.WarcHeader().Set(ContentLength, size); err != nil {
 							return validation, err
@@ -112,7 +112,7 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 		switch rb.opts.errSpec {
 		case ErrIgnore:
 		case ErrWarn:
-			validation.AddError(err)
+			validation.addError(err)
 			if rb.opts.fixDigest {
 				wr.WarcHeader().Set(WarcBlockDigest, d.format())
 			}

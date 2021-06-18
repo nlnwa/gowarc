@@ -114,7 +114,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	if err != nil {
 		return nil, offset, err
 	}
-	_, rt, err := ValidateHeader(wf, version, u.opts)
+	_, rt, err := validateHeader(wf, version, u.opts)
 	if err != nil {
 		return nil, offset, err
 	}

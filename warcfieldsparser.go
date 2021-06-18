@@ -26,7 +26,7 @@ import (
 
 var (
 	colon        = []byte{':'}
-	EndOfHeaders = errors.New("EOH")
+	endOfHeaders = errors.New("EOH")
 )
 
 type warcfieldsParser struct {
@@ -66,7 +66,7 @@ func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte
 	l, e := r.ReadBytes('\n')
 	if e != nil {
 		if e == io.EOF {
-			e = EndOfHeaders
+			e = endOfHeaders
 		}
 		return l, nextChar, e
 	}
@@ -98,14 +98,14 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 	for {
 		line, nc, err := p.readLine(r, pos.incrLineNumber())
 		if err != nil {
-			if err == EndOfHeaders {
+			if err == endOfHeaders {
 				err = nil
 				eoh = true
 				if len(line) > 0 && p.Options.errSyntax > ErrIgnore {
 					switch p.Options.errSyntax {
 					case ErrIgnore:
 					case ErrWarn:
-						validation.AddError(NewSyntaxError("missing newline", pos))
+						validation.addError(NewSyntaxError("missing newline", pos))
 					case ErrFail:
 						return nil, NewSyntaxError("missing newline", pos)
 					}
@@ -115,7 +115,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				return nil, err
 			}
 			if !eoh {
-				validation.AddError(err)
+				validation.addError(err)
 			}
 		}
 
@@ -127,7 +127,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				if l == nil {
 					return nil, err
 				}
-				validation.AddError(err)
+				validation.addError(err)
 			}
 			line = append(line, ' ')
 			line = append(line, l...)
@@ -138,7 +138,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 			switch p.Options.errSyntax {
 			case ErrIgnore:
 			case ErrWarn:
-				validation.AddError(err)
+				validation.addError(err)
 			case ErrFail:
 				return nil, err
 			}
