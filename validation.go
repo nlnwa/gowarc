@@ -41,6 +41,11 @@ func (v *Validation) String() string {
 	return sb.String()
 }
 
+// Valid returns true if no validation errors where found.
+func (v *Validation) Valid() bool {
+	return len(*v) == 0
+}
+
 func (v *Validation) addError(err error) {
 	*v = append(*v, err)
 }

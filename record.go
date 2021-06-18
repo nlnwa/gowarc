@@ -64,8 +64,9 @@ func (v *version) Minor() uint8 {
 }
 
 var (
-	V1_0 = &version{id: 1, txt: "1.0", major: 1, minor: 0}
-	V1_1 = &version{id: 2, txt: "1.1", major: 1, minor: 1}
+	// WARC versions
+	V1_0 = &version{id: 1, txt: "1.0", major: 1, minor: 0} // WARC 1.0
+	V1_1 = &version{id: 2, txt: "1.1", major: 1, minor: 1} // WARC 1.1
 )
 
 type recordType uint16
@@ -93,7 +94,7 @@ func (rt recordType) String() string {
 	}
 }
 
-func StringToRecordType(rt string) recordType {
+func stringToRecordType(rt string) recordType {
 	switch rt {
 	case "warcinfo":
 		return 1
@@ -117,6 +118,7 @@ func StringToRecordType(rt string) recordType {
 }
 
 const (
+	// WARC record types
 	Warcinfo     = 1
 	Response     = 2
 	Resource     = 4

@@ -21,35 +21,31 @@ import (
 	"io"
 )
 
+// Marshaler is the interface that wraps the Marshal function.
+//
+// Marshal converts a WARC record to its serialized form and returns the size of the marshalled record or any error encountered.
+//
+// Depending on implementation, Marshal might return a WarcRecord which is the continuation of the record beeing written.
+// See the description of record segmentation at https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#record-segmentation
 type Marshaler interface {
-	// Marshal converts a WARC record to its serialized form.
-	Marshal(record WarcRecord) (WarcRecord, int64, error)
+	Marshal(w io.Writer, record WarcRecord, maxSize int64) (WarcRecord, int64, error)
 }
 
-type WarcFileMarshaler struct {
-	opts       *options
-	LastOffset int64
-	writer     io.Writer
+type defaultMarshaler struct {
 }
 
-func NewWarcFileMarshaler(opts *options) *WarcFileMarshaler {
-	u := &WarcFileMarshaler{
-		opts:   opts,
-		writer: nil,
-	}
-	return u
+func NewMarshaler() Marshaler {
+	return &defaultMarshaler{}
 }
 
-func (m *WarcFileMarshaler) Marshal(record WarcRecord) (WarcRecord, int64, error) {
-	size, err := m.writeRecord(m.writer, record)
+func (m *defaultMarshaler) Marshal(w io.Writer, record WarcRecord, maxSize int64) (WarcRecord, int64, error) {
+	// TODO: Handle segmentation
+	// TODO: Maybe handle revisits here
+	size, err := m.writeRecord(w, record)
 	return nil, size, err
 }
 
-func (m *WarcFileMarshaler) writeRecord(w io.Writer, record WarcRecord) (int64, error) {
-	//if err := record.Finalize(); err != nil {
-	//	return 0, err
-	//}
-
+func (m *defaultMarshaler) writeRecord(w io.Writer, record WarcRecord) (int64, error) {
 	// Write WARC record version
 	n, err := fmt.Fprintf(w, "%v\r\n", record.Version())
 	bytesWritten := int64(n)

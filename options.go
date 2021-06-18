@@ -17,7 +17,6 @@
 package gowarc
 
 type options struct {
-	compress            bool
 	warcVersion         *version
 	errSyntax           errorPolicy
 	errSpec             errorPolicy
@@ -65,7 +64,6 @@ func newFuncOption(f func(*options)) *funcOption {
 
 func defaultOptions() options {
 	return options{
-		compress:            true,
 		warcVersion:         V1_1,
 		errSyntax:           ErrWarn,
 		errSpec:             ErrWarn,
@@ -90,14 +88,6 @@ func (o options) NewOptions(opts ...Option) *options {
 		opt.apply(&o)
 	}
 	return &o
-}
-
-// WithCompression sets if writer should write compressed WARC files.
-// defaults to true
-func WithCompression(compress bool) Option {
-	return newFuncOption(func(o *options) {
-		o.compress = compress
-	})
 }
 
 // WithVersion sets the WARC version to use for new records

@@ -83,7 +83,7 @@ func readFile(c *conf, fileName string) {
 
 	count := 0
 
-	ww := gowarc.NewWriter(gowarc.NewOptions(gowarc.WithCompression(false)))
+	ww := gowarc.NewMarshaler()
 
 	for {
 		wr, _, err := wf.Next()
@@ -101,7 +101,7 @@ func readFile(c *conf, fileName string) {
 		}
 		count++
 
-		_, err = ww.WriteRecord(os.Stdout, wr)
+		_, _, err = ww.Marshal(os.Stdout, wr, 0)
 		if err != nil {
 			fmt.Printf("Error: %v\n", err)
 		}

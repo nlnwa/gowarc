@@ -36,11 +36,11 @@ type SyntaxError struct {
 	wrapped error
 }
 
-func NewSyntaxError(msg string, pos *position) *SyntaxError {
+func newSyntaxError(msg string, pos *position) *SyntaxError {
 	return &SyntaxError{msg: msg, line: pos.lineNumber}
 }
 
-func NewWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxError {
+func newWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxError {
 	return &SyntaxError{msg: msg, line: pos.lineNumber, wrapped: wrapped}
 }
 

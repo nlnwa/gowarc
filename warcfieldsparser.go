@@ -40,13 +40,13 @@ func (p *warcfieldsParser) parseLine(line []byte, nv warcFields, pos *position) 
 	d := mime.WordDecoder{}
 	l, err := d.DecodeHeader(string(line))
 	if err != nil {
-		return nv, NewWrappedSyntaxError("error decoding line", pos, err)
+		return nv, newWrappedSyntaxError("error decoding line", pos, err)
 	}
 	line = []byte(l)
 
 	fv := bytes.SplitN(line, colon, 2)
 	if len(fv) != 2 {
-		err = NewSyntaxError("could not parse header line. Missing ':' in "+string(fv[0]), pos)
+		err = newSyntaxError("could not parse header line. Missing ':' in "+string(fv[0]), pos)
 		return nv, err
 	}
 
@@ -71,7 +71,7 @@ func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte
 		return l, nextChar, e
 	}
 	if p.Options.errSyntax > ErrIgnore && l[len(l)-2] != '\r' {
-		err = NewSyntaxError("missing carriage return", pos)
+		err = newSyntaxError("missing carriage return", pos)
 		if p.Options.errSyntax == ErrFail {
 			return nil, nextChar, err
 		}
@@ -105,9 +105,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 					switch p.Options.errSyntax {
 					case ErrIgnore:
 					case ErrWarn:
-						validation.addError(NewSyntaxError("missing newline", pos))
+						validation.addError(newSyntaxError("missing newline", pos))
 					case ErrFail:
-						return nil, NewSyntaxError("missing newline", pos)
+						return nil, newSyntaxError("missing newline", pos)
 					}
 				}
 			}

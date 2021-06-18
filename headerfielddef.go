@@ -60,7 +60,7 @@ func validateHeader(wf *warcFields, version *version, opts *options) (*Validatio
 	}
 
 	for _, nv := range *wf {
-		name, def := NormalizeName(nv.Name)
+		name, def := normalizeName(nv.Name)
 		value, err := def.validationFunc(opts, name, nv.Value, version, rt, def)
 		nv.Name = name
 		nv.Value = value
@@ -118,7 +118,7 @@ func resolveRecordType(wf *warcFields, validation *Validation, opts *options) (r
 		}
 	}
 	typeFieldValLc := strings.ToLower(typeField)
-	rt = StringToRecordType(typeFieldValLc)
+	rt = stringToRecordType(typeFieldValLc)
 	if rt == 0 {
 		switch opts.errUnknowRecordType {
 		case ErrIgnore:
@@ -220,7 +220,7 @@ func init() {
 	}
 }
 
-func NormalizeName(name string) (string, fieldDef) {
+func normalizeName(name string) (string, fieldDef) {
 	lcName := strings.ToLower(name)
 	if f, ok := lcHdrNameToDef[lcName]; ok {
 		return f.name, f

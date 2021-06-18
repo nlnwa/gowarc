@@ -90,7 +90,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	}
 	pos.incrLineNumber()
 	if i != 5 || !bytes.Equal(l, []byte("WARC/")) {
-		return nil, offset, NewSyntaxError("missing record version", pos)
+		return nil, offset, newSyntaxError("missing record version", pos)
 	}
 	l, err = r.ReadBytes('\n')
 	if err != nil {
@@ -99,9 +99,9 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	if l[len(l)-2] != '\r' {
 		switch u.opts.errSyntax {
 		case ErrWarn:
-			return nil, offset, NewSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
+			return nil, offset, newSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
 		case ErrFail:
-			return nil, offset, NewSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
+			return nil, offset, newSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
 		}
 	}
 	version, err := u.resolveRecordVersion(string(bytes.Trim(l, sphtcrlf)))
