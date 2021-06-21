@@ -30,7 +30,7 @@ var (
 )
 
 type warcfieldsParser struct {
-	Options *options
+	Options *warcRecordOptions
 }
 
 func (p *warcfieldsParser) parseLine(line []byte, nv warcFields, pos *position) (warcFields, error) {

@@ -16,23 +16,13 @@
 
 package gowarc
 
-import (
-	"bufio"
-	"bytes"
-	"fmt"
-	log "github.com/sirupsen/logrus"
-	"io"
-	"net/http"
-	"sync"
-)
-
-type RevisitBlock struct {
-	Block
-	response         *http.Response
-	responseRawBytes []byte
-	once             sync.Once
-	data             io.Reader
-}
+//type RevisitBlock struct {
+//	Block
+//	response         *http.Response
+//	responseRawBytes []byte
+//	once             sync.Once
+//	data             io.Reader
+//}
 
 //func (block *RevisitBlock) RawBytes() (*bufio.Reader, error) {
 //	if block.responseRawBytes == nil {
@@ -52,99 +42,99 @@ type RevisitBlock struct {
 //	return bufio.NewReader(io.MultiReader(r1, r2)), nil
 //}
 
-func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
-	if block.data == nil {
-		return &bytes.Buffer{}, nil
-	}
-	return block.data, nil
-}
-
-func (block *RevisitBlock) BlockDigest() string {
-	return "revisit digest"
-}
-
-func (block *RevisitBlock) PayloadDigest() string {
-	return "revisit payload digest"
-}
-
-func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
-	var err error
-	block.once.Do(func() {
-		//rb := block.RawBytes()
-		//var buf bytes.Buffer
-		//var line []byte
-		//var n, l int
-		//for {
-		//	line, err = rb.ReadBytes('\n')
-		//	if err != nil {
-		//		if err == io.EOF {
-		//			line = append(line, []byte(crlf)...)
-		//			err = nil
-		//		} else {
-		//			break
-		//		}
-		//	}
-		//	n++
-		//	l += len(line)
-		//	buf.Write(line)
-		//	if len(line) < 3 {
-		//		break
-		//	}
-		//}
-		//block.responseRawBytes = buf.Bytes()
-	})
-	return bytes.NewBuffer(block.responseRawBytes), err
-}
-
-func (block *RevisitBlock) Response() (*http.Response, error) {
-	rb, err := block.ResponseBytes()
-	if err != nil {
-		return nil, err
-	}
-	block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
-	return block.response, err
-}
-
-func (block *RevisitBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	//var p diskbuffer.Buffer
-	//p = block.RawBytes()
-	//bytesWritten, err = io.Copy(w, p)
-	//if err != nil {
-	//	return
-	//}
-	//w.Write([]byte(crlf))
-	//bytesWritten += 2
-	return
-}
-
-func NewRevisitBlock(block Block) (Block, error) {
-	return &RevisitBlock{Block: block}, nil
-}
-
-func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
-	m, ok := revisit.(*warcRecord)
-	if !ok {
-		return nil, fmt.Errorf("unknown record implementation")
-	}
-
-	m.recordType = Response
-	err := m.headers.Set(WarcType, "response")
-	if err != nil {
-		log.Warnf("Merge err1: %v", err)
-	}
-	m.headers.Delete(WarcRefersTo)
-	m.headers.Delete(WarcRefersToTargetURI)
-	m.headers.Delete(WarcRefersToDate)
-	m.headers.Delete(WarcProfile)
-
-	b := m.block.(*RevisitBlock)
-	d := refersTo.Block().(PayloadBlock)
-	b.data, err = d.PayloadBytes()
-	if err != nil {
-		log.Warnf("Merge err2: %v", err)
-	}
-
-	log.Debugf("Merged: %v", m)
-
-	return m, nil
-}
+//func (block *RevisitBlock) PayloadBytes() (io.Reader, error) {
+//	if block.data == nil {
+//		return &bytes.Buffer{}, nil
+//	}
+//	return block.data, nil
+//}
+//
+//func (block *RevisitBlock) BlockDigest() string {
+//	return "revisit digest"
+//}
+//
+//func (block *RevisitBlock) PayloadDigest() string {
+//	return "revisit payload digest"
+//}
+//
+//func (block *RevisitBlock) ResponseBytes() (io.Reader, error) {
+//	var err error
+//	block.once.Do(func() {
+//		//rb := block.RawBytes()
+//		//var buf bytes.Buffer
+//		//var line []byte
+//		//var n, l int
+//		//for {
+//		//	line, err = rb.ReadBytes('\n')
+//		//	if err != nil {
+//		//		if err == io.EOF {
+//		//			line = append(line, []byte(crlf)...)
+//		//			err = nil
+//		//		} else {
+//		//			break
+//		//		}
+//		//	}
+//		//	n++
+//		//	l += len(line)
+//		//	buf.Write(line)
+//		//	if len(line) < 3 {
+//		//		break
+//		//	}
+//		//}
+//		//block.responseRawBytes = buf.Bytes()
+//	})
+//	return bytes.NewBuffer(block.responseRawBytes), err
+//}
+//
+//func (block *RevisitBlock) Response() (*http.Response, error) {
+//	rb, err := block.ResponseBytes()
+//	if err != nil {
+//		return nil, err
+//	}
+//	block.response, err = http.ReadResponse(bufio.NewReader(rb), nil)
+//	return block.response, err
+//}
+//
+//func (block *RevisitBlock) Write(w io.Writer) (bytesWritten int64, err error) {
+//	//var p diskbuffer.Buffer
+//	//p = block.RawBytes()
+//	//bytesWritten, err = io.Copy(w, p)
+//	//if err != nil {
+//	//	return
+//	//}
+//	//w.Write([]byte(crlf))
+//	//bytesWritten += 2
+//	return
+//}
+//
+//func NewRevisitBlock(block Block) (Block, error) {
+//	return &RevisitBlock{Block: block}, nil
+//}
+//
+//func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
+//	m, ok := revisit.(*warcRecord)
+//	if !ok {
+//		return nil, fmt.Errorf("unknown record implementation")
+//	}
+//
+//	m.recordType = Response
+//	err := m.headers.Set(WarcType, "response")
+//	if err != nil {
+//		log.Warnf("Merge err1: %v", err)
+//	}
+//	m.headers.Delete(WarcRefersTo)
+//	m.headers.Delete(WarcRefersToTargetURI)
+//	m.headers.Delete(WarcRefersToDate)
+//	m.headers.Delete(WarcProfile)
+//
+//	b := m.block.(*RevisitBlock)
+//	d := refersTo.Block().(PayloadBlock)
+//	b.data, err = d.PayloadBytes()
+//	if err != nil {
+//		log.Warnf("Merge err2: %v", err)
+//	}
+//
+//	log.Debugf("Merged: %v", m)
+//
+//	return m, nil
+//}

@@ -31,10 +31,13 @@ func (fng *funcNameGenerator) NewWarcfileName() string {
 }
 
 func createTestRecord() WarcRecord {
-	builder := NewRecordBuilder(nil, Response)
-	builder.WriteString("HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+	builder := NewRecordBuilder(Response)
+	_, err := builder.WriteString("HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content")
+	if err != nil {
+		panic(err)
+	}
 	builder.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
 	builder.AddWarcHeader(WarcDate, "2006-01-02T15:04:05Z")
 	builder.AddWarcHeader(ContentLength, "257")

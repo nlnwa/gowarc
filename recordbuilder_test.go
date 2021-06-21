@@ -24,7 +24,7 @@ import (
 
 func TestRecordBuilder(t *testing.T) {
 	type args struct {
-		opts       *options
+		opts       []WarcRecordOption
 		recordType recordType
 		headers    *warcFields
 		data       string
@@ -44,7 +44,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid warcinfo record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Warcinfo,
 				&warcFields{
 					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -83,7 +83,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid response record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Response,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -116,7 +116,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid request record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Request,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -155,7 +155,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid metadata record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Metadata,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -190,7 +190,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid resource record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Resource,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -229,7 +229,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid revisit record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Revisit,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -276,7 +276,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid conversion record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Conversion,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -309,7 +309,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid continuation record",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Continuation,
 				&warcFields{
 					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -348,7 +348,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid unknown record type",
 			args{
-				NewOptions(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)),
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				0,
 				&warcFields{
 					&NameValue{Name: WarcType, Value: "myType"},
@@ -381,18 +381,19 @@ func TestRecordBuilder(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
+		assert := assert.New(t)
 		t.Run(tt.name, func(t *testing.T) {
-			rb := NewRecordBuilder(tt.args.opts, tt.args.recordType)
+			rb := NewRecordBuilder(tt.args.recordType, tt.args.opts...)
 			for _, nv := range *tt.args.headers {
 				rb.AddWarcHeader(nv.Name, nv.Value)
 			}
-			rb.WriteString(tt.args.data)
+			_, err := rb.WriteString(tt.args.data)
+			assert.NoError(err)
 			wr, validation, err := rb.Finalize()
 			if err == nil {
 				defer wr.Close()
 			}
 
-			assert := assert.New(t)
 			if tt.wantErr {
 				assert.Error(err)
 			} else {

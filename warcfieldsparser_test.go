@@ -26,7 +26,7 @@ import (
 func TestParseWarcFields(t *testing.T) {
 	type args struct {
 		data string
-		opts *options
+		opts *warcRecordOptions
 	}
 	tests := []struct {
 		name           string
@@ -44,7 +44,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -66,7 +66,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\n" +
 					"Content-Type: application/warc-fields\n" +
 					"Content-Length: 249\n\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -88,7 +88,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -109,7 +109,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrIgnore)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -131,7 +131,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -153,7 +153,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\n" +
 					"Content-Type: application/warc-fields\n" +
 					"Content-Length: 249\n\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -182,7 +182,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -205,7 +205,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrWarn)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -229,7 +229,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			&warcFields{
 				&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -251,7 +251,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\n" +
 					"Content-Type: application/warc-fields\n" +
 					"Content-Length: 249\n\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
 			&Validation{},
@@ -266,7 +266,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type application/warc-fields\r\n" +
 					"Content-Length: 249\r\n\r\n",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
 			&Validation{},
@@ -281,7 +281,7 @@ func TestParseWarcFields(t *testing.T) {
 					"WARC-Type: warcinfo\r\n" +
 					"Content-Type: application/warc-fields\r\n" +
 					"Content-Length: 249",
-				opts: NewOptions(WithSyntaxErrorPolicy(ErrFail)),
+				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
 			&Validation{},

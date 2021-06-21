@@ -32,7 +32,7 @@ type WarcRecordBuilder interface {
 }
 
 type recordBuilder struct {
-	opts       *options
+	opts       *warcRecordOptions
 	version    *version
 	headers    *warcFields
 	recordType recordType
@@ -124,14 +124,12 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 	return validation, nil
 }
 
-func NewRecordBuilder(opts *options, recordType recordType) *recordBuilder {
-	if opts == nil {
-		o := defaultOptions()
-		opts = &o
-	}
+func NewRecordBuilder(recordType recordType, opts ...WarcRecordOption) *recordBuilder {
+	o := newOptions(opts...)
+
 	rb := &recordBuilder{
-		opts:       opts,
-		version:    opts.warcVersion,
+		opts:       o,
+		version:    o.warcVersion,
 		recordType: recordType,
 		headers:    &warcFields{},
 		content:    diskbuffer.New(),

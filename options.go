@@ -16,7 +16,7 @@
 
 package gowarc
 
-type options struct {
+type warcRecordOptions struct {
 	warcVersion         *version
 	errSyntax           errorPolicy
 	errSpec             errorPolicy
@@ -35,35 +35,29 @@ const (
 	ErrFail   errorPolicy = 2 // Fail on given error.
 )
 
-// Option configures validation, serialization and deserialization of WARC record.
-type Option interface {
-	apply(*options)
+// WarcRecordOption configures validation, marshaling and unmarshaling of WARC records.
+type WarcRecordOption interface {
+	apply(*warcRecordOptions)
 }
 
-// EmptyOption does not alter the parser configuration. It can be embedded in
-// another structure to build custom options.
-type EmptyOption struct{}
-
-func (EmptyOption) apply(*options) {}
-
-// funcOption wraps a function that modifies options into an
-// implementation of the Option interface.
-type funcOption struct {
-	f func(*options)
+// funcWarcRecordOption wraps a function that modifies warcRecordOptions into an
+// implementation of the WarcRecordOption interface.
+type funcWarcRecordOption struct {
+	f func(*warcRecordOptions)
 }
 
-func (fo *funcOption) apply(po *options) {
+func (fo *funcWarcRecordOption) apply(po *warcRecordOptions) {
 	fo.f(po)
 }
 
-func newFuncOption(f func(*options)) *funcOption {
-	return &funcOption{
+func newFuncWarcRecordOption(f func(*warcRecordOptions)) *funcWarcRecordOption {
+	return &funcWarcRecordOption{
 		f: f,
 	}
 }
 
-func defaultOptions() options {
-	return options{
+func defaultWarcRecordOptions() warcRecordOptions {
+	return warcRecordOptions{
 		warcVersion:         V1_1,
 		errSyntax:           ErrWarn,
 		errSpec:             ErrWarn,
@@ -74,16 +68,9 @@ func defaultOptions() options {
 	}
 }
 
-// New creates a new configuration with the supplied options.
-func NewOptions(opts ...Option) *options {
-	o := defaultOptions()
-	for _, opt := range opts {
-		opt.apply(&o)
-	}
-	return &o
-}
-
-func (o options) NewOptions(opts ...Option) *options {
+// New creates a new configuration with the supplied warcRecordOptions.
+func newOptions(opts ...WarcRecordOption) *warcRecordOptions {
+	o := defaultWarcRecordOptions()
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
@@ -92,32 +79,32 @@ func (o options) NewOptions(opts ...Option) *options {
 
 // WithVersion sets the WARC version to use for new records
 // defaults to WARC/1.1
-func WithVersion(version *version) Option {
-	return newFuncOption(func(o *options) {
+func WithVersion(version *version) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.warcVersion = version
 	})
 }
 
 // WithSyntaxErrorPolicy sets the policy for handling syntax errors in WARC records
 // defaults to ErrWarn
-func WithSyntaxErrorPolicy(policy errorPolicy) Option {
-	return newFuncOption(func(o *options) {
+func WithSyntaxErrorPolicy(policy errorPolicy) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.errSyntax = policy
 	})
 }
 
 // WithSpecViolationPolicy sets the policy for handling violations of the WARC specification in WARC records
 // defaults to ErrWarn
-func WithSpecViolationPolicy(policy errorPolicy) Option {
-	return newFuncOption(func(o *options) {
+func WithSpecViolationPolicy(policy errorPolicy) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.errSpec = policy
 	})
 }
 
 // WithUnknownRecordTypePolicy sets the policy for handling unknown record types
 // defaults to ErrWarn
-func WithUnknownRecordTypePolicy(policy errorPolicy) Option {
-	return newFuncOption(func(o *options) {
+func WithUnknownRecordTypePolicy(policy errorPolicy) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.errUnknowRecordType = policy
 	})
 }
@@ -125,8 +112,8 @@ func WithUnknownRecordTypePolicy(policy errorPolicy) Option {
 // WithAddMissingFields sets if missing WARC-header fields should be added.
 // Only fields which can be generated automaticly are added. That includes WarcRecordID, ContentLength, BlockDigest and PayloadDigest.
 // defaults to true
-func WithAddMissingFields(addMissingFields bool) Option {
-	return newFuncOption(func(o *options) {
+func WithAddMissingFields(addMissingFields bool) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.addMissingFields = addMissingFields
 	})
 }
@@ -134,8 +121,8 @@ func WithAddMissingFields(addMissingFields bool) Option {
 // WithFixContentLength sets if a ContentLength header with value which do not match the actual content length should be set to the real value.
 // This will not have any impact if SpecViolationPolicy is ErrIgnore
 // defaults to true
-func WithFixContentLength(fixContentLength bool) Option {
-	return newFuncOption(func(o *options) {
+func WithFixContentLength(fixContentLength bool) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.fixContentLength = fixContentLength
 	})
 }
@@ -143,8 +130,8 @@ func WithFixContentLength(fixContentLength bool) Option {
 // WithFixDigest sets if a BlockDigest header or a PayloadDigest header with a value which do not match the actual content should be recalculated.
 // This will not have any impact if SpecViolationPolicy is ErrIgnore
 // defaults to true
-func WithFixDigest(fixDigest bool) Option {
-	return newFuncOption(func(o *options) {
+func WithFixDigest(fixDigest bool) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.fixDigest = fixDigest
 	})
 }

@@ -97,7 +97,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			u := NewUnmarshaler(NewOptions())
+			u := NewUnmarshaler()
 			data := bufio.NewReader(strings.NewReader(tt.input))
 			gotRecord, gotBytesRead, err := u.Unmarshal(data)
 
@@ -125,7 +125,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			assert.Equal(tt.want.content, content)
 
 			//if !reflect.DeepEqual(gotRecord, tt.wantRecord) {
-			//	ww := NewWriter(NewOptions(WithCompression(false)))
+			//	ww := NewWriter(newOptions(WithCompression(false)))
 			//	gotBytesWritten, err := ww.WriteRecord(os.Stdout, gotRecord)
 			//	fmt.Printf("\n******************* %v %v\n, %v\n", gotBytesRead, gotBytesWritten, err)
 			//

@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	"github.com/nlnwa/gowarc/pkg/countingreader"
+	countingreader2 "github.com/nlnwa/gowarc/internal/countingreader"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
@@ -33,15 +33,17 @@ type Unmarshaler interface {
 }
 
 type unmarshaler struct {
-	opts             *options
+	opts             *warcRecordOptions
 	warcFieldsParser *warcfieldsParser
 	LastOffset       int64
 }
 
-func NewUnmarshaler(opts *options) *unmarshaler {
+func NewUnmarshaler(opts ...WarcRecordOption) *unmarshaler {
+	o := newOptions(opts...)
+
 	u := &unmarshaler{
-		opts:             opts,
-		warcFieldsParser: &warcfieldsParser{opts},
+		opts:             o,
+		warcFieldsParser: &warcfieldsParser{o},
 	}
 	return u
 }
@@ -130,7 +132,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 
 	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
 
-	c2 := countingreader.NewLimited(r, length)
+	c2 := countingreader2.NewLimited(r, length)
 	record.closer = func() error {
 		_, err := io.Copy(ioutil.Discard, c2)
 		if g != nil {

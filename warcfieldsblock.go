@@ -37,7 +37,7 @@ func (b *warcFieldsBlock) WarcFields() *warcFields {
 	return b.warcFields
 }
 
-func NewWarcFieldsBlock(rb io.Reader, validation *Validation, options *options) (WarcFieldsBlock, error) {
+func newWarcFieldsBlock(rb io.Reader, validation *Validation, options *warcRecordOptions) (WarcFieldsBlock, error) {
 	wfb := &warcFieldsBlock{}
 	var err error
 	wfb.content, err = ioutil.ReadAll(rb)

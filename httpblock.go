@@ -235,11 +235,7 @@ func headerBytes(r *bufio.Reader) []byte {
 	return result.Bytes()
 }
 
-func NewHttpBlock(r io.Reader) (PayloadBlock, error) {
-	//r := block.rawBytes
-	//if err != nil {
-	//	return nil, err
-	//}
+func newHttpBlock(r io.Reader) (PayloadBlock, error) {
 	rb := bufio.NewReader(r)
 	b, err := rb.Peek(4)
 	if err != nil {

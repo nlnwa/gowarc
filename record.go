@@ -130,7 +130,7 @@ const (
 )
 
 type warcRecord struct {
-	opts         *options
+	opts         *warcRecordOptions
 	version      *version
 	headers      *warcFields
 	recordType   recordType
@@ -139,7 +139,7 @@ type warcRecord struct {
 	closer       func() error
 }
 
-func newRecord(opts *options, version *version) *warcRecord {
+func newRecord(opts *warcRecordOptions, version *version) *warcRecord {
 	wr := &warcRecord{
 		opts:       opts,
 		version:    version,
@@ -182,7 +182,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 	contentType := strings.ToLower(wr.headers.Get(ContentType))
 	if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 		if strings.HasPrefix(contentType, "application/http") {
-			httpBlock, err := NewHttpBlock(reader)
+			httpBlock, err := newHttpBlock(reader)
 			if err != nil {
 				return err
 			}
@@ -191,7 +191,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		}
 	}
 	if strings.HasPrefix(contentType, "application/warc-fields") {
-		warcFieldsBlock, err := NewWarcFieldsBlock(reader, validation, wr.opts)
+		warcFieldsBlock, err := newWarcFieldsBlock(reader, validation, wr.opts)
 		if err != nil {
 			return err
 		}
