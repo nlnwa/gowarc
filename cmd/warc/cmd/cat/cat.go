@@ -20,12 +20,12 @@ import (
 	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc"
+	"github.com/nlnwa/gowarc/cmd/warc/internal"
 	"io"
 	"os"
 	"sort"
 	"strconv"
 
-	"github.com/nlnwa/gowarc/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -73,9 +73,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := gowarc.NewOptions()
-	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
-	defer wf.Close()
+	wf, err := gowarc.NewWarcFileReader(fileName, c.offset)
+	defer func() { _ = wf.Close() }()
 	if err != nil {
 		fmt.Printf("Error opening file: %v\n", err)
 		return
@@ -95,7 +94,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !utils.Contains(c.id, wr.WarcHeader().Get(gowarc.WarcRecordID)) {
+			if !internal.Contains(c.id, wr.WarcHeader().Get(gowarc.WarcRecordID)) {
 				continue
 			}
 		}

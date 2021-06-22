@@ -54,6 +54,15 @@ type httpRequestBlock struct {
 	parseHeaderOnce sync.Once
 }
 
+func (block *httpRequestBlock) IsCached() bool {
+	fmt.Printf("Block type %T, RawBytes type %T\n", block, block.payload)
+	return false
+}
+
+func (block *httpRequestBlock) Cache() error {
+	panic("implement me")
+}
+
 func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
 	if block.readOp != opInitial {
 		return nil, errContentReAccessed
@@ -140,6 +149,15 @@ type httpResponseBlock struct {
 	payloadDigest   hash.Hash
 	readOp          readOp
 	parseHeaderOnce sync.Once
+}
+
+func (block *httpResponseBlock) IsCached() bool {
+	fmt.Printf("Block type %T, RawBytes type %T\n", block, block.payload)
+	return false
+}
+
+func (block *httpResponseBlock) Cache() error {
+	panic("implement me")
 }
 
 func (block *httpResponseBlock) RawBytes() (io.Reader, error) {

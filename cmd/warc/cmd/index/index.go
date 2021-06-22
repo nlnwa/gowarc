@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package index
 
 import (
@@ -33,10 +34,6 @@ func parseFormat(format string) (index.CdxWriter, error) {
 		return &index.CdxLegacy{}, nil
 	case "cdxj":
 		return &index.CdxJ{}, nil
-	case "cdxpb":
-		return &index.CdxPb{}, nil
-	case "db":
-		return &index.CdxDb{}, nil
 	}
 	return nil, fmt.Errorf("unknwon format %v, valid formats are: 'cdx', 'cdxj', 'cdxpb', 'db'", format)
 }
@@ -76,21 +73,13 @@ func NewCommand() *cobra.Command {
 
 func runE(c *conf) error {
 	fmt.Printf("Format: %v\n", c.writerFormat)
-
-	err := c.writer.Init()
-	if err != nil {
-		return err
-	}
-	defer c.writer.Close()
-
 	readFile(c)
 	return nil
 }
 
 // TODO: return error
 func readFile(c *conf) {
-	opts := gowarc.NewOptions()
-	wf, err := gowarc.NewWarcFilename(c.fileName, 0, opts)
+	wf, err := gowarc.NewWarcFileReader(c.fileName, 0)
 	if err != nil {
 		return
 	}

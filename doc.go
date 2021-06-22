@@ -23,7 +23,7 @@ WARC
 The WARC format offers a standard way to structure, manage and store billions of resources collected from the web and elsewhere.
 It is used to build applications for harvesting, managing, accessing, mining and exchanging content.
 
-To learn more about WARC standard, read the specification at https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/
+To learn more about the WARC standard, read the specification at https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/
 
 Creating a WARC record
 

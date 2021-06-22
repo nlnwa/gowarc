@@ -25,11 +25,24 @@ import (
 	"io/ioutil"
 )
 
+// Block is the interface used to represent the content of a WARC record as specified by the WARC specification:
+// https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#warc-record-content-block
+//
+// A Block might be cached or non-cached. Calling RawBytes or BlockDigest more than once will fail if the block is not
+// cached.
+//
+// NOTE: Blocks are not required to be thread safe.
 type Block interface {
+	// RawBytes returns the bytes of the Block
 	RawBytes() (io.Reader, error)
 	BlockDigest() string
+	IsCached() bool
+	Cache() error
 }
 
+// PayloadBlock is a Block with a well defined payload.
+//
+// Ref: https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#warc-record-payload
 type PayloadBlock interface {
 	Block
 	PayloadBytes() (io.Reader, error)
@@ -40,6 +53,15 @@ type genericBlock struct {
 	rawBytes    io.Reader
 	blockDigest hash.Hash
 	readOp      readOp
+	cached      bool
+}
+
+func (block *genericBlock) IsCached() bool {
+	return block.cached
+}
+
+func (block *genericBlock) Cache() error {
+	panic("implement me")
 }
 
 func (block *genericBlock) RawBytes() (io.Reader, error) {
@@ -55,10 +77,10 @@ func (block *genericBlock) RawBytes() (io.Reader, error) {
 
 func (block *genericBlock) BlockDigest() string {
 	if block.readOp == opInitial {
-		block.RawBytes()
+		_, _ = block.RawBytes()
 	}
 	block.readOp = opRawBytes
-	io.Copy(ioutil.Discard, block.rawBytes)
+	_, _ = io.Copy(ioutil.Discard, block.rawBytes)
 	h := block.blockDigest.Sum(nil)
 	return fmt.Sprintf("generic digest %x", h)
 }
@@ -69,8 +91,8 @@ type readOp int8
 
 const (
 	opInitial      readOp = 0 // Initial value.
-	opRawBytes     readOp = 1 // Read rune of size 1.
-	opPayloadBytes readOp = 2 // Read rune of size 2.
+	opRawBytes     readOp = 1
+	opPayloadBytes readOp = 2
 )
 
 var errContentReAccessed = errors.New("gowarc.Block: tried to access content twice")

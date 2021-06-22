@@ -57,12 +57,12 @@ func (l *Loader) Get(ctx context.Context, warcId string) (record gowarc.WarcReco
 		if err != nil {
 			return
 		}
-		var revisitOf gowarc.WarcRecord
-		revisitOf, err = l.Loader.Load(ctx, storageRef)
-		if err != nil {
-			return
-		}
-		record, err = gowarc.Merge(record, revisitOf)
+		//var revisitOf gowarc.WarcRecord
+		//revisitOf, err = l.Loader.Load(ctx, storageRef)
+		//if err != nil {
+		//	return
+		//}
+		//record, err = gowarc.Merge(record, revisitOf)
 	}
 
 	return

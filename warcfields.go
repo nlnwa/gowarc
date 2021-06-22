@@ -23,16 +23,16 @@ import (
 	"strings"
 )
 
-type NameValue struct {
+type nameValue struct {
 	Name  string
 	Value string
 }
 
-func (n *NameValue) String() string {
+func (n *nameValue) String() string {
 	return n.Name + ": " + n.Value
 }
 
-type warcFields []*NameValue
+type warcFields []*nameValue
 
 // Get gets the first value associated with the given key. It is case insensitive.
 // If the key doesn't exist or there are no values associated with the key, Get returns "".
@@ -65,22 +65,11 @@ func (wf *warcFields) Has(name string) bool {
 	return false
 }
 
-//func (wf *WarcFields) Names() []string {
-//	var result []string
-//	//keys := make([]string, len(wf))
-//	for k := range wf.values {
-//		keys[i] = k
-//		i++
-//	}
-//	return result
-//}
-
-func (wf *warcFields) Add(name string, value string) error {
-	*wf = append(*wf, &NameValue{Name: name, Value: value})
-	return nil
+func (wf *warcFields) Add(name string, value string) {
+	*wf = append(*wf, &nameValue{Name: name, Value: value})
 }
 
-func (wf *warcFields) Set(name string, value string) error {
+func (wf *warcFields) Set(name string, value string) {
 	isSet := false
 	for idx, nv := range *wf {
 		if nv.Name == name {
@@ -93,13 +82,12 @@ func (wf *warcFields) Set(name string, value string) error {
 		}
 	}
 	if !isSet {
-		*wf = append(*wf, &NameValue{Name: name, Value: value})
+		*wf = append(*wf, &nameValue{Name: name, Value: value})
 	}
-	return nil
 }
 
 func (wf *warcFields) Delete(name string) {
-	var result []*NameValue
+	var result []*nameValue
 	for _, nv := range *wf {
 		if nv.Name != name {
 			result = append(result, nv)

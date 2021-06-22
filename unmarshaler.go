@@ -116,7 +116,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 	if err != nil {
 		return nil, offset, err
 	}
-	_, rt, err := validateHeader(wf, version, u.opts)
+	rt, err := validateHeader(wf, version, validation, u.opts)
 	if err != nil {
 		return nil, offset, err
 	}
@@ -143,7 +143,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, error) {
 
 	err = record.parseBlock(bufio.NewReader(c2), validation)
 
-	return record, offset, nil
+	return record, offset, err
 }
 
 func (u *unmarshaler) resolveRecordVersion(s string) (*version, error) {

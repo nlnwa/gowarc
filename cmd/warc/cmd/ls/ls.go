@@ -13,18 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package ls
 
 import (
 	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc"
+	"github.com/nlnwa/gowarc/cmd/warc/internal"
 	"io"
 	"os"
 	"sort"
 	"strconv"
 
-	"github.com/nlnwa/gowarc/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -72,9 +73,8 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := gowarc.NewOptions()
-	wf, err := gowarc.NewWarcFilename(fileName, c.offset, opts)
-	defer wf.Close()
+	wf, err := gowarc.NewWarcFileReader(fileName, c.offset)
+	defer func() { _ = wf.Close() }()
 	if err != nil {
 		return
 	}
@@ -91,7 +91,7 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !utils.Contains(c.id, wr.WarcHeader().Get(gowarc.WarcRecordID)) {
+			if !internal.Contains(c.id, wr.WarcHeader().Get(gowarc.WarcRecordID)) {
 				continue
 			}
 		}
@@ -108,6 +108,6 @@ func readFile(c *conf, fileName string) {
 
 func printRecord(offset int64, record gowarc.WarcRecord) {
 	recordID := record.WarcHeader().Get(gowarc.WarcRecordID)
-	targetURI := utils.CropString(record.WarcHeader().Get(gowarc.WarcTargetURI), 100)
+	targetURI := internal.CropString(record.WarcHeader().Get(gowarc.WarcTargetURI), 100)
 	fmt.Printf("%v\t%s\t%s \t%s\n", offset, recordID, record.Type(), targetURI)
 }

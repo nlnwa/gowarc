@@ -51,49 +51,71 @@ const (
 )
 
 // validateHeader validates a warcFields object as a WARC-record header
-func validateHeader(wf *warcFields, version *version, opts *warcRecordOptions) (*Validation, recordType, error) {
-	v := &Validation{}
-
-	rt, err := resolveRecordType(wf, v, opts)
+func validateHeader(wf *warcFields, version *version, validation *Validation, opts *warcRecordOptions) (recordType, error) {
+	rt, err := resolveRecordType(wf, validation, opts)
 	if err != nil {
-		return v, rt, err
+		return rt, err
 	}
 
-	for _, nv := range *wf {
-		name, def := normalizeName(nv.Name)
-		value, err := def.validationFunc(opts, name, nv.Value, version, rt, def)
-		nv.Name = name
-		nv.Value = value
-		if err != nil {
-			return v, rt, err
+	if opts.errSpec > ErrIgnore {
+		for _, nv := range *wf {
+			name, def := normalizeName(nv.Name)
+			value, err := def.validationFunc(opts, name, nv.Value, version, rt, def)
+			nv.Name = name
+			nv.Value = value
+			if err != nil {
+				switch opts.errSpec {
+				case ErrWarn:
+					validation.addError(newHeaderFieldError(name, err.Error()))
+				case ErrFail:
+					return rt, newHeaderFieldError(name, err.Error())
+				}
+			}
+
+			if !def.repeatable && len(wf.GetAll(name)) > 1 {
+				switch opts.errSpec {
+				case ErrWarn:
+					validation.addError(newHeaderFieldError(name, "field occurs more than once"))
+					//validation.addError(fmt.Errorf("field '%validation' occurs more than once in record type '%validation'", name, rt.String()))
+				case ErrFail:
+					return rt, newHeaderFieldError(name, "field occurs more than once")
+					//return rt, fmt.Errorf("field '%validation' occurs more than once in record type '%validation'", name, rt.String())
+				}
+			}
 		}
-		if opts.errSpec > ErrIgnore && !def.repeatable && len(wf.GetAll(name)) > 1 {
+
+		// Check for required fields
+		for _, f := range requiredFields {
+			if !wf.Has(f) {
+				switch opts.errSpec {
+				case ErrWarn:
+					validation.addError(newHeaderFieldErrorf("", "missing required field: %s", f))
+				case ErrFail:
+					return rt, newHeaderFieldErrorf("", "missing required field: %s", f)
+				}
+			}
+		}
+		contentLength, _ := strconv.ParseInt(wf.Get(ContentLength), 10, 64)
+		if rt != Continuation && contentLength > 0 && !wf.Has(ContentType) {
 			switch opts.errSpec {
 			case ErrWarn:
-				v.addError(fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String()))
+				validation.addError(newHeaderFieldErrorf("", "missing required field: %s", ContentType))
 			case ErrFail:
-				return v, rt, fmt.Errorf("field '%v' occurs more than once in record type '%v'", name, rt.String())
+				return rt, newHeaderFieldErrorf("", "missing required field: %s", ContentType)
+			}
+		}
+
+		// Check for illegal fields
+		if (Warcinfo|Conversion|Continuation)&rt != 0 && wf.Has(WarcConcurrentTo) {
+			switch opts.errSpec {
+			case ErrWarn:
+				validation.addError(newHeaderFieldErrorf("", "missing required field: %s", ContentType))
+			case ErrFail:
+				return rt, newHeaderFieldErrorf(WarcConcurrentTo, "not allowed for record type: %s", rt)
 			}
 		}
 	}
-
-	// Check for required fields
-	for _, f := range requiredFields {
-		if !wf.Has(f) {
-			return v, rt, fmt.Errorf("missing required field: %s", f)
-		}
-	}
-	contentLength, _ := strconv.ParseInt(wf.Get(ContentLength), 10, 64)
-	if rt != Continuation && contentLength > 0 && !wf.Has(ContentType) {
-		return v, rt, fmt.Errorf("missing required field: %s", ContentType)
-	}
-
-	// Check for illegal fields
-	if (Warcinfo|Conversion|Continuation)&rt != 0 && wf.Has(WarcConcurrentTo) {
-		return v, rt, fmt.Errorf("field %s not allowed for record type %s :: %b %b %b",
-			WarcConcurrentTo, rt, (Warcinfo | Conversion | Continuation), rt, (Warcinfo|Conversion|Continuation)&rt)
-	}
-	return v, rt, nil
+	return rt, nil
 }
 
 func resolveRecordType(wf *warcFields, validation *Validation, opts *warcRecordOptions) (recordType, error) {

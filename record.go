@@ -18,10 +18,10 @@ package gowarc
 
 import (
 	"fmt"
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"os"
 	"strings"
-	"sync"
 )
 
 const (
@@ -40,8 +40,7 @@ type WarcRecord interface {
 	WarcHeader() *warcFields
 	Block() Block
 	String() string
-	//Finalize() error
-	Close()
+	io.Closer
 }
 
 type version struct {
@@ -130,24 +129,12 @@ const (
 )
 
 type warcRecord struct {
-	opts         *warcRecordOptions
-	version      *version
-	headers      *warcFields
-	recordType   recordType
-	block        Block
-	finalizeOnce sync.Once
-	closer       func() error
-}
-
-func newRecord(opts *warcRecordOptions, version *version) *warcRecord {
-	wr := &warcRecord{
-		opts:       opts,
-		version:    version,
-		headers:    &warcFields{},
-		recordType: 0,
-		block:      nil,
-	}
-	return wr
+	opts       *warcRecordOptions
+	version    *version
+	headers    *warcFields
+	recordType recordType
+	block      Block
+	closer     func() error
 }
 
 func (wr *warcRecord) Version() *version { return wr.version }
@@ -164,21 +151,18 @@ func (wr *warcRecord) String() string {
 	return fmt.Sprintf("WARC record: version: %s, type: %s, id: %s", wr.version, wr.Type(), wr.WarcHeader().Get(WarcRecordID))
 }
 
-func (wr *warcRecord) Close() {
+func (wr *warcRecord) Close() error {
 	if v, ok := wr.block.(PayloadBlock); ok {
 		fmt.Fprintf(os.Stderr, "Payload digest: %s, ", v.PayloadDigest())
 	}
 	fmt.Fprintf(os.Stderr, "Block digest: %s\n", wr.block.BlockDigest())
 	if wr.closer != nil {
-		wr.closer()
+		return wr.closer()
 	}
+	return nil
 }
 
 func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
-	//if wr.recordType.id&(Revisit.id) != 0 {
-	//	wr.block, err = NewRevisitBlock(wr.block)
-	//	return
-	//}
 	contentType := strings.ToLower(wr.headers.Get(ContentType))
 	if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 		if strings.HasPrefix(contentType, "application/http") {
@@ -199,6 +183,11 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		return nil
 	}
 
-	wr.block = &genericBlock{rawBytes: reader}
+	b := &genericBlock{rawBytes: reader}
+	if _, ok := reader.(diskbuffer.Buffer); ok {
+		b.cached = true
+	}
+	wr.block = b
+	fmt.Printf("GENERIC BLOCK TYPE: %T\n", reader)
 	return
 }

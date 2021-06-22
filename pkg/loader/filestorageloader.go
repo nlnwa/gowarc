@@ -37,8 +37,7 @@ func (f *FileStorageLoader) Load(ctx context.Context, storageRef string) (record
 	}
 	log.Debugf("loading record from file: %s, offset: %v", filePath, offset)
 
-	opts := gowarc.NewOptions()
-	wf, err := gowarc.NewWarcFilename(filePath, offset, opts)
+	wf, err := gowarc.NewWarcFileReader(filePath, offset)
 	if err != nil {
 		return
 	}

@@ -75,7 +75,8 @@ func (rb recordBuilder) Finalize() (WarcRecord, *Validation, error) {
 }
 
 func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
-	validation, _, err := validateHeader(rb.headers, wr.version, wr.opts)
+	validation := &Validation{}
+	_, err := validateHeader(rb.headers, wr.version, validation, wr.opts)
 	if err != nil {
 		return validation, err
 	}
@@ -88,9 +89,7 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 				case ErrWarn:
 					validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
 					if rb.opts.fixContentLength {
-						if err := wr.WarcHeader().Set(ContentLength, size); err != nil {
-							return validation, err
-						}
+						wr.WarcHeader().Set(ContentLength, size)
 					}
 				case ErrFail:
 					return validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
@@ -107,7 +106,9 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 	if err != nil {
 		return validation, err
 	}
-	io.Copy(d, rb.content)
+	if _, err := io.Copy(d, rb.content); err != nil {
+		return validation, err
+	}
 	if err := d.validate(); err != nil {
 		switch rb.opts.errSpec {
 		case ErrIgnore:
@@ -120,8 +121,8 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 			return validation, fmt.Errorf("wrong block digest " + err.Error())
 		}
 	}
-	rb.content.Seek(0, io.SeekStart)
-	return validation, nil
+	_, err = rb.content.Seek(0, io.SeekStart)
+	return validation, err
 }
 
 func NewRecordBuilder(recordType recordType, opts ...WarcRecordOption) *recordBuilder {

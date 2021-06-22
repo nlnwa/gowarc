@@ -30,6 +30,7 @@ func (fng *funcNameGenerator) NewWarcfileName() string {
 	return fng.f()
 }
 
+//nolint
 func createTestRecord() WarcRecord {
 	builder := NewRecordBuilder(Response)
 	_, err := builder.WriteString("HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +

@@ -34,6 +34,7 @@ func TestRecordBuilder(t *testing.T) {
 		blockType  interface{}
 		data       string
 		validation *Validation
+		cached     bool
 	}
 	tests := []struct {
 		name    string
@@ -47,12 +48,12 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Warcinfo,
 				&warcFields{
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
-					&NameValue{Name: ContentType, Value: "application/warc-fields"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:AF4D582B4FFC017D07A947D841E392A821F754F3"},
-					&NameValue{Name: ContentLength, Value: "238"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:AF4D582B4FFC017D07A947D841E392A821F754F3"},
+					&nameValue{Name: ContentLength, Value: "238"},
 				},
 				"software: Veidemann v1.0\r\n" +
 					"format: WARC File Format 1.1\r\n" +
@@ -62,13 +63,13 @@ func TestRecordBuilder(t *testing.T) {
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
-					&NameValue{Name: WarcType, Value: "warcinfo"},
-					&NameValue{Name: ContentType, Value: "application/warc-fields"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:AF4D582B4FFC017D07A947D841E392A821F754F3"},
-					&NameValue{Name: ContentLength, Value: "238"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+					&nameValue{Name: WarcType, Value: "warcinfo"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:AF4D582B4FFC017D07A947D841E392A821F754F3"},
+					&nameValue{Name: ContentLength, Value: "238"},
 				},
 				&warcFieldsBlock{},
 				"software: Veidemann v1.0\r\n" +
@@ -77,6 +78,7 @@ func TestRecordBuilder(t *testing.T) {
 					"isPartOf: Temporary%20Collection\r\n" +
 					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
@@ -86,11 +88,11 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Response,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: ContentType, Value: "application/http;msgtype=response"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
-					&NameValue{Name: ContentLength, Value: "257"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
+					&nameValue{Name: ContentLength, Value: "257"},
 				},
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
@@ -98,18 +100,19 @@ func TestRecordBuilder(t *testing.T) {
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcType, Value: "response"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
-					&NameValue{Name: ContentType, Value: "application/http;msgtype=response"},
-					&NameValue{Name: ContentLength, Value: "257"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "257"},
 				},
 				&httpResponseBlock{},
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
 				&Validation{},
+				false,
 			},
 			false,
 		},
@@ -119,11 +122,11 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Request,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: ContentType, Value: "application/http;msgtype=request"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"},
-					&NameValue{Name: ContentLength, Value: "262"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"},
+					&nameValue{Name: ContentLength, Value: "262"},
 				},
 				"GET / HTTP/1.0\n" +
 					"Host: example.com\n" +
@@ -134,12 +137,12 @@ func TestRecordBuilder(t *testing.T) {
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcType, Value: "request"},
-					&NameValue{Name: ContentType, Value: "application/http;msgtype=request"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"},
-					&NameValue{Name: ContentLength, Value: "262"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "request"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"},
+					&nameValue{Name: ContentLength, Value: "262"},
 				},
 				&httpRequestBlock{},
 				"GET / HTTP/1.0\n" +
@@ -149,6 +152,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
 				&Validation{},
+				false,
 			},
 			false,
 		},
@@ -158,12 +162,12 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Metadata,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: ContentType, Value: "text/anvl"},
-					&NameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:857C4C4B401FFBAB3D2EBA6BE566F849C87915F7"},
-					&NameValue{Name: ContentLength, Value: "61"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:857C4C4B401FFBAB3D2EBA6BE566F849C87915F7"},
+					&nameValue{Name: ContentLength, Value: "61"},
 				},
 				"via: http://www.example.com/\n" +
 					"hopsFromSeed: P\n" +
@@ -171,19 +175,20 @@ func TestRecordBuilder(t *testing.T) {
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcType, Value: "metadata"},
-					&NameValue{Name: ContentType, Value: "text/anvl"},
-					&NameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:857C4C4B401FFBAB3D2EBA6BE566F849C87915F7"},
-					&NameValue{Name: ContentLength, Value: "61"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:857C4C4B401FFBAB3D2EBA6BE566F849C87915F7"},
+					&nameValue{Name: ContentLength, Value: "61"},
 				},
-				&genericBlock{},
+				&warcFieldsBlock{},
 				"via: http://www.example.com/\n" +
 					"hopsFromSeed: P\n" +
 					"fetchTimeMs: 47\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
@@ -193,14 +198,14 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Resource,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "file://var/www/htdoc/index.html"},
-					&NameValue{Name: ContentType, Value: "text/html"},
-					&NameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
-					&NameValue{Name: WarcPayloadDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
-					&NameValue{Name: ContentLength, Value: "42"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "file://var/www/htdoc/index.html"},
+					&nameValue{Name: ContentType, Value: "text/html"},
+					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
+					&nameValue{Name: ContentLength, Value: "42"},
 				},
 				"<html><head></head>\n" +
 					"<body></body>\n" +
@@ -208,21 +213,22 @@ func TestRecordBuilder(t *testing.T) {
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcType, Value: "resource"},
-					&NameValue{Name: ContentType, Value: "text/html"},
-					&NameValue{Name: WarcTargetURI, Value: "file://var/www/htdoc/index.html"},
-					&NameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
-					&NameValue{Name: WarcPayloadDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
-					&NameValue{Name: ContentLength, Value: "42"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "resource"},
+					&nameValue{Name: ContentType, Value: "text/html"},
+					&nameValue{Name: WarcTargetURI, Value: "file://var/www/htdoc/index.html"},
+					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:307E7DFCAF9A8EA4C4E86A11BCAA83AC6698017F"},
+					&nameValue{Name: ContentLength, Value: "42"},
 				},
 				&genericBlock{},
 				"<html><head></head>\n" +
 					"<body></body>\n" +
 					"</html>\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
@@ -232,16 +238,16 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Revisit,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/images/logo.jpg"},
-					&NameValue{Name: WarcProfile, Value: "http://netpreserve.org/warc/1.1/server-not-modified"},
-					&NameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
-					&NameValue{Name: WarcRefersToTargetURI, Value: "http://www.example.org/images/logo.jpg"},
-					&NameValue{Name: WarcRefersToDate, Value: "2016-09-19T17:20:24Z"},
-					&NameValue{Name: ContentType, Value: "message/http"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:7B71E2CE461E4685EED55612850EE0CBB3876EDF"},
-					&NameValue{Name: ContentLength, Value: "195"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/images/logo.jpg"},
+					&nameValue{Name: WarcProfile, Value: "http://netpreserve.org/warc/1.1/server-not-modified"},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
+					&nameValue{Name: WarcRefersToTargetURI, Value: "http://www.example.org/images/logo.jpg"},
+					&nameValue{Name: WarcRefersToDate, Value: "2016-09-19T17:20:24Z"},
+					&nameValue{Name: ContentType, Value: "message/http"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:7B71E2CE461E4685EED55612850EE0CBB3876EDF"},
+					&nameValue{Name: ContentLength, Value: "195"},
 				},
 				"HTTP/1.x 304 Not Modified\n" +
 					"Date: Tue, 06 Mar 2017 00:43:35 GMT\n" +
@@ -251,17 +257,17 @@ func TestRecordBuilder(t *testing.T) {
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcType, Value: "revisit"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/images/logo.jpg"},
-					&NameValue{Name: WarcProfile, Value: "http://netpreserve.org/warc/1.1/server-not-modified"},
-					&NameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
-					&NameValue{Name: WarcRefersToTargetURI, Value: "http://www.example.org/images/logo.jpg"},
-					&NameValue{Name: WarcRefersToDate, Value: "2016-09-19T17:20:24Z"},
-					&NameValue{Name: ContentType, Value: "message/http"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:7B71E2CE461E4685EED55612850EE0CBB3876EDF"},
-					&NameValue{Name: ContentLength, Value: "195"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "revisit"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/images/logo.jpg"},
+					&nameValue{Name: WarcProfile, Value: "http://netpreserve.org/warc/1.1/server-not-modified"},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
+					&nameValue{Name: WarcRefersToTargetURI, Value: "http://www.example.org/images/logo.jpg"},
+					&nameValue{Name: WarcRefersToDate, Value: "2016-09-19T17:20:24Z"},
+					&nameValue{Name: ContentType, Value: "message/http"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:7B71E2CE461E4685EED55612850EE0CBB3876EDF"},
+					&nameValue{Name: ContentLength, Value: "195"},
 				},
 				&genericBlock{},
 				"HTTP/1.x 304 Not Modified\n" +
@@ -270,6 +276,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Keep-Alive: timeout=15, max=100\n" +
 					"ETag: \"3e45-67e-2ed02ec0\"\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
@@ -279,30 +286,31 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Conversion,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
-					&NameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
-					&NameValue{Name: ContentType, Value: "text/plain"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:581F7F1CA3D3EB023438808309678ED6D03E2895"},
-					&NameValue{Name: ContentLength, Value: "10"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:581F7F1CA3D3EB023438808309678ED6D03E2895"},
+					&nameValue{Name: ContentLength, Value: "10"},
 				},
 				"body text\n",
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
-					&NameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
-					&NameValue{Name: WarcType, Value: "conversion"},
-					&NameValue{Name: ContentType, Value: "text/plain"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:581F7F1CA3D3EB023438808309678ED6D03E2895"},
-					&NameValue{Name: ContentLength, Value: "10"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
+					&nameValue{Name: WarcType, Value: "conversion"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:581F7F1CA3D3EB023438808309678ED6D03E2895"},
+					&nameValue{Name: ContentLength, Value: "10"},
 				},
 				&genericBlock{},
 				"body text\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
@@ -312,36 +320,37 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				Continuation,
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
-					&NameValue{Name: WarcSegmentOriginID, Value: "<urn:uuid:39509228-ae2f-11b2-763a-aa4c6ec90bb0>"},
-					&NameValue{Name: WarcSegmentNumber, Value: "2"},
-					&NameValue{Name: WarcSegmentTotalLength, Value: "1902"},
-					&NameValue{Name: ContentType, Value: "text/plain"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:62B805E388394FF22747D1B10476EA04309CB5A8"},
-					&NameValue{Name: WarcPayloadDigest, Value: "sha1:CCHXETFVJD2MUZY6ND6SS7ZENMWF7KQ2"},
-					&NameValue{Name: ContentLength, Value: "22"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&nameValue{Name: WarcSegmentOriginID, Value: "<urn:uuid:39509228-ae2f-11b2-763a-aa4c6ec90bb0>"},
+					&nameValue{Name: WarcSegmentNumber, Value: "2"},
+					&nameValue{Name: WarcSegmentTotalLength, Value: "1902"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:62B805E388394FF22747D1B10476EA04309CB5A8"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:CCHXETFVJD2MUZY6ND6SS7ZENMWF7KQ2"},
+					&nameValue{Name: ContentLength, Value: "22"},
 				},
 				"... last part of data\n",
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
-					&NameValue{Name: WarcType, Value: "continuation"},
-					&NameValue{Name: WarcSegmentOriginID, Value: "<urn:uuid:39509228-ae2f-11b2-763a-aa4c6ec90bb0>"},
-					&NameValue{Name: WarcSegmentNumber, Value: "2"},
-					&NameValue{Name: WarcSegmentTotalLength, Value: "1902"},
-					&NameValue{Name: ContentType, Value: "text/plain"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:62B805E388394FF22747D1B10476EA04309CB5A8"},
-					&NameValue{Name: WarcPayloadDigest, Value: "sha1:CCHXETFVJD2MUZY6ND6SS7ZENMWF7KQ2"},
-					&NameValue{Name: ContentLength, Value: "22"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&nameValue{Name: WarcType, Value: "continuation"},
+					&nameValue{Name: WarcSegmentOriginID, Value: "<urn:uuid:39509228-ae2f-11b2-763a-aa4c6ec90bb0>"},
+					&nameValue{Name: WarcSegmentNumber, Value: "2"},
+					&nameValue{Name: WarcSegmentTotalLength, Value: "1902"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:62B805E388394FF22747D1B10476EA04309CB5A8"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:CCHXETFVJD2MUZY6ND6SS7ZENMWF7KQ2"},
+					&nameValue{Name: ContentLength, Value: "22"},
 				},
 				&genericBlock{},
 				"... last part of data\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
@@ -351,38 +360,40 @@ func TestRecordBuilder(t *testing.T) {
 				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 				0,
 				&warcFields{
-					&NameValue{Name: WarcType, Value: "myType"},
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
-					&NameValue{Name: "My-Field", Value: "MyValue"},
-					&NameValue{Name: ContentType, Value: "text/plain"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1"},
-					&NameValue{Name: ContentLength, Value: "8"},
+					&nameValue{Name: WarcType, Value: "myType"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&nameValue{Name: "My-Field", Value: "MyValue"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1"},
+					&nameValue{Name: ContentLength, Value: "8"},
 				},
 				"content\n",
 			},
 			want{
 				&warcFields{
-					&NameValue{Name: WarcType, Value: "myType"},
-					&NameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&NameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&NameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
-					&NameValue{Name: "My-Field", Value: "MyValue"},
-					&NameValue{Name: WarcBlockDigest, Value: "sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1"},
-					&NameValue{Name: ContentType, Value: "text/plain"},
-					&NameValue{Name: ContentLength, Value: "8"},
+					&nameValue{Name: WarcType, Value: "myType"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
+					&nameValue{Name: "My-Field", Value: "MyValue"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: ContentLength, Value: "8"},
 				},
 				&genericBlock{},
 				"content\n",
 				&Validation{},
+				true,
 			},
 			false,
 		},
 	}
 	for _, tt := range tests {
-		assert := assert.New(t)
 		t.Run(tt.name, func(t *testing.T) {
+			assert := assert.New(t)
+
 			rb := NewRecordBuilder(tt.args.recordType, tt.args.opts...)
 			for _, nv := range *tt.args.headers {
 				rb.AddWarcHeader(nv.Name, nv.Value)
@@ -391,7 +402,7 @@ func TestRecordBuilder(t *testing.T) {
 			assert.NoError(err)
 			wr, validation, err := rb.Finalize()
 			if err == nil {
-				defer wr.Close()
+				defer wr.Close() //nolint
 			}
 
 			if tt.wantErr {
@@ -400,7 +411,7 @@ func TestRecordBuilder(t *testing.T) {
 				assert.NoError(err)
 			}
 
-			assert.ElementsMatch([]*NameValue(*tt.want.headers), []*NameValue(*wr.WarcHeader()))
+			assert.ElementsMatch([]*nameValue(*tt.want.headers), []*nameValue(*wr.WarcHeader()))
 			assert.IsType(tt.want.blockType, wr.Block())
 			assert.Equal(tt.want.validation, validation)
 			r, err := wr.Block().RawBytes()
@@ -408,6 +419,8 @@ func TestRecordBuilder(t *testing.T) {
 			b, err := ioutil.ReadAll(r)
 			assert.Nil(err)
 			assert.Equal(tt.want.data, string(b))
+
+			assert.Equal(tt.want.cached, wr.Block().IsCached())
 
 			//if !reflect.DeepEqual(got, tt.want) {
 			//	t.Errorf("NewResponseRecord() got = %v, want %v", got, tt.want)

@@ -33,21 +33,16 @@ type warcFieldsBlock struct {
 	warcFields *warcFields
 }
 
-func (b *warcFieldsBlock) WarcFields() *warcFields {
-	return b.warcFields
+func (b *warcFieldsBlock) IsCached() bool {
+	return true
 }
 
-func newWarcFieldsBlock(rb io.Reader, validation *Validation, options *warcRecordOptions) (WarcFieldsBlock, error) {
-	wfb := &warcFieldsBlock{}
-	var err error
-	wfb.content, err = ioutil.ReadAll(rb)
-	p := &warcfieldsParser{options}
-	if err != nil {
-		return nil, err
-	}
-	wfb.warcFields, err = p.Parse(bufio.NewReader(rb), validation, &position{})
+func (b *warcFieldsBlock) Cache() error {
+	return nil
+}
 
-	return wfb, nil
+func (b *warcFieldsBlock) WarcFields() *warcFields {
+	return b.warcFields
 }
 
 func (b *warcFieldsBlock) RawBytes() (io.Reader, error) {
@@ -63,4 +58,17 @@ func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 	w.Write([]byte(crlf))
 	bytesWritten += 2
 	return
+}
+
+func newWarcFieldsBlock(rb io.Reader, validation *Validation, options *warcRecordOptions) (WarcFieldsBlock, error) {
+	wfb := &warcFieldsBlock{}
+	var err error
+	wfb.content, err = ioutil.ReadAll(rb)
+	p := &warcfieldsParser{options}
+	if err != nil {
+		return nil, err
+	}
+	wfb.warcFields, err = p.Parse(bufio.NewReader(rb), validation, &position{})
+
+	return wfb, nil
 }

@@ -20,13 +20,24 @@ import "fmt"
 
 // HeaderFieldError is used for violations of WARC header specification
 type HeaderFieldError struct {
-	field string
-	msg   string
-	line  int
+	fieldName string
+	msg       string
+}
+
+func newHeaderFieldError(fieldName string, msg string) *HeaderFieldError {
+	return &HeaderFieldError{fieldName: fieldName, msg: msg}
+}
+
+func newHeaderFieldErrorf(fieldName string, msg string, param ...interface{}) *HeaderFieldError {
+	return &HeaderFieldError{fieldName: fieldName, msg: fmt.Sprintf(msg, param...)}
 }
 
 func (e *HeaderFieldError) Error() string {
-	return "gowarc: " + e.msg
+	if e.fieldName != "" {
+		return fmt.Sprintf("gowarc: %s at header %s", e.msg, e.fieldName)
+	} else {
+		return fmt.Sprintf("gowarc: %s", e.msg)
+	}
 }
 
 // SyntaxError is used for syntactical errors like wrong line endings
@@ -46,9 +57,9 @@ func newWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxErro
 
 func (e *SyntaxError) Error() string {
 	if e.line > 0 {
-		return fmt.Sprintf("gowarc: %v at line %d", e.msg, e.line)
+		return fmt.Sprintf("gowarc: %s at line %d", e.msg, e.line)
 	} else {
-		return fmt.Sprintf("gowarc: %v", e.msg)
+		return fmt.Sprintf("gowarc: %s", e.msg)
 	}
 }
 
