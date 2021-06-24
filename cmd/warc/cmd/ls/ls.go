@@ -73,7 +73,13 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	wf, err := gowarc.NewWarcFileReader(fileName, c.offset)
+	var opts []gowarc.WarcRecordOption
+	if c.strict {
+		opts = append(opts, gowarc.WithStrictValidation())
+	} else {
+		opts = append(opts, gowarc.WithNoValidation())
+	}
+	wf, err := gowarc.NewWarcFileReader(fileName, c.offset, opts...)
 	defer func() { _ = wf.Close() }()
 	if err != nil {
 		return
@@ -82,7 +88,7 @@ func readFile(c *conf, fileName string) {
 	count := 0
 
 	for {
-		wr, currentOffset, err := wf.Next()
+		wr, currentOffset, _, err := wf.Next()
 		if err == io.EOF {
 			break
 		}
@@ -109,5 +115,5 @@ func readFile(c *conf, fileName string) {
 func printRecord(offset int64, record gowarc.WarcRecord) {
 	recordID := record.WarcHeader().Get(gowarc.WarcRecordID)
 	targetURI := internal.CropString(record.WarcHeader().Get(gowarc.WarcTargetURI), 100)
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, recordID, record.Type(), targetURI)
+	fmt.Printf("%9d %s %-9.9s %s\n", offset, recordID, record.Type(), targetURI)
 }

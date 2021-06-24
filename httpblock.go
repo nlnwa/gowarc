@@ -19,9 +19,8 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
-	"crypto/sha1"
 	"fmt"
-	"hash"
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -48,22 +47,46 @@ type httpRequestBlock struct {
 	httpHeader      *http.Header
 	httpHeaderBytes []byte
 	payload         io.Reader
-	blockDigest     hash.Hash
-	payloadDigest   hash.Hash
+	blockDigest     *digest
+	payloadDigest   *digest
+	digestOnce      sync.Once
 	readOp          readOp
 	parseHeaderOnce sync.Once
+	cached          bool
 }
 
 func (block *httpRequestBlock) IsCached() bool {
-	fmt.Printf("Block type %T, RawBytes type %T\n", block, block.payload)
-	return false
+	return block.cached
 }
 
 func (block *httpRequestBlock) Cache() error {
-	panic("implement me")
+	if block.cached {
+		return nil
+	}
+	if block.readOp != opInitial {
+		return errContentReAccessed
+	}
+	buf := diskbuffer.New()
+	if _, err := buf.ReadFrom(block.payload); err != nil {
+		return err
+	}
+	if c, ok := block.payload.(io.Closer); ok {
+		_ = c.Close()
+	}
+	block.payload = buf
+	block.cached = true
+	return nil
 }
 
 func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
+	if block.cached {
+		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+		return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+	}
+
+	// Block is not cached. Guard against calling more than once
 	if block.readOp != opInitial {
 		return nil, errContentReAccessed
 	}
@@ -72,17 +95,19 @@ func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
 }
 
 func (block *httpRequestBlock) BlockDigest() string {
-	//if block.readOp == opInitial {
-	//	block.RawBytes()
-	//}
 	block.readOp = opRawBytes
 	io.Copy(ioutil.Discard, block.payload)
-	h := block.blockDigest.Sum(nil)
-	return fmt.Sprintf("request digest %x", h)
-	//return "request digest"
+	return block.blockDigest.format()
 }
 
 func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
+	if block.cached {
+		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+		return block.payload, nil
+	}
+
 	if block.readOp != opInitial {
 		return nil, errContentReAccessed
 	}
@@ -93,9 +118,7 @@ func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
 func (block *httpRequestBlock) PayloadDigest() string {
 	block.readOp = opRawBytes
 	io.Copy(ioutil.Discard, block.payload)
-	h := block.payloadDigest.Sum(nil)
-	return fmt.Sprintf("request payload digest %x", h)
-	//return "request payload digest"
+	return block.payloadDigest.format()
 }
 
 func (block *httpRequestBlock) HttpHeaderBytes() []byte {
@@ -145,22 +168,46 @@ type httpResponseBlock struct {
 	httpHeader      *http.Header
 	httpHeaderBytes []byte
 	payload         io.Reader
-	blockDigest     hash.Hash
-	payloadDigest   hash.Hash
+	blockDigest     *digest
+	payloadDigest   *digest
+	digestOnce      sync.Once
 	readOp          readOp
 	parseHeaderOnce sync.Once
+	cached          bool
 }
 
 func (block *httpResponseBlock) IsCached() bool {
-	fmt.Printf("Block type %T, RawBytes type %T\n", block, block.payload)
-	return false
+	return block.cached
 }
 
 func (block *httpResponseBlock) Cache() error {
-	panic("implement me")
+	if block.cached {
+		return nil
+	}
+	if block.readOp != opInitial {
+		return errContentReAccessed
+	}
+	buf := diskbuffer.New()
+	if _, err := buf.ReadFrom(block.payload); err != nil {
+		return err
+	}
+	if c, ok := block.payload.(io.Closer); ok {
+		_ = c.Close()
+	}
+	block.payload = buf
+	block.cached = true
+	return nil
 }
 
 func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
+	if block.cached {
+		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+		return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+	}
+
+	// Block is not cached. Guard against calling more than once
 	if block.readOp != opInitial {
 		return nil, errContentReAccessed
 	}
@@ -171,11 +218,17 @@ func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
 func (block *httpResponseBlock) BlockDigest() string {
 	block.readOp = opRawBytes
 	io.Copy(ioutil.Discard, block.payload)
-	h := block.blockDigest.Sum(nil)
-	return fmt.Sprintf("response digest sha1:%x", h)
+	return block.blockDigest.format()
 }
 
 func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {
+	if block.cached {
+		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+		return block.payload, nil
+	}
+
 	if block.readOp != opInitial {
 		return nil, errContentReAccessed
 	}
@@ -186,8 +239,7 @@ func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {
 func (block *httpResponseBlock) PayloadDigest() string {
 	block.readOp = opRawBytes
 	io.Copy(ioutil.Discard, block.payload)
-	h := block.payloadDigest.Sum(nil)
-	return fmt.Sprintf("response payload digest %x", h)
+	return block.payloadDigest.format()
 }
 
 func (block *httpResponseBlock) HttpHeaderBytes() []byte {
@@ -253,7 +305,7 @@ func headerBytes(r *bufio.Reader) []byte {
 	return result.Bytes()
 }
 
-func newHttpBlock(r io.Reader) (PayloadBlock, error) {
+func newHttpBlock(r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock, error) {
 	rb := bufio.NewReader(r)
 	b, err := rb.Peek(4)
 	if err != nil {
@@ -261,9 +313,7 @@ func newHttpBlock(r io.Reader) (PayloadBlock, error) {
 	}
 
 	hb := headerBytes(rb)
-	blockDigest := sha1.New()
 	blockDigest.Write(hb)
-	payloadDigest := sha1.New()
 	payload := io.TeeReader(io.TeeReader(rb, blockDigest), payloadDigest)
 	if bytes.HasPrefix(b, []byte("HTTP")) {
 		resp := &httpResponseBlock{

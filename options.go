@@ -21,6 +21,7 @@ type warcRecordOptions struct {
 	errSyntax           errorPolicy
 	errSpec             errorPolicy
 	errUnknowRecordType errorPolicy
+	skipParseBlock      bool
 	addMissingFields    bool
 	fixContentLength    bool
 	fixDigest           bool
@@ -62,6 +63,7 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		errSyntax:           ErrWarn,
 		errSpec:             ErrWarn,
 		errUnknowRecordType: ErrWarn,
+		skipParseBlock:      false,
 		addMissingFields:    true,
 		fixContentLength:    true,
 		fixDigest:           true,
@@ -133,5 +135,46 @@ func WithFixContentLength(fixContentLength bool) WarcRecordOption {
 func WithFixDigest(fixDigest bool) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.fixDigest = fixDigest
+	})
+}
+
+// WithSkipParseBlock sets parser to skip detecting known block types.
+// This implies that no payload digest can be computed.
+func WithSkipParseBlock() WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.skipParseBlock = true
+	})
+}
+
+// WithNoValidation sets the parser to do as little validation as possible.
+//
+// This option is for parsing as fast as possible and beeing as lenient as possible.
+// Settings implied by this option are:
+//   SyntaxErrorPolicy = ErrIgnore
+//   SpecViolationPolicy = ErrIgnore
+//   UnknownRecordPolicy = ErrIgnore
+//   SkipParseBlock = true
+func WithNoValidation() WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.errSyntax = ErrIgnore
+		o.errSpec = ErrIgnore
+		o.errUnknowRecordType = ErrIgnore
+		o.skipParseBlock = true
+	})
+}
+
+// WithStrictValidation sets the parser to fail on first error or violation of WARC specification.
+//
+// Settings implied by this option are:
+//   SyntaxErrorPolicy = ErrFail
+//   SpecViolationPolicy = ErrFail
+//   UnknownRecordPolicy = ErrFail
+//   SkipParseBlock = false
+func WithStrictValidation() WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.errSyntax = ErrFail
+		o.errSpec = ErrFail
+		o.errUnknowRecordType = ErrFail
+		o.skipParseBlock = false
 	})
 }

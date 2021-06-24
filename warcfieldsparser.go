@@ -111,7 +111,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 					}
 				}
 			}
-			if line == nil {
+			if len(line) == 0 {
 				return nil, err
 			}
 			if !eoh {

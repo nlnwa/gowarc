@@ -18,8 +18,6 @@ package cmd
 
 import (
 	"fmt"
-	"runtime"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
@@ -43,10 +41,6 @@ func NewCommand() *cobra.Command {
 		Long:  ``,
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Increase GOMAXPROCS as recommended by badger
-			// https://github.com/dgraph-io/badger#are-there-any-go-specific-settings-that-i-should-use
-			runtime.GOMAXPROCS(128)
-
 			if c.logLevel == "" {
 				c.logLevel = viper.GetString("loglevel")
 			}
@@ -114,5 +108,5 @@ func (c *conf) initConfig() {
 	}
 
 	// Config file found and successfully parsed
-	fmt.Println("Using config file:", viper.ConfigFileUsed())
+	//fmt.Println("Using config file:", viper.ConfigFileUsed())
 }

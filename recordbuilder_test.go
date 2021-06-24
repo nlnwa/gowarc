@@ -166,12 +166,12 @@ func TestRecordBuilder(t *testing.T) {
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: ContentType, Value: "application/warc-fields"},
 					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
-					&nameValue{Name: WarcBlockDigest, Value: "sha1:857C4C4B401FFBAB3D2EBA6BE566F849C87915F7"},
-					&nameValue{Name: ContentLength, Value: "61"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6D924D4C99268BE486042E655B06A83133EFEB59"},
+					&nameValue{Name: ContentLength, Value: "64"},
 				},
-				"via: http://www.example.com/\n" +
-					"hopsFromSeed: P\n" +
-					"fetchTimeMs: 47\n",
+				"via: http://www.example.com/\r\n" +
+					"hopsFromSeed: P\r\n" +
+					"fetchTimeMs: 47\r\n",
 			},
 			want{
 				&warcFields{
@@ -180,13 +180,13 @@ func TestRecordBuilder(t *testing.T) {
 					&nameValue{Name: WarcType, Value: "metadata"},
 					&nameValue{Name: ContentType, Value: "application/warc-fields"},
 					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:e7c9eff8-f5bc-4aeb-b3d2-9d3df99afb30>"},
-					&nameValue{Name: WarcBlockDigest, Value: "sha1:857C4C4B401FFBAB3D2EBA6BE566F849C87915F7"},
-					&nameValue{Name: ContentLength, Value: "61"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6D924D4C99268BE486042E655B06A83133EFEB59"},
+					&nameValue{Name: ContentLength, Value: "64"},
 				},
 				&warcFieldsBlock{},
-				"via: http://www.example.com/\n" +
-					"hopsFromSeed: P\n" +
-					"fetchTimeMs: 47\n",
+				"via: http://www.example.com/\r\n" +
+					"hopsFromSeed: P\r\n" +
+					"fetchTimeMs: 47\r\n",
 				&Validation{},
 				true,
 			},

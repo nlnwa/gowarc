@@ -50,7 +50,7 @@ func (f *FileStorageLoader) Load(ctx context.Context, storageRef string) (record
 		}
 	}()
 
-	record, _, err = wf.Next()
+	record, _, _, err = wf.Next()
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "Error: %v, Offset %v\n", err.Error(), offset)
 		return nil, err

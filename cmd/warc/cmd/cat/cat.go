@@ -85,7 +85,7 @@ func readFile(c *conf, fileName string) {
 	ww := gowarc.NewMarshaler()
 
 	for {
-		wr, _, err := wf.Next()
+		wr, _, _, err := wf.Next()
 		if err == io.EOF {
 			break
 		}

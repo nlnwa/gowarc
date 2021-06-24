@@ -111,7 +111,7 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 	return wf, nil
 }
 
-func (wf *WarcFileReader) Next() (WarcRecord, int64, error) {
+func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 	if wf.currentRecord != nil {
 		wf.currentRecord.Close()
 	}
@@ -123,8 +123,9 @@ func (wf *WarcFileReader) Next() (WarcRecord, int64, error) {
 
 	var err error
 	var recordOffset int64
-	wf.currentRecord, recordOffset, err = wf.warcReader.Unmarshal(wf.bufferedReader)
-	return wf.currentRecord, wf.offset + recordOffset, err
+	var validation *Validation
+	wf.currentRecord, recordOffset, validation, err = wf.warcReader.Unmarshal(wf.bufferedReader)
+	return wf.currentRecord, wf.offset + recordOffset, validation, err
 }
 
 func (wf *WarcFileReader) Close() error {

@@ -17,12 +17,11 @@
 package gowarc
 
 import (
-	"crypto/sha1"
 	"errors"
-	"fmt"
-	"hash"
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"io/ioutil"
+	"sync"
 )
 
 // Block is the interface used to represent the content of a WARC record as specified by the WARC specification:
@@ -51,9 +50,18 @@ type PayloadBlock interface {
 
 type genericBlock struct {
 	rawBytes    io.Reader
-	blockDigest hash.Hash
+	blockDigest *digest
+	digestOnce  sync.Once
 	readOp      readOp
 	cached      bool
+}
+
+func newGenericBlock(r io.Reader, d *digest) *genericBlock {
+	b := &genericBlock{rawBytes: r, blockDigest: d}
+	if _, ok := r.(io.Seeker); ok {
+		b.cached = true
+	}
+	return b
 }
 
 func (block *genericBlock) IsCached() bool {
@@ -61,28 +69,60 @@ func (block *genericBlock) IsCached() bool {
 }
 
 func (block *genericBlock) Cache() error {
-	panic("implement me")
+	if block.cached {
+		return nil
+	}
+	if block.readOp != opInitial {
+		return errContentReAccessed
+	}
+	buf := diskbuffer.New()
+	if _, err := buf.ReadFrom(block.rawBytes); err != nil {
+		return err
+	}
+	if c, ok := block.rawBytes.(io.Closer); ok {
+		_ = c.Close()
+	}
+	block.rawBytes = buf
+	block.cached = true
+	return nil
 }
 
 func (block *genericBlock) RawBytes() (io.Reader, error) {
+	if block.cached {
+		if _, err := block.rawBytes.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+			return nil, err
+		}
+		return block.rawBytes, nil
+	}
+
+	// Block is not cached. Guard against calling more than once
 	if block.readOp != opInitial {
 		return nil, errContentReAccessed
 	}
 	block.readOp = opRawBytes
 
-	block.blockDigest = sha1.New()
 	block.rawBytes = io.TeeReader(block.rawBytes, block.blockDigest)
 	return block.rawBytes, nil
 }
 
 func (block *genericBlock) BlockDigest() string {
-	if block.readOp == opInitial {
-		_, _ = block.RawBytes()
-	}
-	block.readOp = opRawBytes
-	_, _ = io.Copy(ioutil.Discard, block.rawBytes)
-	h := block.blockDigest.Sum(nil)
-	return fmt.Sprintf("generic digest %x", h)
+	block.digestOnce.Do(func() {
+		if block.cached {
+			if _, err := block.rawBytes.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+				panic(err)
+			}
+			block.blockDigest.Reset()
+			_, _ = io.Copy(block.blockDigest, block.rawBytes)
+			return
+		}
+
+		if block.readOp == opInitial {
+			_, _ = block.RawBytes()
+		}
+		block.readOp = opRawBytes
+		_, _ = io.Copy(ioutil.Discard, block.rawBytes)
+	})
+	return block.blockDigest.format()
 }
 
 // The readOp constants describe access to RawBytes() or PayloadBytes() on a PayloadBlock(),

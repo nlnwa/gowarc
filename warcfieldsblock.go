@@ -21,6 +21,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"sync"
 )
 
 type WarcFieldsBlock interface {
@@ -29,8 +30,10 @@ type WarcFieldsBlock interface {
 }
 
 type warcFieldsBlock struct {
-	content    []byte
-	warcFields *warcFields
+	content     []byte
+	warcFields  *warcFields
+	blockDigest *digest
+	digestOnce  sync.Once
 }
 
 func (b *warcFieldsBlock) IsCached() bool {
@@ -49,8 +52,11 @@ func (b *warcFieldsBlock) RawBytes() (io.Reader, error) {
 	return bytes.NewReader(b.content), nil
 }
 
-func (block *warcFieldsBlock) BlockDigest() string {
-	return "warcfields digest"
+func (b *warcFieldsBlock) BlockDigest() string {
+	b.digestOnce.Do(func() {
+		b.blockDigest.Write(b.content)
+	})
+	return b.blockDigest.format()
 }
 
 func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
@@ -60,15 +66,15 @@ func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 	return
 }
 
-func newWarcFieldsBlock(rb io.Reader, validation *Validation, options *warcRecordOptions) (WarcFieldsBlock, error) {
-	wfb := &warcFieldsBlock{}
+func newWarcFieldsBlock(rb io.Reader, d *digest, validation *Validation, options *warcRecordOptions) (WarcFieldsBlock, error) {
+	wfb := &warcFieldsBlock{blockDigest: d}
 	var err error
 	wfb.content, err = ioutil.ReadAll(rb)
-	p := &warcfieldsParser{options}
 	if err != nil {
 		return nil, err
 	}
-	wfb.warcFields, err = p.Parse(bufio.NewReader(rb), validation, &position{})
+	p := &warcfieldsParser{options}
+	wfb.warcFields, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), validation, &position{})
 
-	return wfb, nil
+	return wfb, err
 }

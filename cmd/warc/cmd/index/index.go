@@ -88,7 +88,7 @@ func readFile(c *conf) {
 	count := 0
 
 	for {
-		wr, currentOffset, err := wf.Next()
+		wr, currentOffset, _, err := wf.Next()
 		if err == io.EOF {
 			break
 		}

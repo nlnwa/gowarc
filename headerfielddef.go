@@ -76,10 +76,8 @@ func validateHeader(wf *warcFields, version *version, validation *Validation, op
 				switch opts.errSpec {
 				case ErrWarn:
 					validation.addError(newHeaderFieldError(name, "field occurs more than once"))
-					//validation.addError(fmt.Errorf("field '%validation' occurs more than once in record type '%validation'", name, rt.String()))
 				case ErrFail:
 					return rt, newHeaderFieldError(name, "field occurs more than once")
-					//return rt, fmt.Errorf("field '%validation' occurs more than once in record type '%validation'", name, rt.String())
 				}
 			}
 		}
@@ -214,10 +212,10 @@ var fieldDefs = []fieldDef{
 		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcSegmentOriginID, pWarcId, false,
-		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
+		Continuation,
 		V1_0.id | V1_1.id},
 	{WarcSegmentTotalLength, pLong, false,
-		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
+		Continuation,
 		V1_0.id | V1_1.id},
 	{WarcTargetURI, pString, false,
 		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,

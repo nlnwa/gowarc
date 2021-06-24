@@ -18,9 +18,7 @@ package gowarc
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
-	"os"
 	"strings"
 )
 
@@ -152,10 +150,6 @@ func (wr *warcRecord) String() string {
 }
 
 func (wr *warcRecord) Close() error {
-	if v, ok := wr.block.(PayloadBlock); ok {
-		fmt.Fprintf(os.Stderr, "Payload digest: %s, ", v.PayloadDigest())
-	}
-	fmt.Fprintf(os.Stderr, "Block digest: %s\n", wr.block.BlockDigest())
 	if wr.closer != nil {
 		return wr.closer()
 	}
@@ -163,31 +157,31 @@ func (wr *warcRecord) Close() error {
 }
 
 func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
-	contentType := strings.ToLower(wr.headers.Get(ContentType))
-	if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
-		if strings.HasPrefix(contentType, "application/http") {
-			httpBlock, err := newHttpBlock(reader)
+	d, _ := newDigest("sha1")
+
+	if !wr.opts.skipParseBlock {
+		contentType := strings.ToLower(wr.headers.Get(ContentType))
+		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
+			if strings.HasPrefix(contentType, "application/http") {
+				pd, _ := newDigest("sha1")
+				httpBlock, err := newHttpBlock(reader, d, pd)
+				if err != nil {
+					return err
+				}
+				wr.block = httpBlock
+				return nil
+			}
+		}
+		if strings.HasPrefix(contentType, "application/warc-fields") {
+			warcFieldsBlock, err := newWarcFieldsBlock(reader, d, validation, wr.opts)
 			if err != nil {
 				return err
 			}
-			wr.block = httpBlock
+			wr.block = warcFieldsBlock
 			return nil
 		}
 	}
-	if strings.HasPrefix(contentType, "application/warc-fields") {
-		warcFieldsBlock, err := newWarcFieldsBlock(reader, validation, wr.opts)
-		if err != nil {
-			return err
-		}
-		wr.block = warcFieldsBlock
-		return nil
-	}
 
-	b := &genericBlock{rawBytes: reader}
-	if _, ok := reader.(diskbuffer.Buffer); ok {
-		b.cached = true
-	}
-	wr.block = b
-	fmt.Printf("GENERIC BLOCK TYPE: %T\n", reader)
+	wr.block = newGenericBlock(reader, d)
 	return
 }
