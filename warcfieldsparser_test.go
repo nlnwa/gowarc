@@ -36,7 +36,7 @@ func TestParseWarcFields(t *testing.T) {
 		wantErr        bool
 	}{
 		{
-			"valid",
+			"policy_ignore/valid",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -58,7 +58,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing carriage return",
+			"policy_ignore/missing carriage return",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\n" +
@@ -80,7 +80,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing colon",
+			"policy_ignore/missing colon",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -101,7 +101,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing last line ending",
+			"policy_ignore/missing last line ending",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -123,7 +123,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"valid",
+			"policy_warn/valid",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -145,7 +145,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing carriage return",
+			"policy_warn/missing carriage return",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\n" +
@@ -174,7 +174,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing colon",
+			"policy_warn/missing colon",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -197,7 +197,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing last line ending",
+			"policy_warn/missing last line ending",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -221,7 +221,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"valid",
+			"policy_fail/valid",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -243,7 +243,7 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
-			"missing carriage return",
+			"policy_fail/missing carriage return",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\n" +
@@ -258,7 +258,7 @@ func TestParseWarcFields(t *testing.T) {
 			true,
 		},
 		{
-			"missing colon",
+			"policy_fail/missing colon",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -273,7 +273,7 @@ func TestParseWarcFields(t *testing.T) {
 			true,
 		},
 		{
-			"missing last line ending",
+			"policy_fail/missing last line ending",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 					"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -289,16 +289,7 @@ func TestParseWarcFields(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		var name string
-		switch tt.args.opts.errSyntax {
-		case ErrIgnore:
-			name = "policy_ignore/" + tt.name
-		case ErrWarn:
-			name = "policy_warn/" + tt.name
-		case ErrFail:
-			name = "policy_fail/" + tt.name
-		}
-		t.Run(name, func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			r := bufio.NewReader(strings.NewReader(tt.args.data))
 			p := &warcfieldsParser{Options: tt.args.opts}
 			validation := &Validation{}

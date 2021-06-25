@@ -49,7 +49,7 @@ type httpRequestBlock struct {
 	payload         io.Reader
 	blockDigest     *digest
 	payloadDigest   *digest
-	digestOnce      sync.Once
+	digestComputed  bool
 	readOp          readOp
 	parseHeaderOnce sync.Once
 	cached          bool
@@ -73,6 +73,7 @@ func (block *httpRequestBlock) Cache() error {
 	if c, ok := block.payload.(io.Closer); ok {
 		_ = c.Close()
 	}
+	block.digestComputed = true
 	block.payload = buf
 	block.cached = true
 	return nil
@@ -96,7 +97,12 @@ func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
 
 func (block *httpRequestBlock) BlockDigest() string {
 	block.readOp = opRawBytes
-	io.Copy(ioutil.Discard, block.payload)
+	if !block.digestComputed {
+		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
+			panic(err)
+		}
+		block.digestComputed = true
+	}
 	return block.blockDigest.format()
 }
 
@@ -117,7 +123,12 @@ func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
 
 func (block *httpRequestBlock) PayloadDigest() string {
 	block.readOp = opRawBytes
-	io.Copy(ioutil.Discard, block.payload)
+	if !block.digestComputed {
+		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
+			panic(err)
+		}
+		block.digestComputed = true
+	}
 	return block.payloadDigest.format()
 }
 
@@ -126,12 +137,16 @@ func (block *httpRequestBlock) HttpHeaderBytes() []byte {
 }
 
 func (block *httpRequestBlock) HttpRequestLine() string {
-	block.parseHeaders()
+	if err := block.parseHeaders(); err != nil {
+		panic(err)
+	}
 	return block.httpRequestLine
 }
 
 func (block *httpRequestBlock) HttpHeader() *http.Header {
-	block.parseHeaders()
+	if err := block.parseHeaders(); err != nil {
+		panic(err)
+	}
 	return block.httpHeader
 }
 
@@ -170,7 +185,7 @@ type httpResponseBlock struct {
 	payload         io.Reader
 	blockDigest     *digest
 	payloadDigest   *digest
-	digestOnce      sync.Once
+	digestComputed  bool
 	readOp          readOp
 	parseHeaderOnce sync.Once
 	cached          bool
@@ -194,6 +209,7 @@ func (block *httpResponseBlock) Cache() error {
 	if c, ok := block.payload.(io.Closer); ok {
 		_ = c.Close()
 	}
+	block.digestComputed = true
 	block.payload = buf
 	block.cached = true
 	return nil
@@ -217,7 +233,12 @@ func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
 
 func (block *httpResponseBlock) BlockDigest() string {
 	block.readOp = opRawBytes
-	io.Copy(ioutil.Discard, block.payload)
+	if !block.digestComputed {
+		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
+			panic(err)
+		}
+		block.digestComputed = true
+	}
 	return block.blockDigest.format()
 }
 
@@ -238,7 +259,12 @@ func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {
 
 func (block *httpResponseBlock) PayloadDigest() string {
 	block.readOp = opRawBytes
-	io.Copy(ioutil.Discard, block.payload)
+	if !block.digestComputed {
+		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
+			panic(err)
+		}
+		block.digestComputed = true
+	}
 	return block.payloadDigest.format()
 }
 
@@ -247,17 +273,23 @@ func (block *httpResponseBlock) HttpHeaderBytes() []byte {
 }
 
 func (block *httpResponseBlock) HttpStatusLine() string {
-	block.parseHeaders()
+	if err := block.parseHeaders(); err != nil {
+		panic(err)
+	}
 	return block.httpStatusLine
 }
 
 func (block *httpResponseBlock) HttpStatusCode() int {
-	block.parseHeaders()
+	if err := block.parseHeaders(); err != nil {
+		panic(err)
+	}
 	return block.httpStatusCode
 }
 
 func (block *httpResponseBlock) HttpHeader() *http.Header {
-	block.parseHeaders()
+	if err := block.parseHeaders(); err != nil {
+		panic(err)
+	}
 	return block.httpHeader
 }
 

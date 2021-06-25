@@ -9,6 +9,7 @@ require (
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/nlnwa/whatwg-url v0.0.0-20200306110950-d1a95e2e8fc3
 	github.com/pelletier/go-toml v1.8.1 // indirect
+	github.com/prometheus/tsdb v0.7.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/smartystreets/assertions v1.0.0 // indirect
 	github.com/spf13/afero v1.4.1 // indirect

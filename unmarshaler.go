@@ -58,17 +58,24 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		return nil, offset, validation, err
 	}
 	// Search for start of new record
+	expectedRecordStartOffset := offset
 	for !(magic[0] == 0x1f && magic[1] == 0x8b) && !bytes.Equal(magic, []byte("WARC/")) {
-		fmt.Printf("**** MAGIC: %s\n", magic)
-		if u.opts.errSyntax > ErrIgnore {
-			return nil, offset, validation, fmt.Errorf("expected start of record")
+		if u.opts.errSyntax >= ErrFail {
+			return nil, offset, validation, newSyntaxError("expected start of record", &position{})
 		}
-		b.Discard(1)
+		if _, err = b.Discard(1); err != nil {
+			return nil, offset, validation, err
+		}
 		offset++
 		magic, err = b.Peek(5)
 		if err != nil {
 			return nil, offset, validation, err
 		}
+	}
+	if u.opts.errSyntax >= ErrWarn && expectedRecordStartOffset != offset {
+		validation.addError(newSyntaxError(
+			fmt.Sprintf("expected start of record at offset: %d, but record was found at offset: %d",
+				expectedRecordStartOffset, offset), &position{}))
 	}
 
 	var g *gzip.Reader
@@ -133,6 +140,8 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
 
+	// Adding 4 bytes to length to include the end of record marker (\r\n\r\n)
+	// TODO: validate that record ends with correct marker
 	c2 := countingreader2.NewLimited(r, length+4)
 	record.closer = func() error {
 		_, err := io.Copy(ioutil.Discard, c2)

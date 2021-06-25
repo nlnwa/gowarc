@@ -40,7 +40,6 @@ func NewMarshaler() Marshaler {
 
 func (m *defaultMarshaler) Marshal(w io.Writer, record WarcRecord, maxSize int64) (WarcRecord, int64, error) {
 	// TODO: Handle segmentation
-	// TODO: Maybe handle revisits here
 	size, err := m.writeRecord(w, record)
 	return nil, size, err
 }

@@ -61,8 +61,14 @@ func (b *warcFieldsBlock) BlockDigest() string {
 
 func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 	bytesWritten, err = b.warcFields.Write(w)
-	w.Write([]byte(crlf))
-	bytesWritten += 2
+	if err != nil {
+		return
+	}
+	n, err := w.Write([]byte(crlf))
+	if err != nil {
+		return
+	}
+	bytesWritten += int64(n)
 	return
 }
 

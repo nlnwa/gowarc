@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-package timestamp
+package internal
 
-import (
-	"time"
-)
+import "net"
 
-func To14(s string) (string, error) {
-	t, err := time.Parse(time.RFC3339, s)
+// Get preferred outbound ip of this machine
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		return "", err
+		panic(err)
 	}
+	defer conn.Close()
 
-	return t.Format("20060102150405"), nil
-}
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-func From14ToTime(s string) (time.Time, error) {
-	t, err := time.Parse("20060102150405", s)
-	return t, err
+	return localAddr.IP
 }

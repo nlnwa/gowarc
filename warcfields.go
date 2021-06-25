@@ -116,6 +116,8 @@ func (wf *warcFields) Write(w io.Writer) (bytesWritten int64, err error) {
 
 func (wf *warcFields) String() string {
 	sb := &strings.Builder{}
-	wf.Write(sb)
+	if _, err := wf.Write(sb); err != nil {
+		panic(err)
+	}
 	return sb.String()
 }

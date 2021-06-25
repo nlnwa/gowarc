@@ -18,10 +18,10 @@ package index
 
 import (
 	"github.com/nlnwa/gowarc"
+	"github.com/nlnwa/gowarc/internal/timestamp"
 	"strconv"
 
 	"github.com/nlnwa/gowarc/pkg/surt"
-	"github.com/nlnwa/gowarc/pkg/timestamp"
 )
 
 type Cdx struct {
