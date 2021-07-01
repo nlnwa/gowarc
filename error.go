@@ -16,7 +16,10 @@
 
 package gowarc
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // HeaderFieldError is used for violations of WARC header specification
 type HeaderFieldError struct {
@@ -65,4 +68,39 @@ func (e *SyntaxError) Error() string {
 
 func (e *SyntaxError) Unwrap() error {
 	return e.wrapped
+}
+
+type multiErr []error
+
+func (e multiErr) Error() string {
+	switch len(e) {
+
+	case 0:
+		return ""
+
+	case 1:
+		return e[0].Error()
+	}
+
+	const (
+		start = "["
+		sep   = ", "
+		end   = "]"
+	)
+
+	n := len(start) + len(end) + (len(sep) * (len(e) - 1))
+	for i := 0; i < len(e); i++ {
+		n += len(e[i].Error())
+	}
+
+	var b strings.Builder
+	b.Grow(n)
+	b.WriteString(start)
+	b.WriteString(e[0].Error())
+	for _, s := range e[1:] {
+		b.WriteString(sep)
+		b.WriteString(s.Error())
+	}
+	b.WriteString(end)
+	return b.String()
 }
