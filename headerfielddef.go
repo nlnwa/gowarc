@@ -50,8 +50,8 @@ const (
 	WarcWarcinfoID            = "WARC-Warcinfo-ID"
 )
 
-// validateHeader validates a warcFields object as a WARC-record header
-func validateHeader(wf *warcFields, version *version, validation *Validation, opts *warcRecordOptions) (recordType, error) {
+// validateHeader validates a WarcFields object as a WARC-record header
+func validateHeader(wf *WarcFields, version *version, validation *Validation, opts *warcRecordOptions) (recordType, error) {
 	rt, err := resolveRecordType(wf, validation, opts)
 	if err != nil {
 		return rt, err
@@ -116,7 +116,7 @@ func validateHeader(wf *warcFields, version *version, validation *Validation, op
 	return rt, nil
 }
 
-func resolveRecordType(wf *warcFields, validation *Validation, opts *warcRecordOptions) (recordType, error) {
+func resolveRecordType(wf *WarcFields, validation *Validation, opts *warcRecordOptions) (recordType, error) {
 	typeFieldNameLc := "warc-type"
 	var typeField string
 	for _, f := range *wf {

@@ -30,7 +30,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 	type want struct {
 		version    *version
 		recordType recordType
-		headers    *warcFields
+		headers    *WarcFields
 		blockType  interface{}
 		content    string
 		validation *Validation
@@ -64,7 +64,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				version:    V1_0,
 				recordType: Warcinfo,
-				headers: &warcFields{
+				headers: &WarcFields{
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "warcinfo"},
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -102,7 +102,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Response,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "response"},
@@ -140,7 +140,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Request,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "request"},
@@ -179,7 +179,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Metadata,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "metadata"},
@@ -218,7 +218,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Resource,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "resource"},
@@ -263,7 +263,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Revisit,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "revisit"},
@@ -305,7 +305,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Conversion,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
@@ -343,7 +343,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				Continuation,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcTargetURI, Value: "http://www.example.org/index.html"},
@@ -381,7 +381,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			want{
 				V1_0,
 				0,
-				&warcFields{
+				&WarcFields{
 					&nameValue{Name: WarcType, Value: "myType"},
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},

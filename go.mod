@@ -4,6 +4,7 @@ go 1.13
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/google/uuid v1.2.0
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect

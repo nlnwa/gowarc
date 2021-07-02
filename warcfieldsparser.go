@@ -33,7 +33,7 @@ type warcfieldsParser struct {
 	Options *warcRecordOptions
 }
 
-func (p *warcfieldsParser) parseLine(line []byte, nv warcFields, pos *position) (warcFields, error) {
+func (p *warcfieldsParser) parseLine(line []byte, nv WarcFields, pos *position) (WarcFields, error) {
 	line = bytes.TrimRight(line, sphtcrlf)
 
 	// Support for ‘encoded-word’ mechanism of [RFC2047]
@@ -91,8 +91,8 @@ func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte
 	return
 }
 
-func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *position) (*warcFields, error) {
-	wf := warcFields{}
+func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *position) (*WarcFields, error) {
+	wf := WarcFields{}
 	eoh := false
 
 	for {

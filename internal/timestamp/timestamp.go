@@ -41,3 +41,7 @@ func UTCNow() time.Time {
 func UTCNow14() string {
 	return time.Now().In(time.UTC).Format("20060102150405")
 }
+
+func UTCNowW3cIso8601() string {
+	return time.Now().In(time.UTC).Format(time.RFC3339)
+}

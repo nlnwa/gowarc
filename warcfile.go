@@ -182,20 +182,37 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, error) {
 		}
 	}
 
+	// Create new file if necessary
 	if w.currentFile == nil {
-		var suffix string
-		if w.opts.compress {
-			suffix = w.opts.compressSuffix
-		}
-		fileName := w.opts.nameGenerator.NewWarcfileName() + suffix + w.opts.openFileSuffix
-		file, err := os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
-		if err != nil {
+		if err := w.createFile(); err != nil {
 			return 0, err
 		}
-		w.currentFile = file
 	}
 
-	var writer io.Writer = w.currentFile
+	return w.writeRecord(w.currentFile, record, maxRecordSize)
+}
+
+func (w *singleWarcFileWriter) createFile() error {
+	var suffix string
+	if w.opts.compress {
+		suffix = w.opts.compressSuffix
+	}
+	fileName := w.opts.nameGenerator.NewWarcfileName() + suffix + w.opts.openFileSuffix
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
+	if err != nil {
+		return err
+	}
+	w.currentFile = file
+
+	if w.opts.warcInfoFunc != nil {
+		if _, err := w.createWarcInfoRecord(fileName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, maxRecordSize int64) (int64, error) {
 	if w.opts.compress {
 		gz := gzip.NewWriter(writer)
 		defer func() { _ = gz.Close() }()
@@ -213,6 +230,23 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, error) {
 	}
 	w.currentFileSize += size
 	return size, nil
+}
+
+func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, error) {
+	r := NewRecordBuilder(Warcinfo)
+	r.AddWarcHeader(WarcDate, timestamp.UTCNowW3cIso8601())
+	r.AddWarcHeader(WarcFilename, fileName)
+	r.AddWarcHeader(ContentType, ApplicationWarcFields)
+
+	if err := w.opts.warcInfoFunc(r); err != nil {
+		return 0, err
+	}
+
+	warcinfo, _, err := r.Finalize()
+	if err != nil {
+		return 0, err
+	}
+	return w.writeRecord(w.currentFile, warcinfo, 0)
 }
 
 // Close closes the current file beeing written to.
@@ -305,6 +339,7 @@ type warcFileWriterOptions struct {
 	nameGenerator            WarcFileNameGenerator
 	marshaler                Marshaler
 	maxConcurrentWriters     int
+	warcInfoFunc             func(recordBuilder WarcRecordBuilder) error
 }
 
 // WarcFileWriterOption configures how to write WARC files.
@@ -415,5 +450,15 @@ func WithMaxConcurrentWriters(count int) WarcFileWriterOption {
 func WithExpectedCompressionRatio(ratio float64) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
 		o.expectedCompressionRatio = ratio
+	})
+}
+
+// WithWarcInfoFunc sets a warcinfo-record generator function to be called for every new WARC-file created.
+// The function receives a WarcRecordBuilder which is prepopulated with WARC-Record-ID, WARC-Type, WARC-Date and Content-Type.
+// After the submitted function returns, Content-Length and WARC-Block-Digest fields are calculated.
+// defaults nil
+func WithWarcInfoFunc(f func(recordBuilder WarcRecordBuilder) error) WarcFileWriterOption {
+	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
+		o.warcInfoFunc = f
 	})
 }

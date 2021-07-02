@@ -17,14 +17,16 @@
 package gowarc
 
 type warcRecordOptions struct {
-	warcVersion         *version
-	errSyntax           errorPolicy
-	errSpec             errorPolicy
-	errUnknowRecordType errorPolicy
-	skipParseBlock      bool
-	addMissingFields    bool
-	fixContentLength    bool
-	fixDigest           bool
+	warcVersion             *version
+	errSyntax               errorPolicy
+	errSpec                 errorPolicy
+	errUnknowRecordType     errorPolicy
+	skipParseBlock          bool
+	addMissingRecordId      bool
+	addMissingContentLength bool
+	addMissingDigest        bool
+	fixContentLength        bool
+	fixDigest               bool
 }
 
 // The errorPolicy constants describe how to handle WARC record errors.
@@ -59,14 +61,16 @@ func newFuncWarcRecordOption(f func(*warcRecordOptions)) *funcWarcRecordOption {
 
 func defaultWarcRecordOptions() warcRecordOptions {
 	return warcRecordOptions{
-		warcVersion:         V1_1,
-		errSyntax:           ErrWarn,
-		errSpec:             ErrWarn,
-		errUnknowRecordType: ErrWarn,
-		skipParseBlock:      false,
-		addMissingFields:    true,
-		fixContentLength:    true,
-		fixDigest:           true,
+		warcVersion:             V1_1,
+		errSyntax:               ErrWarn,
+		errSpec:                 ErrWarn,
+		errUnknowRecordType:     ErrWarn,
+		skipParseBlock:          false,
+		addMissingRecordId:      true,
+		addMissingContentLength: true,
+		addMissingDigest:        true,
+		fixContentLength:        true,
+		fixDigest:               true,
 	}
 }
 
@@ -111,12 +115,28 @@ func WithUnknownRecordTypePolicy(policy errorPolicy) WarcRecordOption {
 	})
 }
 
-// WithAddMissingFields sets if missing WARC-header fields should be added.
+// WithAddMissingRecordId sets if missing WARC-Record-ID header should be generated.
+// defaults to true
+func WithAddMissingRecordId(addMissingRecordId bool) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.addMissingRecordId = addMissingRecordId
+	})
+}
+
+// WithAddMissingContentLength sets if missing Content-Length header should be calculated.
+// defaults to true
+func WithAddMissingContentLength(addMissingContentLength bool) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.addMissingContentLength = addMissingContentLength
+	})
+}
+
+// WithAddMissingDigest sets if missing Block digest and eventually Payload digest header fields should be calculated.
 // Only fields which can be generated automaticly are added. That includes WarcRecordID, ContentLength, BlockDigest and PayloadDigest.
 // defaults to true
-func WithAddMissingFields(addMissingFields bool) WarcRecordOption {
+func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
-		o.addMissingFields = addMissingFields
+		o.addMissingDigest = addMissingDigest
 	})
 }
 

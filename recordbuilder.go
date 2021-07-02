@@ -18,6 +18,7 @@ package gowarc
 
 import (
 	"fmt"
+	"github.com/google/uuid"
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"strconv"
@@ -34,7 +35,7 @@ type WarcRecordBuilder interface {
 type recordBuilder struct {
 	opts       *warcRecordOptions
 	version    *version
-	headers    *warcFields
+	headers    *WarcFields
 	recordType recordType
 	content    diskbuffer.Buffer
 }
@@ -56,6 +57,10 @@ func (rb recordBuilder) AddWarcHeader(name string, value string) {
 }
 
 func (rb recordBuilder) Finalize() (WarcRecord, *Validation, error) {
+	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
+		rb.headers.Set(WarcRecordID, "<"+uuid.New().URN()+">")
+	}
+
 	wr := &warcRecord{
 		opts:       rb.opts,
 		version:    rb.version,
@@ -95,10 +100,8 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 					return validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
 				}
 			}
-			//} else if rb.opts.fixContentLength {
-			//	if err := wr.WarcHeader().Set(ContentLength, size); err != nil {
-			//		return validation, err
-			//	}
+		} else if rb.opts.addMissingContentLength {
+			wr.headers.Set(ContentLength, size)
 		}
 	}
 
@@ -132,7 +135,7 @@ func NewRecordBuilder(recordType recordType, opts ...WarcRecordOption) *recordBu
 		opts:       o,
 		version:    o.warcVersion,
 		recordType: recordType,
-		headers:    &warcFields{},
+		headers:    &WarcFields{},
 		content:    diskbuffer.New(),
 	}
 	if recordType != 0 {

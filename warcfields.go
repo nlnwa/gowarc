@@ -32,12 +32,12 @@ func (n *nameValue) String() string {
 	return n.Name + ": " + n.Value
 }
 
-type warcFields []*nameValue
+type WarcFields []*nameValue
 
 // Get gets the first value associated with the given key. It is case insensitive.
 // If the key doesn't exist or there are no values associated with the key, Get returns "".
 // To access multiple values of a key, use GetAll.
-func (wf *warcFields) Get(name string) string {
+func (wf *WarcFields) Get(name string) string {
 	for _, nv := range *wf {
 		if nv.Name == name {
 			return nv.Value
@@ -46,7 +46,7 @@ func (wf *warcFields) Get(name string) string {
 	return ""
 }
 
-func (wf *warcFields) GetAll(name string) []string {
+func (wf *WarcFields) GetAll(name string) []string {
 	var result []string
 	for _, nv := range *wf {
 		if nv.Name == name {
@@ -56,7 +56,7 @@ func (wf *warcFields) GetAll(name string) []string {
 	return result
 }
 
-func (wf *warcFields) Has(name string) bool {
+func (wf *WarcFields) Has(name string) bool {
 	for _, nv := range *wf {
 		if nv.Name == name {
 			return true
@@ -65,11 +65,11 @@ func (wf *warcFields) Has(name string) bool {
 	return false
 }
 
-func (wf *warcFields) Add(name string, value string) {
+func (wf *WarcFields) Add(name string, value string) {
 	*wf = append(*wf, &nameValue{Name: name, Value: value})
 }
 
-func (wf *warcFields) Set(name string, value string) {
+func (wf *WarcFields) Set(name string, value string) {
 	isSet := false
 	for idx, nv := range *wf {
 		if nv.Name == name {
@@ -86,7 +86,7 @@ func (wf *warcFields) Set(name string, value string) {
 	}
 }
 
-func (wf *warcFields) Delete(name string) {
+func (wf *WarcFields) Delete(name string) {
 	var result []*nameValue
 	for _, nv := range *wf {
 		if nv.Name != name {
@@ -96,13 +96,13 @@ func (wf *warcFields) Delete(name string) {
 	*wf = result
 }
 
-func (wf *warcFields) Sort() {
+func (wf *WarcFields) Sort() {
 	sort.SliceStable(*wf, func(i, j int) bool {
 		return (*wf)[i].Name < (*wf)[j].Name
 	})
 }
 
-func (wf *warcFields) Write(w io.Writer) (bytesWritten int64, err error) {
+func (wf *WarcFields) Write(w io.Writer) (bytesWritten int64, err error) {
 	var n int
 	for _, field := range *wf {
 		n, err = fmt.Fprintf(w, "%s: %s\r\n", field.Name, field.Value)
@@ -114,7 +114,7 @@ func (wf *warcFields) Write(w io.Writer) (bytesWritten int64, err error) {
 	return
 }
 
-func (wf *warcFields) String() string {
+func (wf *WarcFields) String() string {
 	sb := &strings.Builder{}
 	if _, err := wf.Write(sb); err != nil {
 		panic(err)

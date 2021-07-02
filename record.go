@@ -35,7 +35,7 @@ const (
 type WarcRecord interface {
 	Version() *version
 	Type() recordType
-	WarcHeader() *warcFields
+	WarcHeader() *WarcFields
 	Block() Block
 	String() string
 	io.Closer
@@ -126,10 +126,16 @@ const (
 	Continuation = 128
 )
 
+const (
+	// Well known content types
+	ApplicationWarcFields = "application/warc-fields"
+	ApplicationHttp       = "application/http"
+)
+
 type warcRecord struct {
 	opts       *warcRecordOptions
 	version    *version
-	headers    *warcFields
+	headers    *WarcFields
 	recordType recordType
 	block      Block
 	closer     func() error
@@ -139,7 +145,7 @@ func (wr *warcRecord) Version() *version { return wr.version }
 
 func (wr *warcRecord) Type() recordType { return wr.recordType }
 
-func (wr *warcRecord) WarcHeader() *warcFields { return wr.headers }
+func (wr *warcRecord) WarcHeader() *WarcFields { return wr.headers }
 
 func (wr *warcRecord) Block() Block {
 	return wr.block
@@ -162,7 +168,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 	if !wr.opts.skipParseBlock {
 		contentType := strings.ToLower(wr.headers.Get(ContentType))
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
-			if strings.HasPrefix(contentType, "application/http") {
+			if strings.HasPrefix(contentType, ApplicationHttp) {
 				pd, _ := newDigest("sha1")
 				httpBlock, err := newHttpBlock(reader, d, pd)
 				if err != nil {
@@ -172,7 +178,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 				return nil
 			}
 		}
-		if strings.HasPrefix(contentType, "application/warc-fields") {
+		if strings.HasPrefix(contentType, ApplicationWarcFields) {
 			warcFieldsBlock, err := newWarcFieldsBlock(reader, d, validation, wr.opts)
 			if err != nil {
 				return err

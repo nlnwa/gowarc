@@ -23,19 +23,19 @@ import (
 
 func TestValidateHeader(t *testing.T) {
 	type args struct {
-		header *warcFields
+		header *WarcFields
 		opts   *warcRecordOptions
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *warcFields
+		want    *WarcFields
 		wantErr bool
 	}{
 		{
 			"1",
 			args{
-				header: &warcFields{
+				header: &WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -45,7 +45,7 @@ func TestValidateHeader(t *testing.T) {
 				},
 				opts: newOptions(),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -58,7 +58,7 @@ func TestValidateHeader(t *testing.T) {
 		{
 			"2",
 			args{
-				header: &warcFields{
+				header: &WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-13-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008"},
 					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -68,7 +68,7 @@ func TestValidateHeader(t *testing.T) {
 				},
 				opts: newOptions(),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-13-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},

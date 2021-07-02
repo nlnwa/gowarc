@@ -31,7 +31,7 @@ func TestParseWarcFields(t *testing.T) {
 	tests := []struct {
 		name           string
 		args           args
-		want           *warcFields
+		want           *WarcFields
 		wantValidation *Validation
 		wantErr        bool
 	}{
@@ -46,7 +46,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\r\n\r\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -68,7 +68,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\n\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -90,7 +90,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\r\n\r\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -111,7 +111,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrIgnore)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -133,7 +133,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\r\n\r\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -155,7 +155,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\n\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -184,7 +184,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\r\n\r\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -207,7 +207,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
@@ -231,7 +231,7 @@ func TestParseWarcFields(t *testing.T) {
 					"Content-Length: 249\r\n\r\n",
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
-			&warcFields{
+			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},

@@ -26,12 +26,12 @@ import (
 
 type WarcFieldsBlock interface {
 	Block
-	WarcFields() *warcFields
+	WarcFields() *WarcFields
 }
 
 type warcFieldsBlock struct {
 	content     []byte
-	warcFields  *warcFields
+	warcFields  *WarcFields
 	blockDigest *digest
 	digestOnce  sync.Once
 }
@@ -44,7 +44,7 @@ func (b *warcFieldsBlock) Cache() error {
 	return nil
 }
 
-func (b *warcFieldsBlock) WarcFields() *warcFields {
+func (b *warcFieldsBlock) WarcFields() *WarcFields {
 	return b.warcFields
 }
 
