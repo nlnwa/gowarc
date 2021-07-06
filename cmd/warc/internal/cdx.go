@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-package index
+package internal
 
 import (
 	"github.com/nlnwa/gowarc"
 	"github.com/nlnwa/gowarc/internal/timestamp"
 	"strconv"
-
-	"github.com/nlnwa/gowarc/pkg/surt"
 )
 
 type Cdx struct {
@@ -90,7 +88,7 @@ func NewCdxRecord(wr gowarc.WarcRecord, fileName string, offset int64) *Cdx {
 		Rod: wr.WarcHeader().Get(gowarc.WarcRefersToDate),
 		Roi: wr.WarcHeader().Get(gowarc.WarcRefersTo),
 	}
-	if ssu, err := surt.SsurtString(wr.WarcHeader().Get(gowarc.WarcTargetURI), true); err == nil {
+	if ssu, err := SsurtString(wr.WarcHeader().Get(gowarc.WarcTargetURI), true); err == nil {
 		cdx.Ssu = ssu
 	}
 	cdx.Sts, _ = timestamp.To14(wr.WarcHeader().Get(gowarc.WarcDate))

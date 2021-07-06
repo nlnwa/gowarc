@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"github.com/fsnotify/fsnotify"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/ls"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -65,7 +64,6 @@ func NewCommand() *cobra.Command {
 	// Subcommands
 	cmd.AddCommand(ls.NewCommand())
 	cmd.AddCommand(cat.NewCommand())
-	cmd.AddCommand(index.NewCommand())
 
 	return cmd
 }
@@ -74,9 +72,6 @@ func NewCommand() *cobra.Command {
 func (c *conf) initConfig() {
 	viper.SetTypeByDefaultValue(true)
 	viper.SetDefault("warcdir", []string{"."})
-	viper.SetDefault("indexdir", ".")
-	viper.SetDefault("autoindex", true)
-	viper.SetDefault("warcport", 9999)
 	viper.SetDefault("loglevel", "info")
 
 	viper.AutomaticEnv() // read in environment variables that match
@@ -106,7 +101,4 @@ func (c *conf) initConfig() {
 			log.Fatalf("error reading config file: %v", err)
 		}
 	}
-
-	// Config file found and successfully parsed
-	//fmt.Println("Using config file:", viper.ConfigFileUsed())
 }

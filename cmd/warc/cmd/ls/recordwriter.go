@@ -1,5 +1,5 @@
 /*
- * Copyright 2020 National Library of Norway.
+ * Copyright 2021 National Library of Norway.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,20 +14,22 @@
  * limitations under the License.
  */
 
-package index
+package ls
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/nlnwa/gowarc"
+	"github.com/nlnwa/gowarc/cmd/warc/internal"
 )
 
-type CdxWriter interface {
+type RecordWriter interface {
 	Write(wr gowarc.WarcRecord, fileName string, offset int64) error
 }
 
 type CdxLegacy struct {
 }
+
 type CdxJ struct {
 }
 
@@ -36,13 +38,23 @@ func (c *CdxLegacy) Write(wr gowarc.WarcRecord, fileName string, offset int64) e
 }
 
 func (c *CdxJ) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
-	if wr.Type() == gowarc.Response {
-		rec := NewCdxRecord(wr, fileName, offset)
+	if wr.Type() != gowarc.Warcinfo {
+		rec := internal.NewCdxRecord(wr, fileName, offset)
 		cdxj, err := json.Marshal(rec)
 		if err != nil {
 			return err
 		}
 		fmt.Printf("%s %s %s %s\n", rec.Ssu, rec.Sts, rec.Srt, cdxj)
 	}
+	return nil
+}
+
+type DefaultWriter struct {
+}
+
+func (d DefaultWriter) Write(wr gowarc.WarcRecord, fileName string, offset int64) error {
+	recordID := wr.WarcHeader().Get(gowarc.WarcRecordID)
+	targetURI := internal.CropString(wr.WarcHeader().Get(gowarc.WarcTargetURI), 100)
+	fmt.Printf("%9d %s %-9.9s %s\n", offset, recordID, wr.Type(), targetURI)
 	return nil
 }
