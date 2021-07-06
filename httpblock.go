@@ -345,7 +345,10 @@ func newHttpBlock(r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock
 	}
 
 	hb := headerBytes(rb)
-	blockDigest.Write(hb)
+	if _, err := blockDigest.Write(hb); err != nil {
+		return nil, err
+	}
+
 	payload := io.TeeReader(io.TeeReader(rb, blockDigest), payloadDigest)
 	if bytes.HasPrefix(b, []byte("HTTP")) {
 		resp := &httpResponseBlock{

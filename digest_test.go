@@ -55,7 +55,8 @@ func Test_newDigest(t *testing.T) {
 					return
 				}
 			}
-			d.Write([]byte(tt.digestString))
+			_, err = d.Write([]byte(tt.digestString))
+			assert.NoError(err)
 
 			assert.Equal(tt.wantDigestName, d.name)
 			assert.Equal(tt.wantDigest, d.format())
@@ -88,9 +89,10 @@ func Test_digest_validate(t *testing.T) {
 			d, _ := newDigest(tt.digestString)
 
 			assert := assert.New(t)
-			d.Write([]byte(tt.input))
+			_, err := d.Write([]byte(tt.input))
+			assert.NoError(err)
 
-			err := d.validate()
+			err = d.validate()
 			if !tt.wantValid {
 				assert.Error(err)
 			} else {

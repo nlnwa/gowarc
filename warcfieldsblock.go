@@ -54,7 +54,9 @@ func (b *warcFieldsBlock) RawBytes() (io.Reader, error) {
 
 func (b *warcFieldsBlock) BlockDigest() string {
 	b.digestOnce.Do(func() {
-		b.blockDigest.Write(b.content)
+		if _, err := b.blockDigest.Write(b.content); err != nil {
+			panic(err)
+		}
 	})
 	return b.blockDigest.format()
 }
