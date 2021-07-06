@@ -123,7 +123,10 @@ func (b *fileBuffer) readFrom(r io.Reader) (n int64, err error) {
 }
 
 func (b *fileBuffer) writeTo(off int64, w io.Writer) (n int64, err error) {
-	b.diskFile.Seek(off, io.SeekStart)
+	_, err = b.diskFile.Seek(off, io.SeekStart)
+	if err != nil {
+		return
+	}
 	n, err = io.Copy(w, b.diskFile)
 	if err != nil {
 		return n, err

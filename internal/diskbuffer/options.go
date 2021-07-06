@@ -24,7 +24,6 @@ type options struct {
 	memBufferSizeHint int64
 	tmpDir            string
 	readOnly          bool
-	passThrough       bool
 }
 
 // BrowserControllerOption configures BrowserController.

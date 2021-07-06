@@ -59,7 +59,9 @@ func NewCommand() *cobra.Command {
 	// Flags
 	cmd.PersistentFlags().StringVarP(&c.logLevel, "log-level", "l", "", "set the log level of gowarc, it will take precedence over config 'loglevel'")
 	cmd.PersistentFlags().StringVar(&c.cfgFile, "config", "", "config file. If not set, /etc/warc/, $HOME/.warc/ and current working dir will be searched for file config.yaml")
-	viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
+	if err := viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config")); err != nil {
+		panic(err)
+	}
 
 	// Subcommands
 	cmd.AddCommand(ls.NewCommand())

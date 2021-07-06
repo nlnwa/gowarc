@@ -118,7 +118,9 @@ func readFile(c *conf, fileName string) {
 		}
 		count++
 
-		c.writer.Write(wr, fileName, currentOffset)
+		if err := c.writer.Write(wr, fileName, currentOffset); err != nil {
+			panic(err)
+		}
 
 		if c.recordCount > 0 && count >= c.recordCount {
 			break

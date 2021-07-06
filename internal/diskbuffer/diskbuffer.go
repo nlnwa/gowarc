@@ -268,9 +268,7 @@ func (b *buffer) Peek(n int) (p []byte, err error) {
 
 	if err == io.EOF && len(p) > n && b.fileBuf != nil {
 		// Memory buffer exhausted, read from file
-		var m int
-		m, err = b.fileBuf.read(peekOffset-b.memBuf.size(), p[n:])
-		n += m
+		_, err = b.fileBuf.read(peekOffset-b.memBuf.size(), p[n:])
 	}
 	return p, err
 }

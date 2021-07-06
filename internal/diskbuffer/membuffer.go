@@ -140,18 +140,6 @@ func (b *memBuffer) read(off int64, p []byte) (n int, err error) {
 	return n, nil
 }
 
-// slice returns a slice containing n bytes from offset off.
-// If there are fewer than n bytes in the buffer, slice returns the entire buffer.
-// The slice is only valid until the next call to a read or write method.
-func (b *memBuffer) slice(off int64, n int) []byte {
-	m := int(b.len - off)
-	if n > m {
-		n = m
-	}
-	data := b.buf[off : int(off)+n]
-	return data
-}
-
 // readByte reads and returns the byte at offset off from the buffer.
 // If no byte is available, it returns error io.EOF.
 func (b *memBuffer) readByte(off int64) (byte, error) {
