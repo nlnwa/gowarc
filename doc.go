@@ -15,8 +15,8 @@
  */
 
 /*
-Gowarc is a Library for parsing and creating WARC-records.
-It also supports creation, validation and manipulation of WARC-files.
+Package gowarc allows parsing, creating and validating WARC-records.
+Reading, writing and validating WARC-files is also supported.
 
 WARC
 
