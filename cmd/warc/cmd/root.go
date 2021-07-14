@@ -13,17 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package cmd
 
 import (
 	"fmt"
-	"runtime"
-
 	"github.com/fsnotify/fsnotify"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/cat"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/index"
 	"github.com/nlnwa/gowarc/cmd/warc/cmd/ls"
-	"github.com/nlnwa/gowarc/cmd/warc/cmd/serve"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -43,10 +40,6 @@ func NewCommand() *cobra.Command {
 		Long:  ``,
 
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			// Increase GOMAXPROCS as recommended by badger
-			// https://github.com/dgraph-io/badger#are-there-any-go-specific-settings-that-i-should-use
-			runtime.GOMAXPROCS(128)
-
 			if c.logLevel == "" {
 				c.logLevel = viper.GetString("loglevel")
 			}
@@ -66,13 +59,13 @@ func NewCommand() *cobra.Command {
 	// Flags
 	cmd.PersistentFlags().StringVarP(&c.logLevel, "log-level", "l", "", "set the log level of gowarc, it will take precedence over config 'loglevel'")
 	cmd.PersistentFlags().StringVar(&c.cfgFile, "config", "", "config file. If not set, /etc/warc/, $HOME/.warc/ and current working dir will be searched for file config.yaml")
-	viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config"))
+	if err := viper.BindPFlag("config", cmd.PersistentFlags().Lookup("config")); err != nil {
+		panic(err)
+	}
 
 	// Subcommands
 	cmd.AddCommand(ls.NewCommand())
 	cmd.AddCommand(cat.NewCommand())
-	cmd.AddCommand(serve.NewCommand())
-	cmd.AddCommand(index.NewCommand())
 
 	return cmd
 }
@@ -81,9 +74,6 @@ func NewCommand() *cobra.Command {
 func (c *conf) initConfig() {
 	viper.SetTypeByDefaultValue(true)
 	viper.SetDefault("warcdir", []string{"."})
-	viper.SetDefault("indexdir", ".")
-	viper.SetDefault("autoindex", true)
-	viper.SetDefault("warcport", 9999)
 	viper.SetDefault("loglevel", "info")
 
 	viper.AutomaticEnv() // read in environment variables that match
@@ -113,7 +103,4 @@ func (c *conf) initConfig() {
 			log.Fatalf("error reading config file: %v", err)
 		}
 	}
-
-	// Config file found and successfully parsed
-	fmt.Println("Using config file:", viper.ConfigFileUsed())
 }

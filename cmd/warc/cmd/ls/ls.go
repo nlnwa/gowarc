@@ -13,21 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package ls
 
 import (
 	"errors"
 	"fmt"
+	"github.com/nlnwa/gowarc"
+	"github.com/nlnwa/gowarc/cmd/warc/internal"
+	"github.com/spf13/cobra"
 	"io"
 	"os"
 	"sort"
 	"strconv"
-
-	"github.com/nlnwa/gowarc/pkg/utils"
-	"github.com/nlnwa/gowarc/warcoptions"
-	"github.com/nlnwa/gowarc/warcreader"
-	"github.com/nlnwa/gowarc/warcrecord"
-	"github.com/spf13/cobra"
 )
 
 type conf struct {
@@ -36,6 +34,8 @@ type conf struct {
 	strict      bool
 	fileName    string
 	id          []string
+	format      string
+	writer      RecordWriter
 }
 
 func NewCommand() *cobra.Command {
@@ -64,6 +64,7 @@ func NewCommand() *cobra.Command {
 	cmd.Flags().IntVarP(&c.recordCount, "record-count", "c", 0, "The maximum number of records to show")
 	cmd.Flags().BoolVarP(&c.strict, "strict", "s", false, "strict parsing")
 	cmd.Flags().StringArrayVar(&c.id, "id", []string{}, "specify record ids to ls")
+	cmd.Flags().StringVar(&c.format, "format", "", "specify output format. One of: 'cdx', 'cdxj'")
 
 	return cmd
 }
@@ -74,17 +75,35 @@ func runE(c *conf) error {
 }
 
 func readFile(c *conf, fileName string) {
-	opts := &warcoptions.WarcOptions{Strict: c.strict}
-	wf, err := warcreader.NewWarcFilename(fileName, c.offset, opts)
-	defer wf.Close()
+	var opts []gowarc.WarcRecordOption
+	if c.strict {
+		opts = append(opts, gowarc.WithStrictValidation())
+	} else {
+		opts = append(opts, gowarc.WithNoValidation())
+	}
+	wf, err := gowarc.NewWarcFileReader(fileName, c.offset, opts...)
+	defer func() { _ = wf.Close() }()
 	if err != nil {
-		return
+		panic(err)
+	}
+
+	if c.format != "" {
+		switch c.format {
+		case "cdx":
+			c.writer = &CdxLegacy{}
+		case "cdxj":
+			c.writer = &CdxJ{}
+		default:
+			panic(fmt.Errorf("unknwon format %v, valid formats are: 'cdx', 'cdxj'", c.format))
+		}
+	} else {
+		c.writer = &DefaultWriter{}
 	}
 
 	count := 0
 
 	for {
-		wr, currentOffset, err := wf.Next()
+		wr, currentOffset, _, err := wf.Next()
 		if err == io.EOF {
 			break
 		}
@@ -93,23 +112,19 @@ func readFile(c *conf, fileName string) {
 			break
 		}
 		if len(c.id) > 0 {
-			if !utils.Contains(c.id, wr.WarcHeader().Get(warcrecord.WarcRecordID)) {
+			if !internal.Contains(c.id, wr.WarcHeader().Get(gowarc.WarcRecordID)) {
 				continue
 			}
 		}
 		count++
 
-		printRecord(currentOffset, wr)
+		if err := c.writer.Write(wr, fileName, currentOffset); err != nil {
+			panic(err)
+		}
 
 		if c.recordCount > 0 && count >= c.recordCount {
 			break
 		}
 	}
 	fmt.Fprintln(os.Stderr, "Count: ", count)
-}
-
-func printRecord(offset int64, record warcrecord.WarcRecord) {
-	recordID := record.WarcHeader().Get(warcrecord.WarcRecordID)
-	targetURI := utils.CropString(record.WarcHeader().Get(warcrecord.WarcTargetURI), 100)
-	fmt.Printf("%v\t%s\t%s \t%s\n", offset, recordID, record.Type(), targetURI)
 }
