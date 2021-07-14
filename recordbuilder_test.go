@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"io/ioutil"
 	"testing"
+	"time"
 )
 
 func TestRecordBuilder(t *testing.T) {
@@ -436,4 +437,31 @@ func TestRecordBuilder(t *testing.T) {
 			//fmt.Printf("Http header: %v, Err: %v\n", resp, err)
 		})
 	}
+}
+
+func TestRecordBuilder_AddWarcHeader(t *testing.T) {
+	loc, err := time.LoadLocation("Europe/Oslo")
+	assert.NoError(t, err)
+	tm, err := time.ParseInLocation(time.ANSIC, "Mon Mar  6 05:03:53 2017", loc)
+	assert.NoError(t, err)
+	rb := NewRecordBuilder(Warcinfo)
+	rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+	rb.AddWarcHeaderTime(WarcDate, tm)
+	rb.AddWarcHeaderInt64(ContentLength, int64(238))
+	rb.AddWarcHeaderInt(WarcSegmentNumber, 2)
+	record, validation, err := rb.Build()
+	assert.NoError(t, err)
+	defer record.Close() //nolint
+
+	rb = NewRecordBuilder(Warcinfo)
+	rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+	rb.AddWarcHeader(WarcDate, "2017-03-06T04:03:53Z")
+	rb.AddWarcHeader(ContentLength, "238")
+	rb.AddWarcHeader(WarcSegmentNumber, "2")
+	expected, expectedValidation, err := rb.Build()
+	assert.NoError(t, err)
+	defer record.Close() //nolint
+
+	assert.ElementsMatch(t, []*nameValue(*expected.WarcHeader()), []*nameValue(*record.WarcHeader()))
+	assert.Equal(t, expectedValidation, validation)
 }
