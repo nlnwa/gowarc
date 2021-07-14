@@ -242,7 +242,7 @@ func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, err
 		return 0, err
 	}
 
-	warcinfo, _, err := r.Finalize()
+	warcinfo, _, err := r.Build()
 	if err != nil {
 		return 0, err
 	}

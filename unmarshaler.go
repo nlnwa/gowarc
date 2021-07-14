@@ -38,7 +38,7 @@ type unmarshaler struct {
 	LastOffset       int64
 }
 
-func NewUnmarshaler(opts ...WarcRecordOption) *unmarshaler {
+func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
 	o := newOptions(opts...)
 
 	u := &unmarshaler{

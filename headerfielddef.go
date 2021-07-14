@@ -51,7 +51,7 @@ const (
 )
 
 // validateHeader validates a WarcFields object as a WARC-record header
-func validateHeader(wf *WarcFields, version *version, validation *Validation, opts *warcRecordOptions) (recordType, error) {
+func validateHeader(wf *WarcFields, version *version, validation *Validation, opts *warcRecordOptions) (RecordType, error) {
 	rt, err := resolveRecordType(wf, validation, opts)
 	if err != nil {
 		return rt, err
@@ -116,7 +116,7 @@ func validateHeader(wf *WarcFields, version *version, validation *Validation, op
 	return rt, nil
 }
 
-func resolveRecordType(wf *WarcFields, validation *Validation, opts *warcRecordOptions) (recordType, error) {
+func resolveRecordType(wf *WarcFields, validation *Validation, opts *warcRecordOptions) (RecordType, error) {
 	typeFieldNameLc := "warc-type"
 	var typeField string
 	for _, f := range *wf {
@@ -126,7 +126,7 @@ func resolveRecordType(wf *WarcFields, validation *Validation, opts *warcRecordO
 		}
 	}
 
-	var rt recordType
+	var rt RecordType
 	if typeField == "" {
 		rt = 0
 		switch opts.errSpec {
@@ -156,9 +156,9 @@ var requiredFields = []string{WarcRecordID, ContentLength, WarcDate, WarcType}
 
 type fieldDef struct {
 	name           string
-	validationFunc func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (validatedValue string, err error)
+	validationFunc func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (validatedValue string, err error)
 	repeatable     bool
-	supportedRec   recordType
+	supportedRec   RecordType
 	supportedSpec  uint8
 }
 
@@ -249,16 +249,16 @@ func normalizeName(name string) (string, fieldDef) {
 }
 
 var (
-	pUnknown = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pUnknown = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		return value, nil
 	}
-	pString = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pString = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
-	pTime = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pTime = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -267,8 +267,8 @@ var (
 		}
 		return value, nil
 	}
-	pWarcType = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
-		//if value != wr.recordType.String() {
+	pWarcType = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
+		//if value != wr.RecordType.String() {
 		//	return "", fmt.Errorf("not allowed to change record type")
 		//}
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
@@ -276,7 +276,7 @@ var (
 		}
 		return value, nil
 	}
-	pWarcId = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pWarcId = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -287,7 +287,7 @@ var (
 		//}
 		//return v, nil
 	}
-	pInt = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pInt = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -296,7 +296,7 @@ var (
 		}
 		return value, nil
 	}
-	pLong = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pLong = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -305,14 +305,14 @@ var (
 		}
 		return value, nil
 	}
-	pDigest = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pDigest = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
 		// TODO: Check Digest
 		return value, nil
 	}
-	pTruncReason = func(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (string, error) {
+	pTruncReason = func(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (string, error) {
 		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
 			return "", err
 		}
@@ -320,7 +320,7 @@ var (
 	}
 )
 
-func checkLegal(opts *warcRecordOptions, name, value string, version *version, recordType recordType, def fieldDef) (err error) {
+func checkLegal(opts *warcRecordOptions, name, value string, version *version, recordType RecordType, def fieldDef) (err error) {
 	// All fields are allowed for unknown record types
 	if recordType == 0 {
 		return

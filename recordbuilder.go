@@ -29,14 +29,14 @@ type WarcRecordBuilder interface {
 	io.StringWriter
 	io.ReaderFrom
 	AddWarcHeader(name string, value string)
-	Finalize() (WarcRecord, *Validation, error)
+	Build() (WarcRecord, *Validation, error)
 }
 
 type recordBuilder struct {
 	opts       *warcRecordOptions
 	version    *version
 	headers    *WarcFields
-	recordType recordType
+	recordType RecordType
 	content    diskbuffer.Buffer
 }
 
@@ -56,7 +56,7 @@ func (rb recordBuilder) AddWarcHeader(name string, value string) {
 	rb.headers.Add(name, value)
 }
 
-func (rb recordBuilder) Finalize() (WarcRecord, *Validation, error) {
+func (rb recordBuilder) Build() (WarcRecord, *Validation, error) {
 	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
 		rb.headers.Set(WarcRecordID, "<"+uuid.New().URN()+">")
 	}
@@ -128,7 +128,7 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 	return validation, err
 }
 
-func NewRecordBuilder(recordType recordType, opts ...WarcRecordOption) *recordBuilder {
+func NewRecordBuilder(recordType RecordType, opts ...WarcRecordOption) WarcRecordBuilder {
 	o := newOptions(opts...)
 
 	rb := &recordBuilder{

@@ -34,7 +34,7 @@ const (
 
 type WarcRecord interface {
 	Version() *version
-	Type() recordType
+	Type() RecordType
 	WarcHeader() *WarcFields
 	Block() Block
 	String() string
@@ -66,9 +66,9 @@ var (
 	V1_1 = &version{id: 2, txt: "1.1", major: 1, minor: 1} // WARC 1.1
 )
 
-type recordType uint16
+type RecordType uint16
 
-func (rt recordType) String() string {
+func (rt RecordType) String() string {
 	switch rt {
 	case 1:
 		return "warcinfo"
@@ -91,7 +91,7 @@ func (rt recordType) String() string {
 	}
 }
 
-func stringToRecordType(rt string) recordType {
+func stringToRecordType(rt string) RecordType {
 	switch rt {
 	case "warcinfo":
 		return 1
@@ -136,14 +136,14 @@ type warcRecord struct {
 	opts       *warcRecordOptions
 	version    *version
 	headers    *WarcFields
-	recordType recordType
+	recordType RecordType
 	block      Block
 	closer     func() error
 }
 
 func (wr *warcRecord) Version() *version { return wr.version }
 
-func (wr *warcRecord) Type() recordType { return wr.recordType }
+func (wr *warcRecord) Type() RecordType { return wr.recordType }
 
 func (wr *warcRecord) WarcHeader() *WarcFields { return wr.headers }
 

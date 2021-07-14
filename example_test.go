@@ -32,7 +32,7 @@ func Example_basic() {
 	builder.AddWarcHeader(ContentType, "application/http;msgtype=response")
 	builder.AddWarcHeader(WarcBlockDigest, "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4")
 
-	if wr, v, err := builder.Finalize(); err == nil {
+	if wr, v, err := builder.Build(); err == nil {
 		fmt.Println(wr, v)
 	}
 	// Output: WARC record: version: WARC/1.1, type: response, id: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>

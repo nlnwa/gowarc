@@ -117,7 +117,7 @@ package gowarc
 //		return nil, fmt.Errorf("unknown record implementation")
 //	}
 //
-//	m.recordType = Response
+//	m.RecordType = Response
 //	err := m.headers.Set(WarcType, "response")
 //	if err != nil {
 //		log.Warnf("Merge err1: %v", err)

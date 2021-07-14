@@ -1,5 +1,6 @@
 ![Lint](https://github.com/nlnwa/gowarc/workflows/golangci-lint/badge.svg)
 ![GoReleaser](https://github.com/nlnwa/gowarc/workflows/goreleaser/badge.svg)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/nlnwa/gowarc)](https://pkg.go.dev/github.com/nlnwa/gowarc)
 
 > This project is currently in alpha. Expect API changes and enhanced documentation to come.
 

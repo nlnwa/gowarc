@@ -3,12 +3,15 @@ module github.com/nlnwa/gowarc
 go 1.13
 
 require (
+	github.com/fatih/color v1.7.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/google/uuid v1.2.0
+	github.com/jroimartin/gocui v0.4.0
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.1 // indirect
 	github.com/nlnwa/whatwg-url v0.0.0-20200306110950-d1a95e2e8fc3
+	github.com/nsf/termbox-go v1.1.1 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
 	github.com/prometheus/tsdb v0.7.1
 	github.com/sirupsen/logrus v1.4.2

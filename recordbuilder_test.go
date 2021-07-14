@@ -25,7 +25,7 @@ import (
 func TestRecordBuilder(t *testing.T) {
 	type args struct {
 		opts       []WarcRecordOption
-		recordType recordType
+		recordType RecordType
 		headers    *WarcFields
 		data       string
 	}
@@ -400,7 +400,7 @@ func TestRecordBuilder(t *testing.T) {
 			}
 			_, err := rb.WriteString(tt.args.data)
 			assert.NoError(err)
-			wr, validation, err := rb.Finalize()
+			wr, validation, err := rb.Build()
 			if err == nil {
 				defer wr.Close() //nolint
 			}

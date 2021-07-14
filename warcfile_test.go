@@ -247,7 +247,7 @@ func createTestRecord() WarcRecord {
 	builder.AddWarcHeader(ContentType, "application/http;msgtype=response")
 	builder.AddWarcHeader(WarcBlockDigest, "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4")
 
-	wr, _, err := builder.Finalize()
+	wr, _, err := builder.Build()
 	if err != nil {
 		panic(err)
 	}
