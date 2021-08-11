@@ -30,11 +30,13 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // WarcFileNameGenerator is the interface that wraps the NewWarcfileName function.
 type WarcFileNameGenerator interface {
-	NewWarcfileName() string
+	// NewWarcfileName returns a directory (might be the empty string for current directory) and a file name
+	NewWarcfileName() (string, string)
 }
 
 // PatternNameGenerator implements the WarcFileNameGenerator.
@@ -47,22 +49,21 @@ type PatternNameGenerator struct {
 
 const defaultPattern = "%{prefix}s%{ts}s-%04{serial}d-%{ip}s.warc"
 
-func (g *PatternNameGenerator) NewWarcfileName() string {
+// Allow overriding of time.Now for tests
+var now = time.Now
+
+func (g *PatternNameGenerator) NewWarcfileName() (string, string) {
 	if g.Pattern == "" {
 		g.Pattern = defaultPattern
 	}
-	prefix := g.Prefix
-	if g.Directory != "" {
-		prefix = g.Directory + "/" + prefix
-	}
 	params := map[string]interface{}{
-		"prefix": prefix,
-		"ts":     timestamp.UTCNow14(),
+		"prefix": g.Prefix,
+		"ts":     timestamp.UTC14(now()),
 		"serial": atomic.AddInt32(&g.Serial, 1),
 		"ip":     internal.GetOutboundIP()}
 
 	name := internal.Sprintt(g.Pattern, params)
-	return name
+	return g.Directory, name
 }
 
 type WarcFileWriter struct {
@@ -88,13 +89,15 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 
 func worker(w *singleWarcFileWriter, jobs <-chan *job) {
 	for j := range jobs {
-		j.bytesWritten, j.err = w.Write(j.record)
+		j.fileOffset, j.fileName, j.bytesWritten, j.err = w.Write(j.record)
 		j.wg.Done()
 	}
 }
 
 type job struct {
 	record       WarcRecord
+	fileName     string
+	fileOffset   int64
 	bytesWritten int64
 	err          error
 	wg           sync.WaitGroup
@@ -102,7 +105,7 @@ type job struct {
 
 // Write marshals a WarcRecord to file.
 // Returns the number of uncompressed bytes written.
-func (w *WarcFileWriter) Write(record WarcRecord) (int64, error) {
+func (w *WarcFileWriter) Write(record WarcRecord) (int64, string, int64, error) {
 	job := &job{
 		record: record,
 		wg:     sync.WaitGroup{},
@@ -110,7 +113,7 @@ func (w *WarcFileWriter) Write(record WarcRecord) (int64, error) {
 	job.wg.Add(1)
 	w.jobs <- job
 	job.wg.Wait()
-	return job.bytesWritten, job.err
+	return job.fileOffset, job.fileName, job.bytesWritten, job.err
 }
 
 // Close closes the current files beeing written to.
@@ -128,7 +131,7 @@ func (w *WarcFileWriter) Close() error {
 	return nil
 }
 
-// Shutdown closes the current file beeing written to and then releases all resources used by the WarcFileWriter.
+// Shutdown closes the current file being written to and then releases all resources used by the WarcFileWriter.
 // Calling Write after Shutdown will panic.
 func (w *WarcFileWriter) Shutdown() error {
 	close(w.jobs)
@@ -137,12 +140,13 @@ func (w *WarcFileWriter) Shutdown() error {
 
 type singleWarcFileWriter struct {
 	opts            *warcFileWriterOptions
+	currentFileName string
 	currentFile     *os.File
 	currentFileSize int64
 	writeLock       sync.Mutex
 }
 
-func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, error) {
+func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, string, int64, error) {
 	w.writeLock.Lock()
 	defer w.writeLock.Unlock()
 
@@ -158,10 +162,6 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, error) {
 
 	// Check if the current file has space for the new record
 	if w.currentFile != nil && w.opts.maxFileSize > 0 {
-		fi, err := w.currentFile.Stat()
-		if err != nil {
-			return 0, err
-		}
 		s := record.WarcHeader().Get(ContentLength)
 		if s != "" {
 			size, err := strconv.ParseInt(s, 10, 64)
@@ -170,13 +170,13 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, error) {
 				size = int64(float64(size) * w.opts.expectedCompressionRatio)
 			}
 			if err != nil {
-				return 0, err
+				return 0, "", 0, err
 			}
-			// Not enough space in file, close it so a new will be created
-			if fi.Size() > 0 && (fi.Size()+size) > w.opts.maxFileSize {
+			if w.currentFileSize > 0 && (w.currentFileSize+size) > w.opts.maxFileSize {
+				// Not enough space in file, close it so a new will be created
 				err = w.close()
 				if err != nil {
-					return 0, err
+					return 0, "", 0, err
 				}
 			}
 		}
@@ -185,11 +185,21 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, error) {
 	// Create new file if necessary
 	if w.currentFile == nil {
 		if err := w.createFile(); err != nil {
-			return 0, err
+			return 0, "", 0, err
 		}
 	}
 
-	return w.writeRecord(w.currentFile, record, maxRecordSize)
+	offset := w.currentFileSize
+	size, err := w.writeRecord(w.currentFile, record, maxRecordSize)
+	if err := w.currentFile.Sync(); err != nil {
+		return 0, "", 0, err
+	}
+	fi, err := w.currentFile.Stat()
+	if err != nil {
+		return 0, "", 0, err
+	}
+	w.currentFileSize = fi.Size()
+	return offset, w.currentFileName, size, err
 }
 
 func (w *singleWarcFileWriter) createFile() error {
@@ -197,11 +207,19 @@ func (w *singleWarcFileWriter) createFile() error {
 	if w.opts.compress {
 		suffix = w.opts.compressSuffix
 	}
-	fileName := w.opts.nameGenerator.NewWarcfileName() + suffix + w.opts.openFileSuffix
-	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
+	dir, fileName := w.opts.nameGenerator.NewWarcfileName()
+	fileName += suffix
+	path := dir
+	if path != "" && !strings.HasSuffix(path, "/") {
+		path += "/"
+	}
+	path += fileName + suffix + w.opts.openFileSuffix
+
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
 	if err != nil {
 		return err
 	}
+	w.currentFileName = fileName
 	w.currentFile = file
 
 	if w.opts.warcInfoFunc != nil {
@@ -224,17 +242,16 @@ func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, 
 		return size, err
 	}
 	if nextRec != nil {
-		s, e := w.Write(nextRec)
+		_, _, s, e := w.Write(nextRec)
 		s += size
 		return s, e
 	}
-	w.currentFileSize += size
 	return size, nil
 }
 
 func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, error) {
 	r := NewRecordBuilder(Warcinfo)
-	r.AddWarcHeader(WarcDate, timestamp.UTCNowW3cIso8601())
+	r.AddWarcHeader(WarcDate, timestamp.UTCW3cIso8601(now()))
 	r.AddWarcHeader(WarcFilename, fileName)
 	r.AddWarcHeader(ContentType, ApplicationWarcFields)
 
@@ -246,10 +263,19 @@ func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, err
 	if err != nil {
 		return 0, err
 	}
-	return w.writeRecord(w.currentFile, warcinfo, 0)
+	n, err := w.writeRecord(w.currentFile, warcinfo, 0)
+	if err := w.currentFile.Sync(); err != nil {
+		return 0, err
+	}
+	fi, err := w.currentFile.Stat()
+	if err != nil {
+		return 0, err
+	}
+	w.currentFileSize = fi.Size()
+	return n, err
 }
 
-// Close closes the current file beeing written to.
+// Close closes the current file being written to.
 // It is legal to call Write after close, but then a new file will be opened.
 func (w *singleWarcFileWriter) Close() error {
 	w.writeLock.Lock()
@@ -257,12 +283,13 @@ func (w *singleWarcFileWriter) Close() error {
 	return w.close()
 }
 
-// Close closes the current file beeing written to.
+// Close closes the current file being written to.
 // It is legal to call Write after close, but then a new file will be opened.
 func (w *singleWarcFileWriter) close() error {
 	if w.currentFile != nil {
 		f := w.currentFile
 		w.currentFile = nil
+		w.currentFileName = ""
 		if err := f.Close(); err != nil {
 			return err
 		}

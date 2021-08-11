@@ -23,9 +23,163 @@ import (
 	"regexp"
 	"sync"
 	"testing"
+	"time"
 )
 
+func TestWarcFileWriter_Write_uncompressed(t *testing.T) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	assert := assert.New(t)
+
+	testdir := "tmp-test"
+	nameGenerator := &PatternNameGenerator{Prefix: "foo-", Directory: testdir}
+
+	assert.NoError(os.Mkdir(testdir, 0755))
+	w := NewWarcFileWriter(
+		WithCompression(false),
+		WithFileNameGenerator(nameGenerator),
+		WithMaxFileSize(0),
+		WithMaxConcurrentWriters(1))
+	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
+
+	// Write two records sequentially
+	offset, fileName, size, err := w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(int64(0), offset, "Expected offset from writer %d, but was %d", int64(0), offset)
+	assert.Regexp("foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", fileName)
+
+	offset, fileName, size, err = w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(uncompressedRecordSize, offset, "Expected offset from writer %d, but was %d", uncompressedRecordSize, offset)
+	assert.Regexp("foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", fileName)
+
+	// Close writer
+	assert.NoError(w.Close())
+	assert.NoError(w.Shutdown())
+}
+
+func TestWarcFileWriter_Write_compressed(t *testing.T) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	assert := assert.New(t)
+
+	testdir := "tmp-test"
+	nameGenerator := &PatternNameGenerator{Prefix: "foo-", Directory: testdir}
+
+	assert.NoError(os.Mkdir(testdir, 0755))
+	w := NewWarcFileWriter(
+		WithCompression(true),
+		WithFileNameGenerator(nameGenerator),
+		WithMaxFileSize(0),
+		WithMaxConcurrentWriters(1))
+	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
+
+	// Write two records sequentially
+	offset, fileName, size, err := w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(int64(0), offset, "Expected offset from writer %d, but was %d", int64(0), offset)
+	assert.Regexp("foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", fileName)
+
+	offset, fileName, size, err = w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(compressedRecordSize, offset, "Expected offset from writer %d, but was %d", compressedRecordSize, offset)
+	assert.Regexp("foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", fileName)
+
+	// Close writer
+	assert.NoError(w.Close())
+	assert.NoError(w.Shutdown())
+}
+
+func TestWarcFileWriter_Write_warcinfo_uncompressed(t *testing.T) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	assert := assert.New(t)
+
+	testdir := "tmp-test"
+	nameGenerator := &PatternNameGenerator{Prefix: "foo-", Directory: testdir, Pattern: "%{prefix}s%{ts}s-%04{serial}d-10.10.10.10.warc"}
+
+	assert.NoError(os.Mkdir(testdir, 0755))
+	w := NewWarcFileWriter(
+		WithCompression(false),
+		WithFileNameGenerator(nameGenerator),
+		WithMaxFileSize(0),
+		WithMaxConcurrentWriters(1),
+		WithWarcInfoFunc(func(recordBuilder WarcRecordBuilder) error {
+			recordBuilder.AddWarcHeader(WarcRecordID, "<urn:uuid:4f271dba-fdfa-4915-ab7e-3e4e1fc0791b>")
+			return nil
+		}))
+	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
+
+	// Write two records sequentially
+	uncompressedWarcinfoSize := int64(316)
+	offset, fileName, size, err := w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(uncompressedWarcinfoSize, offset, "Expected offset from writer %d, but was %d", uncompressedWarcinfoSize, offset)
+	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc", fileName)
+
+	offset, fileName, size, err = w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(uncompressedWarcinfoSize+uncompressedRecordSize, offset, "Expected offset from writer %d, but was %d", uncompressedWarcinfoSize+uncompressedRecordSize, offset)
+	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc", fileName)
+
+	// Close writer
+	assert.NoError(w.Close())
+	assert.NoError(w.Shutdown())
+}
+
+func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	assert := assert.New(t)
+
+	testdir := "tmp-test"
+	nameGenerator := &PatternNameGenerator{Prefix: "foo-", Directory: testdir, Pattern: "%{prefix}s%{ts}s-%04{serial}d-10.10.10.10.warc"}
+
+	assert.NoError(os.Mkdir(testdir, 0755))
+	w := NewWarcFileWriter(
+		WithCompression(true),
+		WithFileNameGenerator(nameGenerator),
+		WithMaxFileSize(0),
+		WithMaxConcurrentWriters(1),
+		WithWarcInfoFunc(func(recordBuilder WarcRecordBuilder) error {
+			recordBuilder.AddWarcHeader(WarcRecordID, "<urn:uuid:4f271dba-fdfa-4915-ab7e-3e4e1fc0791b>")
+			return nil
+		}))
+	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
+
+	// Write two records sequentially
+	compressedWarcinfoSize := int64(257)
+	offset, fileName, size, err := w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(compressedWarcinfoSize, offset, "Expected offset from writer %d, but was %d", compressedWarcinfoSize, offset)
+	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc.gz", fileName)
+
+	offset, fileName, size, err = w.Write(createTestRecord())
+	assert.NoError(err)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(compressedWarcinfoSize+compressedRecordSize, offset, "Expected offset from writer %d, but was %d", compressedWarcinfoSize+compressedRecordSize, offset)
+	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc.gz", fileName)
+
+	// Close writer
+	assert.NoError(w.Close())
+	assert.NoError(w.Shutdown())
+}
+
 func TestWarcFileWriter_Write(t *testing.T) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
 	type args struct {
 		fileName             string
 		compress             bool
@@ -43,7 +197,6 @@ func TestWarcFileWriter_Write(t *testing.T) {
 		args             args
 		wantFiles        []file
 		fileCountBetween []int
-		wantWrittenSize  int64 // Reported written size per write
 		wantErr          bool
 	}{
 		{
@@ -56,10 +209,9 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 1,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-000\\d-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 529 * 2},
+				{pattern: "foo-20010912053020-0001-10\\.10\\.10\\.10.warc", size: uncompressedRecordSize * 2},
 			},
 			[]int{1, 1},
-			529,
 			false,
 		},
 		{
@@ -72,10 +224,9 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 1,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-000\\d-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc.gz", size: 392 * 3},
+				{pattern: "foo-20010912053020-0001-10\\.10\\.10\\.10.warc.gz", size: compressedRecordSize * 3},
 			},
 			[]int{1, 1},
-			529,
 			false,
 		},
 		{
@@ -89,11 +240,10 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 1,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 529 * 2},
-				{pattern: "foo-\\d{14}-0002-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 529},
+				{pattern: "foo-20010912053020-0001-10\\.10\\.10\\.10.warc", size: uncompressedRecordSize * 2},
+				{pattern: "foo-20010912053020-0002-10\\.10\\.10\\.10.warc", size: uncompressedRecordSize},
 			},
 			[]int{2, 2},
-			529,
 			false,
 		},
 		{
@@ -107,11 +257,10 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 1,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 392 * 2},
-				{pattern: "foo-\\d{14}-0002-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 392},
+				{pattern: "foo-20010912053020-0001-10\\.10\\.10\\.10.warc.gz", size: compressedRecordSize * 2},
+				{pattern: "foo-20010912053020-0002-10\\.10\\.10\\.10.warc.gz", size: compressedRecordSize},
 			},
 			[]int{2, 2},
-			529,
 			false,
 		},
 		{
@@ -124,10 +273,9 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 1,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 529 * 3},
+				{pattern: "foo-20010912053020-0001-10\\.10\\.10\\.10.warc", size: uncompressedRecordSize * 3},
 			},
 			[]int{1, 1},
-			529,
 			false,
 		},
 		{
@@ -140,10 +288,9 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 1,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc.gz", size: 392 * 3},
+				{pattern: "foo-20010912053020-0001-10\\.10\\.10\\.10.warc.gz", size: compressedRecordSize * 3},
 			},
 			[]int{1, 1},
-			529,
 			false,
 		},
 		{
@@ -156,10 +303,9 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 2,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-000\\d-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc", size: 529 * 3},
+				{pattern: "foo-20010912053020-000\\d-10\\.10\\.10\\.10.warc", size: uncompressedRecordSize * 3},
 			},
 			[]int{2, 2},
-			529,
 			false,
 		},
 		{
@@ -172,10 +318,9 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				maxConcurrentWriters: 2,
 			},
 			[]file{
-				{pattern: "foo-\\d{14}-000\\d-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc.gz", size: 392 * 3},
+				{pattern: "foo-20010912053020-000\\d-10\\.10\\.10\\.10.warc.gz", size: compressedRecordSize * 3},
 			},
 			[]int{2, 2},
-			529,
 			false,
 		},
 	}
@@ -184,7 +329,7 @@ func TestWarcFileWriter_Write(t *testing.T) {
 			assert := assert.New(t)
 
 			testdir := "tmp-test"
-			nameGenerator := &PatternNameGenerator{Prefix: "foo-", Directory: testdir}
+			nameGenerator := &PatternNameGenerator{Prefix: "foo-", Directory: testdir, Pattern: "%{prefix}s%{ts}s-%04{serial}d-10.10.10.10.warc"}
 
 			assert.NoError(os.Mkdir(testdir, 0755))
 			w := NewWarcFileWriter(
@@ -200,7 +345,7 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				for i := 0; i < tt.numRecords; i++ {
 					wg.Add(1)
 					go func() {
-						writeRecord(assert, w, createTestRecord(), tt.wantWrittenSize, tt.wantErr)
+						writeRecord(assert, w, createTestRecord(), i, tt.args.compress, tt.wantErr)
 						wg.Done()
 					}()
 				}
@@ -208,7 +353,7 @@ func TestWarcFileWriter_Write(t *testing.T) {
 			} else {
 				// Write two records sequentially
 				for i := 0; i < tt.numRecords; i++ {
-					writeRecord(assert, w, createTestRecord(), tt.wantWrittenSize, tt.wantErr)
+					writeRecord(assert, w, createTestRecord(), i, tt.args.compress, tt.wantErr)
 				}
 			}
 
@@ -233,6 +378,11 @@ func TestWarcFileWriter_Write(t *testing.T) {
 	}
 }
 
+const (
+	uncompressedRecordSize int64 = 529
+	compressedRecordSize   int64 = 392
+)
+
 func createTestRecord() WarcRecord {
 	builder := NewRecordBuilder(Response)
 	_, err := builder.WriteString("HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
@@ -254,14 +404,15 @@ func createTestRecord() WarcRecord {
 	return wr
 }
 
-func writeRecord(assert *assert.Assertions, w *WarcFileWriter, record WarcRecord, wantWrittenSize int64, wantErr bool) {
-	size, err := w.Write(record)
+func writeRecord(assert *assert.Assertions, w *WarcFileWriter, record WarcRecord, recordNum int, compressed bool, wantErr bool) {
+	_, f, size, err := w.Write(record)
 	if wantErr {
 		assert.Error(err)
 	} else {
 		assert.NoError(err)
 	}
-	assert.Equalf(wantWrittenSize, size, "Expected size from writer %d, but was %d", wantWrittenSize, size)
+	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	fmt.Println("FILE:", f)
 }
 
 func checkFile(assert *assert.Assertions, directory, pattern string, expectedSize int64) {
@@ -297,22 +448,27 @@ func fileCount(assert *assert.Assertions, directory string, expected []int) {
 }
 
 func TestDefaultNameGenerator_NewWarcfileName(t *testing.T) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
 	tests := []struct {
 		name        string
 		generator   PatternNameGenerator
 		invocations int
+		wantDir     string
 		wantMatch   string
 	}{
-		{"default", PatternNameGenerator{}, 5, "^\\d{14}-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
-		{"prefix", PatternNameGenerator{Prefix: "foo-"}, 5, "^foo-\\d{14}-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
-		{"dir", PatternNameGenerator{Directory: "mydir"}, 5, "^mydir/\\d{14}-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
-		{"dir+prefix", PatternNameGenerator{Prefix: "foo-", Directory: "mydir"}, 5, "^mydir/foo-\\d{14}-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
+		{"default", PatternNameGenerator{}, 5, "", "^20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
+		{"prefix", PatternNameGenerator{Prefix: "foo-"}, 5, "", "^foo-20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
+		{"dir", PatternNameGenerator{Directory: "mydir"}, 5, "mydir", "^20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
+		{"dir+prefix", PatternNameGenerator{Prefix: "foo-", Directory: "mydir"}, 5, "mydir", "^foo-20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for i := 0; i < tt.invocations; i++ {
-				got := tt.generator.NewWarcfileName()
-				assert.Regexp(t, tt.wantMatch, got)
+				gotDir, gotName := tt.generator.NewWarcfileName()
+				assert.Regexp(t, tt.wantDir, gotDir)
+				assert.Regexp(t, tt.wantMatch, gotName)
 			}
 		})
 	}
