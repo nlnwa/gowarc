@@ -49,7 +49,7 @@ func Test_genericBlock_BlockDigest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1")
 			require.NoError(t, err)
-			block := newGenericBlock(tt.data, d)
+			block := newGenericBlock(&warcRecordOptions{}, tt.data, d)
 
 			validateBlockDigestTest(t, tt, block, digest)
 		})
@@ -78,7 +78,7 @@ func Test_genericBlock_Cache(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1")
 			require.NoError(t, err)
-			block := newGenericBlock(tt.data, d)
+			block := newGenericBlock(&warcRecordOptions{}, tt.data, d)
 
 			validateCacheTest(t, tt, block, content, digest)
 		})
@@ -109,7 +109,7 @@ func Test_genericBlock_IsCached(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1")
 			require.NoError(t, err)
-			block := newGenericBlock(tt.data, d)
+			block := newGenericBlock(&warcRecordOptions{}, tt.data, d)
 
 			got := block.IsCached()
 			assert.Equal(t, tt.want, got)
@@ -142,7 +142,7 @@ func Test_genericBlock_RawBytes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1")
 			require.NoError(t, err)
-			block := newGenericBlock(tt.data, d)
+			block := newGenericBlock(&warcRecordOptions{}, tt.data, d)
 
 			validateRawBytesTest(t, tt, block, content, digest)
 		})
@@ -317,7 +317,7 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			validateBlockDigestTest(t, tt, block, digest)
@@ -355,7 +355,7 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			validateCacheTest(t, tt, block, content, digest)
@@ -394,7 +394,7 @@ func Test_httpRequestBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			got := block.IsCached()
@@ -435,7 +435,7 @@ func Test_httpRequestBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			validateRawBytesTest(t, tt, block, content, digest)
@@ -470,7 +470,7 @@ func Test_httpResponseBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			validateBlockDigestTest(t, tt, block, digest)
@@ -505,7 +505,7 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			validateCacheTest(t, tt, block, content, digest)
@@ -541,7 +541,7 @@ func Test_httpResponseBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			got := block.IsCached()
@@ -579,7 +579,7 @@ func Test_httpResponseBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1")
 			require.NoError(t, err)
-			block, err := newHttpBlock(tt.data, blockDigest, pDigest)
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
 			validateRawBytesTest(t, tt, block, content, digest)

@@ -43,6 +43,7 @@ type HttpResponseBlock interface {
 }
 
 type httpRequestBlock struct {
+	opts            *warcRecordOptions
 	httpRequestLine string
 	httpHeader      *http.Header
 	httpHeaderBytes []byte
@@ -66,7 +67,7 @@ func (block *httpRequestBlock) Cache() error {
 	if block.readOp != opInitial {
 		return errContentReAccessed
 	}
-	buf := diskbuffer.New()
+	buf := diskbuffer.New(block.opts.bufferOptions...)
 	if _, err := buf.ReadFrom(block.payload); err != nil {
 		return err
 	}
@@ -178,6 +179,7 @@ func (block *httpRequestBlock) Write(w io.Writer) (int64, error) {
 }
 
 type httpResponseBlock struct {
+	opts            *warcRecordOptions
 	httpStatusLine  string
 	httpStatusCode  int
 	httpHeader      *http.Header
@@ -202,7 +204,7 @@ func (block *httpResponseBlock) Cache() error {
 	if block.readOp != opInitial {
 		return errContentReAccessed
 	}
-	buf := diskbuffer.New()
+	buf := diskbuffer.New(block.opts.bufferOptions...)
 	if _, err := buf.ReadFrom(block.payload); err != nil {
 		return err
 	}
@@ -337,7 +339,7 @@ func headerBytes(r *bufio.Reader) []byte {
 	return result.Bytes()
 }
 
-func newHttpBlock(r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock, error) {
+func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock, error) {
 	rb := bufio.NewReader(r)
 	b, err := rb.Peek(4)
 	if err != nil {
@@ -352,6 +354,7 @@ func newHttpBlock(r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock
 	payload := io.TeeReader(io.TeeReader(rb, blockDigest), payloadDigest)
 	if bytes.HasPrefix(b, []byte("HTTP")) {
 		resp := &httpResponseBlock{
+			opts:            opts,
 			httpHeaderBytes: hb,
 			payload:         payload,
 			blockDigest:     blockDigest,
@@ -360,6 +363,7 @@ func newHttpBlock(r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock
 		return resp, nil
 	} else {
 		resp := &httpRequestBlock{
+			opts:            opts,
 			httpHeaderBytes: hb,
 			payload:         payload,
 			blockDigest:     blockDigest,

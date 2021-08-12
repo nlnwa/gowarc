@@ -49,6 +49,7 @@ type PayloadBlock interface {
 }
 
 type genericBlock struct {
+	opts        *warcRecordOptions
 	rawBytes    io.Reader
 	blockDigest *digest
 	digestOnce  sync.Once
@@ -56,8 +57,8 @@ type genericBlock struct {
 	cached      bool
 }
 
-func newGenericBlock(r io.Reader, d *digest) *genericBlock {
-	b := &genericBlock{rawBytes: r, blockDigest: d}
+func newGenericBlock(opts *warcRecordOptions, r io.Reader, d *digest) *genericBlock {
+	b := &genericBlock{opts: opts, rawBytes: r, blockDigest: d}
 	if _, ok := r.(io.Seeker); ok {
 		b.cached = true
 	}
@@ -75,7 +76,7 @@ func (block *genericBlock) Cache() error {
 	if block.readOp != opInitial {
 		return errContentReAccessed
 	}
-	buf := diskbuffer.New()
+	buf := diskbuffer.New(block.opts.bufferOptions...)
 	if _, err := buf.ReadFrom(block.rawBytes); err != nil {
 		return err
 	}

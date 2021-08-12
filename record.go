@@ -170,7 +170,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 			if strings.HasPrefix(contentType, ApplicationHttp) {
 				pd, _ := newDigest("sha1")
-				httpBlock, err := newHttpBlock(reader, d, pd)
+				httpBlock, err := newHttpBlock(wr.opts, reader, d, pd)
 				if err != nil {
 					return err
 				}
@@ -188,6 +188,6 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		}
 	}
 
-	wr.block = newGenericBlock(reader, d)
+	wr.block = newGenericBlock(wr.opts, reader, d)
 	return
 }

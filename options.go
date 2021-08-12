@@ -16,6 +16,8 @@
 
 package gowarc
 
+import "github.com/nlnwa/gowarc/internal/diskbuffer"
+
 type warcRecordOptions struct {
 	warcVersion             *version
 	errSyntax               errorPolicy
@@ -27,6 +29,7 @@ type warcRecordOptions struct {
 	addMissingDigest        bool
 	fixContentLength        bool
 	fixDigest               bool
+	bufferOptions           []diskbuffer.Option
 }
 
 // The errorPolicy constants describe how to handle WARC record errors.
@@ -196,5 +199,21 @@ func WithStrictValidation() WarcRecordOption {
 		o.errSpec = ErrFail
 		o.errUnknowRecordType = ErrFail
 		o.skipParseBlock = false
+	})
+}
+
+// WithBufferTmpDir sets the directory to use for temporary files.
+// If not set or dir is the empty string then the default directory for temporary files is used (see os.TempDir).
+func WithBufferTmpDir(dir string) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.bufferOptions = append(o.bufferOptions, diskbuffer.WithTmpDir(dir))
+	})
+}
+
+// WithBufferMaxMemBytes sets the maximum amount of memory a buffer is allowed to use before overflowing to disk.
+// defaults to 1 MiB
+func WithBufferMaxMemBytes(size int64) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.bufferOptions = append(o.bufferOptions, diskbuffer.WithMaxMemBytes(size))
 	})
 }

@@ -167,7 +167,7 @@ func NewRecordBuilder(recordType RecordType, opts ...WarcRecordOption) WarcRecor
 		version:    o.warcVersion,
 		recordType: recordType,
 		headers:    &WarcFields{},
-		content:    diskbuffer.New(),
+		content:    diskbuffer.New(o.bufferOptions...),
 	}
 	if recordType != 0 {
 		rb.headers.Set(WarcType, recordType.String())
