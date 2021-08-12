@@ -345,7 +345,7 @@ func TestWarcFileWriter_Write(t *testing.T) {
 				for i := 0; i < tt.numRecords; i++ {
 					wg.Add(1)
 					go func() {
-						writeRecord(assert, w, createTestRecord(), i, tt.args.compress, tt.wantErr)
+						writeRecord(assert, w, createTestRecord(), tt.wantErr)
 						wg.Done()
 					}()
 				}
@@ -353,7 +353,7 @@ func TestWarcFileWriter_Write(t *testing.T) {
 			} else {
 				// Write two records sequentially
 				for i := 0; i < tt.numRecords; i++ {
-					writeRecord(assert, w, createTestRecord(), i, tt.args.compress, tt.wantErr)
+					writeRecord(assert, w, createTestRecord(), tt.wantErr)
 				}
 			}
 
@@ -404,15 +404,14 @@ func createTestRecord() WarcRecord {
 	return wr
 }
 
-func writeRecord(assert *assert.Assertions, w *WarcFileWriter, record WarcRecord, recordNum int, compressed bool, wantErr bool) {
-	_, f, size, err := w.Write(record)
+func writeRecord(assert *assert.Assertions, w *WarcFileWriter, record WarcRecord, wantErr bool) {
+	_, _, size, err := w.Write(record)
 	if wantErr {
 		assert.Error(err)
 	} else {
 		assert.NoError(err)
 	}
 	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
-	fmt.Println("FILE:", f)
 }
 
 func checkFile(assert *assert.Assertions, directory, pattern string, expectedSize int64) {

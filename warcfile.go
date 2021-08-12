@@ -191,6 +191,10 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, string, int64, e
 
 	offset := w.currentFileSize
 	size, err := w.writeRecord(w.currentFile, record, maxRecordSize)
+	if err != nil {
+		return 0, "", 0, err
+	}
+	// sync file to reduce possibility of half written records in case of crash
 	if err := w.currentFile.Sync(); err != nil {
 		return 0, "", 0, err
 	}
@@ -264,6 +268,10 @@ func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, err
 		return 0, err
 	}
 	n, err := w.writeRecord(w.currentFile, warcinfo, 0)
+	if err != nil {
+		return 0, err
+	}
+	// sync file to reduce possibility of half written records in case of crash
 	if err := w.currentFile.Sync(); err != nil {
 		return 0, err
 	}
