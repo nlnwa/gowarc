@@ -41,6 +41,8 @@ type WarcRecord interface {
 	String() string
 	io.Closer
 	ToRevisitRecord(ref *RevisitRef) (WarcRecord, error)
+	RevisitRef() (*RevisitRef, error)
+	Merge(record ...WarcRecord) (WarcRecord, error)
 }
 
 type version struct {
@@ -219,6 +221,77 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 		block:      block,
 	}
 	return revisit, nil
+}
+
+func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
+	if wr.recordType != Revisit {
+		return nil, fmt.Errorf("not a revisit record")
+	}
+
+	return &RevisitRef{
+		Profile:        wr.headers.Get(WarcProfile),
+		TargetRecordId: wr.headers.Get(WarcRefersTo),
+		TargetUri:      wr.headers.Get(WarcRefersToTargetURI),
+		TargetDate:     wr.headers.Get(WarcRefersToDate),
+	}, nil
+}
+
+func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
+	if wr.headers.Get(WarcSegmentNumber) == "1" {
+		return nil, fmt.Errorf("merging of segmentet records is not implemented")
+	}
+	if wr.recordType != Revisit {
+		return nil, fmt.Errorf("merging is only possible for revisit records or segmentet records")
+	}
+	if len(record) != 1 {
+		return nil, fmt.Errorf("a revisit record must be merged with only one referenced record")
+	}
+
+	wr.recordType = record[0].Type()
+	wr.headers.Set(WarcType, "response")
+	wr.headers.Delete(WarcRefersTo)
+	wr.headers.Delete(WarcRefersToTargetURI)
+	wr.headers.Delete(WarcRefersToDate)
+	wr.headers.Delete(WarcProfile)
+	if record[0].WarcHeader().Has(WarcTruncated) {
+		wr.headers.Set(WarcTruncated, record[0].WarcHeader().Get(WarcTruncated))
+	} else {
+		wr.headers.Delete(WarcTruncated)
+	}
+
+	b, ok := wr.block.(*revisitBlock)
+	if !ok {
+		return nil, fmt.Errorf("the revisit record's has wrong block type. Creation of record must be done with SkipParseBlock set to false.")
+	}
+	switch v := record[0].Block().(type) {
+	case *httpRequestBlock:
+		refLen, err := strconv.ParseInt(record[0].WarcHeader().Get(ContentLength), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse %s", ContentLength)
+		}
+		size := int64(len(b.headerBytes)) + refLen - int64(len(v.httpHeaderBytes))
+		wr.headers.Set(ContentLength, strconv.FormatInt(size, 10))
+		v.httpHeaderBytes = b.headerBytes
+		wr.block = v
+	case *httpResponseBlock:
+		refLen, err := strconv.ParseInt(record[0].WarcHeader().Get(ContentLength), 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse %s", ContentLength)
+		}
+		size := int64(len(b.headerBytes)) + refLen - int64(len(v.httpHeaderBytes))
+		wr.headers.Set(ContentLength, strconv.FormatInt(size, 10))
+		v.httpHeaderBytes = b.headerBytes
+		wr.block = v
+	default:
+		return nil, fmt.Errorf("merging of revisits is only implemented for http requests and responses")
+	}
+	if record[0].Block().IsCached() {
+		wr.headers.Set(WarcBlockDigest, "TODO")
+	} else {
+		wr.headers.Delete(WarcBlockDigest)
+	}
+
+	return wr, nil
 }
 
 func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
