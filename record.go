@@ -19,6 +19,7 @@ package gowarc
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 )
 
@@ -39,6 +40,7 @@ type WarcRecord interface {
 	Block() Block
 	String() string
 	io.Closer
+	ToRevisitRecord(ref *RevisitRef) (WarcRecord, error)
 }
 
 type version struct {
@@ -114,22 +116,35 @@ func stringToRecordType(rt string) RecordType {
 	}
 }
 
+type RevisitRef struct {
+	Profile        string
+	TargetRecordId string
+	TargetUri      string
+	TargetDate     string
+}
+
 const (
 	// WARC record types
-	Warcinfo     = 1
-	Response     = 2
-	Resource     = 4
-	Request      = 8
-	Metadata     = 16
-	Revisit      = 32
-	Conversion   = 64
-	Continuation = 128
+	Warcinfo     RecordType = 1
+	Response     RecordType = 2
+	Resource     RecordType = 4
+	Request      RecordType = 8
+	Metadata     RecordType = 16
+	Revisit      RecordType = 32
+	Conversion   RecordType = 64
+	Continuation RecordType = 128
 )
 
 const (
 	// Well known content types
 	ApplicationWarcFields = "application/warc-fields"
 	ApplicationHttp       = "application/http"
+)
+
+const (
+	// Well known revisit profiles
+	ProfileIdenticalPayloadDigest = "http://netpreserve.org/warc/1.1/revisit/identical-payload-digest"
+	ProfileServerNotModified      = "http://netpreserve.org/warc/1.1/revisit/server-not-modified"
 )
 
 type warcRecord struct {
@@ -162,6 +177,50 @@ func (wr *warcRecord) Close() error {
 	return nil
 }
 
+func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
+	h := wr.headers.clone()
+
+	switch ref.Profile {
+	case ProfileIdenticalPayloadDigest:
+		if !wr.headers.Has(WarcPayloadDigest) {
+			return nil, fmt.Errorf("payload digest is required for Identical Payload Digest Profile")
+		}
+	case ProfileServerNotModified:
+	default:
+		return nil, fmt.Errorf("Unknown revisit profile")
+	}
+
+	h.Set(WarcType, Revisit.String())
+	h.Set(WarcProfile, ref.Profile)
+	if ref.TargetRecordId != "" {
+		h.Set(WarcRefersTo, ref.TargetRecordId)
+	}
+	if ref.TargetUri != "" {
+		h.Set(WarcRefersToTargetURI, ref.TargetUri)
+	}
+	if ref.TargetDate != "" {
+		h.Set(WarcRefersToDate, ref.TargetDate)
+	}
+	h.Set(WarcTruncated, "length")
+
+	block, err := newRevisitBlock(wr.opts, wr.block)
+	if err != nil {
+		return nil, err
+	}
+	h.Set(WarcBlockDigest, block.BlockDigest())
+	h.Set(WarcPayloadDigest, block.PayloadDigest())
+	h.Set(ContentLength, strconv.Itoa(len(block.headerBytes)))
+
+	revisit := &warcRecord{
+		opts:       wr.opts,
+		version:    wr.version,
+		recordType: Revisit,
+		headers:    h,
+		block:      block,
+	}
+	return revisit, nil
+}
+
 func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
 	d, _ := newDigest("sha1")
 
@@ -177,6 +236,14 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 				wr.block = httpBlock
 				return nil
 			}
+		}
+		if wr.recordType == Revisit {
+			revisitBlock, err := parseRevisitBlock(wr.opts, reader, wr.headers.Get(WarcBlockDigest), wr.headers.Get(WarcPayloadDigest))
+			if err != nil {
+				return err
+			}
+			wr.block = revisitBlock
+			return nil
 		}
 		if strings.HasPrefix(contentType, ApplicationWarcFields) {
 			warcFieldsBlock, err := newWarcFieldsBlock(reader, d, validation, wr.opts)

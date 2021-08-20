@@ -270,7 +270,7 @@ func TestRecordBuilder(t *testing.T) {
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:7B71E2CE461E4685EED55612850EE0CBB3876EDF"},
 					&nameValue{Name: ContentLength, Value: "195"},
 				},
-				&genericBlock{},
+				&revisitBlock{},
 				"HTTP/1.x 304 Not Modified\n" +
 					"Date: Tue, 06 Mar 2017 00:43:35 GMT\n" +
 					"Server: Apache/2.0.54 (Ubuntu) PHP/5.0.5-2ubuntu1.4 Connection: Keep-Alive\n" +

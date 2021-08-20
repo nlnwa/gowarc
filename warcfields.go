@@ -121,3 +121,13 @@ func (wf *WarcFields) String() string {
 	}
 	return sb.String()
 }
+
+func (wf WarcFields) clone() *WarcFields {
+	r := WarcFields{}
+	for _, p := range wf {
+		v := *p
+		v2 := v
+		r = append(r, &v2)
+	}
+	return &r
+}
