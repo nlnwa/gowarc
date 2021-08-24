@@ -43,6 +43,7 @@ type Buffer interface {
 	ReadString(delim byte) (line string, err error)
 	Peek(n int) (p []byte, err error)
 	Size() int64
+	Slice(offset, len int64) Slice
 }
 
 // A Buffer is a variable-sized buffer of bytes with Read and Write methods.

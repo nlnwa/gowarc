@@ -21,7 +21,6 @@ import (
 	"bytes"
 	"crypto/md5"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"os"
 	"testing"
@@ -107,27 +106,6 @@ func TestSeekWithFile(t *testing.T) {
 	l = bb.Size()
 	assert.Equal(t, tlen, l)
 }
-
-//func TestSeekFirst(t *testing.T) {
-//	tlen := int64(1057576)
-//	r, hash := createReaderOfSize(tlen)
-//	bb, err := New(r)
-//	assert.Nil(t, err)
-//
-//	l, err := bb.Size()
-//	assert.NoError(t, err)
-//	assert.Equal(t, tlen, l)
-//
-//	assert.NoError(t, err)
-//	assert.Equal(t, hash, hashOfReader(bb))
-//
-//	bb.Seek(0, 0)
-//
-//	assert.Equal(t, hash, hashOfReader(bb))
-//	l, err = bb.Size()
-//	assert.NoError(t, err)
-//	assert.Equal(t, tlen, l)
-//}
 
 func TestLimitDoesNotExceed(t *testing.T) {
 	requestSize := int64(1057576)
@@ -234,15 +212,11 @@ func TestReadStringMemory(t *testing.T) {
 	bb.WriteString("line1\n")
 	bb.WriteString("line2")
 
-	fmt.Printf("Diskbuffer: %s\n", bb)
 	line, err := bb.ReadString('\n')
-	fmt.Printf("Line: <%q> :: %s\n", line, bb)
 	assert.NoError(t, err)
 	assert.Equal(t, "line1\n", line)
 
-	fmt.Printf("Diskbuffer: %s\n", bb)
 	line, err = bb.ReadString('\n')
-	fmt.Printf("Line: <%q> :: %s\n", line, bb)
 	assert.Error(t, err)
 	assert.Equal(t, "line2", line)
 }
@@ -272,35 +246,3 @@ func TestReadString(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "line4", line)
 }
-
-//func TestWriterReaderCalled(t *testing.T) {
-//	size := int64(1000)
-//	r, hash := createReaderOfSize(size)
-//
-//	w, err := NewWriterOnce()
-//	assert.NoError(t, err)
-//
-//	_, err = io.Copy(w, r)
-//	assert.NoError(t, err)
-//	assert.NoError(t, w.Close())
-//
-//	bb, err := w.Reader()
-//	assert.NoError(t, err)
-//
-//	assert.Equal(t, hash, hashOfReader(bb))
-//
-//	// Subsequent calls to write and get reader will fail
-//	_, err = w.Reader()
-//	assert.Error(t, err)
-//
-//	_, err = w.Write([]byte{1})
-//	assert.Error(t, err)
-//}
-
-//func TestWriterNoData(t *testing.T) {
-//	w, err := NewWriterOnce()
-//	assert.NoError(t, err)
-//
-//	_, err = w.Reader()
-//	assert.Error(t, err)
-//}
