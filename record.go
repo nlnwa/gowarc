@@ -286,7 +286,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 		return nil, fmt.Errorf("merging of revisits is only implemented for http requests and responses")
 	}
 	if record[0].Block().IsCached() {
-		wr.headers.Set(WarcBlockDigest, "TODO")
+		wr.headers.Set(WarcBlockDigest, record[0].Block().BlockDigest())
 	} else {
 		wr.headers.Delete(WarcBlockDigest)
 	}
@@ -294,15 +294,12 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	return wr, nil
 }
 
-func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
-	d, _ := newDigest("sha1")
-
+func (wr *warcRecord) parseBlock(reader io.Reader, blockDigest, payloadDigest *digest, validation *Validation) (err error) {
 	if !wr.opts.skipParseBlock {
 		contentType := strings.ToLower(wr.headers.Get(ContentType))
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 			if strings.HasPrefix(contentType, ApplicationHttp) {
-				pd, _ := newDigest("sha1")
-				httpBlock, err := newHttpBlock(wr.opts, reader, d, pd)
+				httpBlock, err := newHttpBlock(wr.opts, reader, blockDigest, payloadDigest)
 				if err != nil {
 					return err
 				}
@@ -311,7 +308,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 			}
 		}
 		if wr.recordType == Revisit {
-			revisitBlock, err := parseRevisitBlock(wr.opts, reader, wr.headers.Get(WarcBlockDigest), wr.headers.Get(WarcPayloadDigest))
+			revisitBlock, err := parseRevisitBlock(wr.opts, reader, blockDigest, wr.headers.Get(WarcPayloadDigest))
 			if err != nil {
 				return err
 			}
@@ -319,7 +316,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 			return nil
 		}
 		if strings.HasPrefix(contentType, ApplicationWarcFields) {
-			warcFieldsBlock, err := newWarcFieldsBlock(reader, d, validation, wr.opts)
+			warcFieldsBlock, err := newWarcFieldsBlock(reader, blockDigest, validation, wr.opts)
 			if err != nil {
 				return err
 			}
@@ -328,6 +325,60 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		}
 	}
 
-	wr.block = newGenericBlock(wr.opts, reader, d)
+	wr.block = newGenericBlock(wr.opts, reader, blockDigest)
 	return
+}
+
+func (wr *warcRecord) validateDigest(blockDigest, payloadDigest *digest, validation *Validation) error {
+	wr.Block().BlockDigest()
+	if blockDigest.hash == "" {
+		// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
+		if wr.opts.fixDigest {
+			wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
+			return nil
+		}
+	} else {
+		if err := blockDigest.validate(); err != nil {
+			switch wr.opts.errSpec {
+			case ErrIgnore:
+			case ErrWarn:
+				validation.addError(err)
+				if wr.opts.fixDigest {
+					wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
+				}
+			case ErrFail:
+				return fmt.Errorf("wrong block digest " + err.Error())
+			}
+		}
+	}
+
+	if wr.Type() == Revisit || wr.WarcHeader().Has(WarcSegmentNumber) {
+		// Can't check payload digest for revisit records or segmented records since the payload digest is a digest of
+		// the original record
+		return nil
+	}
+
+	if _, ok := wr.block.(PayloadBlock); ok {
+		if payloadDigest.hash == "" {
+			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
+			if wr.opts.fixDigest {
+				wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
+				return nil
+			}
+		} else {
+			if err := payloadDigest.validate(); err != nil {
+				switch wr.opts.errSpec {
+				case ErrIgnore:
+				case ErrWarn:
+					validation.addError(err)
+					if wr.opts.fixDigest {
+						wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
+					}
+				case ErrFail:
+					return fmt.Errorf("wrong payload digest " + err.Error())
+				}
+			}
+		}
+	}
+	return nil
 }

@@ -29,6 +29,7 @@ type warcRecordOptions struct {
 	addMissingDigest        bool
 	fixContentLength        bool
 	fixDigest               bool
+	defaultDigestAlgorithm  string
 	bufferOptions           []diskbuffer.Option
 }
 
@@ -72,6 +73,7 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		addMissingRecordId:      true,
 		addMissingContentLength: true,
 		addMissingDigest:        true,
+		defaultDigestAlgorithm:  "sha1",
 		fixContentLength:        true,
 		fixDigest:               true,
 	}
@@ -140,6 +142,15 @@ func WithAddMissingContentLength(addMissingContentLength bool) WarcRecordOption 
 func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.addMissingDigest = addMissingDigest
+	})
+}
+
+// WithDefaultDigestAlgorithm sets which algorihm to use for digest generation.
+// Valid values: 'md5', 'sha1', 'sha256' and 'sha512'.
+// defaults to sha1
+func WithDefaultDigestAlgorithm(defaultDigestAlgorithm string) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.defaultDigestAlgorithm = defaultDigestAlgorithm
 	})
 }
 

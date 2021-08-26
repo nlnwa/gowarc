@@ -23,6 +23,7 @@ import (
 	"crypto/sha512"
 	"fmt"
 	"hash"
+	"io"
 	"strings"
 )
 
@@ -66,4 +67,33 @@ func newDigest(digestString string) (*digest, error) {
 	default:
 		return nil, fmt.Errorf("unsupported digest algorithm '%s'", algorithm)
 	}
+}
+
+func newDigestFromField(wr *warcRecord, warcDigestField string) (d *digest, err error) {
+	if wr.WarcHeader().Has(warcDigestField) {
+		d, err = newDigest(wr.WarcHeader().Get(warcDigestField))
+	} else {
+		d, err = newDigest(wr.opts.defaultDigestAlgorithm)
+	}
+	return
+}
+
+type digestFilterReader struct {
+	src     io.Reader
+	digests []*digest
+}
+
+func newDigestFilterReader(src io.Reader, digests ...*digest) *digestFilterReader {
+	return &digestFilterReader{src: src, digests: digests}
+}
+
+func (d digestFilterReader) Read(p []byte) (n int, err error) {
+	n, err = d.src.Read(p)
+	if n > 0 {
+		pp := p[:n]
+		for _, dd := range d.digests {
+			dd.Write(pp)
+		}
+	}
+	return
 }

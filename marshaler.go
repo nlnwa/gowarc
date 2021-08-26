@@ -72,7 +72,6 @@ func (m *defaultMarshaler) writeRecord(w io.Writer, record WarcRecord) (int64, e
 		return bytesWritten, err
 	}
 	bw, err = io.Copy(w, r)
-	//bw, err = record.Block().RawBytes().WriteTo(w)
 	bytesWritten += bw
 	if err != nil {
 		return bytesWritten, err

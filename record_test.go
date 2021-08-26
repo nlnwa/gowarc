@@ -200,6 +200,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6E9D6B234FEEBBF1AB618707217E577C3B83448A"},
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: ContentLength, Value: "257"},
@@ -208,7 +209,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
 				&httpResponseBlock{},
-				false,
+				true,
 			},
 			false,
 		},
@@ -247,7 +248,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 }
 
 func createRecord1(recordType RecordType, headers *WarcFields, data string) WarcRecord {
-	rb := NewRecordBuilder(recordType, WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore))
+	rb := NewRecordBuilder(recordType, WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false))
 	for _, nv := range *headers {
 		rb.AddWarcHeader(nv.Name, nv.Value)
 	}

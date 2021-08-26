@@ -93,6 +93,7 @@ func TestRecordBuilder(t *testing.T) {
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: ContentLength, Value: "257"},
 				},
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
@@ -105,6 +106,7 @@ func TestRecordBuilder(t *testing.T) {
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "response"},
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: ContentLength, Value: "257"},
 				},
@@ -113,14 +115,14 @@ func TestRecordBuilder(t *testing.T) {
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
 				&Validation{},
-				false,
+				true,
 			},
 			false,
 		},
 		{
 			"valid request record",
 			args{
-				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false)},
 				Request,
 				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -153,7 +155,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
 				&Validation{},
-				false,
+				true,
 			},
 			false,
 		},
@@ -422,19 +424,6 @@ func TestRecordBuilder(t *testing.T) {
 			assert.Equal(tt.want.data, string(b))
 
 			assert.Equal(tt.want.cached, wr.Block().IsCached())
-
-			//if !reflect.DeepEqual(got, tt.want) {
-			//	t.Errorf("NewResponseRecord() got = %v, want %v", got, tt.want)
-			//}
-
-			//w := NewWriter(tt.args.opts)
-			//fmt.Printf(">>>>>>>>>>>>>>>>>>>>>\n")
-			//n, err := w.WriteRecord(os.Stdout, wr)
-			//fmt.Printf("<<<<<<<<<<<<<<<<<<<<<\n")
-			//fmt.Printf("Bytes written: %v, BlockType %T, Err: %v\n", n, wr.Block(), err)
-			//
-			//resp := wr.Block().(HttpResponseBlock).HttpHeader()
-			//fmt.Printf("Http header: %v, Err: %v\n", resp, err)
 		})
 	}
 }

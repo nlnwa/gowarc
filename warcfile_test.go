@@ -384,7 +384,7 @@ const (
 )
 
 func createTestRecord() WarcRecord {
-	builder := NewRecordBuilder(Response)
+	builder := NewRecordBuilder(Response, WithFixDigest(false), WithStrictValidation())
 	_, err := builder.WriteString("HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content\n")
@@ -395,7 +395,7 @@ func createTestRecord() WarcRecord {
 	builder.AddWarcHeader(WarcDate, "2006-01-02T15:04:05Z")
 	builder.AddWarcHeader(ContentLength, "258")
 	builder.AddWarcHeader(ContentType, "application/http;msgtype=response")
-	builder.AddWarcHeader(WarcBlockDigest, "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4")
+	builder.AddWarcHeader(WarcBlockDigest, "sha1:7CBE117BFA2B22C3A02DEFF3BC04D5F912964A45")
 
 	wr, _, err := builder.Build()
 	if err != nil {

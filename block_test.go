@@ -380,7 +380,7 @@ func Test_httpRequestBlock_IsCached(t *testing.T) {
 		{
 			"diskbuffer.Buffer",
 			func() io.Reader { d := diskbuffer.New(); _, _ = d.WriteString(content); return d }(),
-			false,
+			true,
 		},
 		{
 			"iotest.HalfReader",
@@ -527,7 +527,7 @@ func Test_httpResponseBlock_IsCached(t *testing.T) {
 		{
 			"diskbuffer.Buffer",
 			func() io.Reader { d := diskbuffer.New(); _, _ = d.WriteString(content); return d }(),
-			false,
+			true,
 		},
 		{
 			"iotest.HalfReader",

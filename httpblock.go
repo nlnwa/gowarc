@@ -43,94 +43,90 @@ type HttpResponseBlock interface {
 }
 
 type httpRequestBlock struct {
-	opts            *warcRecordOptions
-	httpRequestLine string
-	httpHeader      *http.Header
-	httpHeaderBytes []byte
-	payload         io.Reader
-	blockDigest     *digest
-	payloadDigest   *digest
-	digestComputed  bool
-	readOp          readOp
-	parseHeaderOnce sync.Once
-	cached          bool
+	opts                *warcRecordOptions
+	httpRequestLine     string
+	httpHeader          *http.Header
+	httpHeaderBytes     []byte
+	payload             io.Reader
+	blockDigest         *digest
+	payloadDigest       *digest
+	filterReader        *digestFilterReader
+	blockDigestString   string
+	payloadDigestString string
+	parseHeaderOnce     sync.Once
 }
 
 func (block *httpRequestBlock) IsCached() bool {
-	return block.cached
+	_, ok := block.payload.(io.Seeker)
+	return ok
 }
 
 func (block *httpRequestBlock) Cache() error {
-	if block.cached {
+	if block.IsCached() {
 		return nil
 	}
-	if block.readOp != opInitial {
-		return errContentReAccessed
+
+	r, err := block.PayloadBytes()
+	if err != nil {
+		return err
 	}
+
 	buf := diskbuffer.New(block.opts.bufferOptions...)
-	if _, err := buf.ReadFrom(block.payload); err != nil {
+	if _, err := buf.ReadFrom(r); err != nil {
 		return err
 	}
 	if c, ok := block.payload.(io.Closer); ok {
 		_ = c.Close()
 	}
-	block.digestComputed = true
+	block.blockDigestString = block.blockDigest.format()
+	block.payloadDigestString = block.payloadDigest.format()
 	block.payload = buf
-	block.cached = true
 	return nil
 }
 
 func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
-	if block.cached {
-		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-		return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+	r, err := block.PayloadBytes()
+	if err != nil {
+		return nil, err
 	}
-
-	// Block is not cached. Guard against calling more than once
-	if block.readOp != opInitial {
-		return nil, errContentReAccessed
-	}
-	block.readOp = opRawBytes
-	return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+	return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), r), nil
 }
 
 func (block *httpRequestBlock) BlockDigest() string {
-	block.readOp = opRawBytes
-	if !block.digestComputed {
-		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
-			panic(err)
+	if block.blockDigestString == "" {
+		if block.filterReader == nil {
+			block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
 		}
-		block.digestComputed = true
+		_, _ = io.Copy(ioutil.Discard, block.filterReader)
+		block.blockDigestString = block.blockDigest.format()
+		block.payloadDigestString = block.payloadDigest.format()
 	}
-	return block.blockDigest.format()
+	return block.blockDigestString
 }
 
 func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
-	if block.cached {
-		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-		return block.payload, nil
+	if block.filterReader == nil {
+		block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
+		return block.filterReader, nil
 	}
 
-	if block.readOp != opInitial {
+	if block.blockDigestString == "" {
+		block.BlockDigest()
+	}
+
+	if !block.IsCached() {
 		return nil, errContentReAccessed
 	}
-	block.readOp = opPayloadBytes
-	return block.payload, nil
+
+	if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return newDigestFilterReader(block.payload), nil
 }
 
 func (block *httpRequestBlock) PayloadDigest() string {
-	block.readOp = opRawBytes
-	if !block.digestComputed {
-		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
-			panic(err)
-		}
-		block.digestComputed = true
-	}
-	return block.payloadDigest.format()
+	block.BlockDigest()
+	return block.payloadDigestString
 }
 
 func (block *httpRequestBlock) HttpHeaderBytes() []byte {
@@ -179,95 +175,91 @@ func (block *httpRequestBlock) Write(w io.Writer) (int64, error) {
 }
 
 type httpResponseBlock struct {
-	opts            *warcRecordOptions
-	httpStatusLine  string
-	httpStatusCode  int
-	httpHeader      *http.Header
-	httpHeaderBytes []byte
-	payload         io.Reader
-	blockDigest     *digest
-	payloadDigest   *digest
-	digestComputed  bool
-	readOp          readOp
-	parseHeaderOnce sync.Once
-	cached          bool
+	opts                *warcRecordOptions
+	httpStatusLine      string
+	httpStatusCode      int
+	httpHeader          *http.Header
+	httpHeaderBytes     []byte
+	payload             io.Reader
+	blockDigest         *digest
+	payloadDigest       *digest
+	filterReader        *digestFilterReader
+	blockDigestString   string
+	payloadDigestString string
+	parseHeaderOnce     sync.Once
 }
 
 func (block *httpResponseBlock) IsCached() bool {
-	return block.cached
+	_, ok := block.payload.(io.Seeker)
+	return ok
 }
 
 func (block *httpResponseBlock) Cache() error {
-	if block.cached {
+	if block.IsCached() {
 		return nil
 	}
-	if block.readOp != opInitial {
-		return errContentReAccessed
+
+	r, err := block.PayloadBytes()
+	if err != nil {
+		return err
 	}
+
 	buf := diskbuffer.New(block.opts.bufferOptions...)
-	if _, err := buf.ReadFrom(block.payload); err != nil {
+	if _, err := buf.ReadFrom(r); err != nil {
 		return err
 	}
 	if c, ok := block.payload.(io.Closer); ok {
 		_ = c.Close()
 	}
-	block.digestComputed = true
+	block.blockDigestString = block.blockDigest.format()
+	block.payloadDigestString = block.payloadDigest.format()
 	block.payload = buf
-	block.cached = true
 	return nil
 }
 
 func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
-	if block.cached {
-		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-		return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+	r, err := block.PayloadBytes()
+	if err != nil {
+		return nil, err
 	}
-
-	// Block is not cached. Guard against calling more than once
-	if block.readOp != opInitial {
-		return nil, errContentReAccessed
-	}
-	block.readOp = opRawBytes
-	return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), block.payload), nil
+	return io.MultiReader(bytes.NewReader(block.httpHeaderBytes), r), nil
 }
 
 func (block *httpResponseBlock) BlockDigest() string {
-	block.readOp = opRawBytes
-	if !block.digestComputed {
-		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
-			panic(err)
+	if block.blockDigestString == "" {
+		if block.filterReader == nil {
+			block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
 		}
-		block.digestComputed = true
+		_, _ = io.Copy(ioutil.Discard, block.filterReader)
+		block.blockDigestString = block.blockDigest.format()
+		block.payloadDigestString = block.payloadDigest.format()
 	}
-	return block.blockDigest.format()
+	return block.blockDigestString
 }
 
 func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {
-	if block.cached {
-		if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-		return block.payload, nil
+	if block.filterReader == nil {
+		block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
+		return block.filterReader, nil
 	}
 
-	if block.readOp != opInitial {
+	if block.blockDigestString == "" {
+		block.BlockDigest()
+	}
+
+	if !block.IsCached() {
 		return nil, errContentReAccessed
 	}
-	block.readOp = opPayloadBytes
-	return block.payload, nil
+
+	if _, err := block.payload.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return newDigestFilterReader(block.payload), nil
 }
 
 func (block *httpResponseBlock) PayloadDigest() string {
-	block.readOp = opRawBytes
-	if !block.digestComputed {
-		if _, err := io.Copy(ioutil.Discard, block.payload); err != nil {
-			panic(err)
-		}
-		block.digestComputed = true
-	}
-	return block.payloadDigest.format()
+	block.BlockDigest()
+	return block.payloadDigestString
 }
 
 func (block *httpResponseBlock) HttpHeaderBytes() []byte {
@@ -324,7 +316,7 @@ func (block *httpResponseBlock) Write(w io.Writer) (int64, error) {
 }
 
 // headerBytes reads the http-headers into a byte array.
-func headerBytes(r *bufio.Reader) []byte {
+func headerBytes(r buffer) []byte {
 	result := bytes.Buffer{}
 	for {
 		line, err := r.ReadBytes('\n')
@@ -339,8 +331,20 @@ func headerBytes(r *bufio.Reader) []byte {
 	return result.Bytes()
 }
 
+type buffer interface {
+	Read(p []byte) (n int, err error)
+	ReadBytes(delim byte) ([]byte, error)
+	Peek(n int) ([]byte, error)
+}
+
 func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock, error) {
-	rb := bufio.NewReader(r)
+	var rb buffer
+	if v, ok := r.(diskbuffer.Buffer); ok {
+		rb = v
+	} else {
+		rb = bufio.NewReader(r)
+	}
+
 	b, err := rb.Peek(4)
 	if err != nil {
 		return nil, fmt.Errorf("not a http block: %w", err)
@@ -351,7 +355,13 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 		return nil, err
 	}
 
-	payload := io.TeeReader(io.TeeReader(rb, blockDigest), payloadDigest)
+	var payload buffer
+	if _, ok := rb.(diskbuffer.Buffer); ok {
+		payload = rb.(diskbuffer.Buffer).Slice(int64(len(hb)), 0)
+	} else {
+		payload = rb
+	}
+
 	if bytes.HasPrefix(b, []byte("HTTP")) {
 		resp := &httpResponseBlock{
 			opts:            opts,

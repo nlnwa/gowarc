@@ -21,7 +21,6 @@ import (
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"io/ioutil"
-	"sync"
 )
 
 // Block is the interface used to represent the content of a WARC record as specified by the WARC specification:
@@ -49,91 +48,73 @@ type PayloadBlock interface {
 }
 
 type genericBlock struct {
-	opts        *warcRecordOptions
-	rawBytes    io.Reader
-	blockDigest *digest
-	digestOnce  sync.Once
-	readOp      readOp
-	cached      bool
+	opts              *warcRecordOptions
+	rawBytes          io.Reader
+	blockDigest       *digest
+	filterReader      *digestFilterReader
+	blockDigestString string
 }
 
 func newGenericBlock(opts *warcRecordOptions, r io.Reader, d *digest) *genericBlock {
-	b := &genericBlock{opts: opts, rawBytes: r, blockDigest: d}
-	if _, ok := r.(io.Seeker); ok {
-		b.cached = true
-	}
-	return b
+	return &genericBlock{opts: opts, rawBytes: r, blockDigest: d}
 }
 
 func (block *genericBlock) IsCached() bool {
-	return block.cached
+	_, ok := block.rawBytes.(io.Seeker)
+	return ok
 }
 
 func (block *genericBlock) Cache() error {
-	if block.cached {
+	if block.IsCached() {
 		return nil
 	}
-	if block.readOp != opInitial {
-		return errContentReAccessed
+
+	r, err := block.RawBytes()
+	if err != nil {
+		return err
 	}
+
 	buf := diskbuffer.New(block.opts.bufferOptions...)
-	if _, err := buf.ReadFrom(block.rawBytes); err != nil {
+	if _, err := buf.ReadFrom(r); err != nil {
 		return err
 	}
 	if c, ok := block.rawBytes.(io.Closer); ok {
 		_ = c.Close()
 	}
+	block.blockDigestString = block.blockDigest.format()
 	block.rawBytes = buf
-	block.cached = true
 	return nil
 }
 
 func (block *genericBlock) RawBytes() (io.Reader, error) {
-	if block.cached {
-		if _, err := block.rawBytes.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-		return block.rawBytes, nil
+	if block.filterReader == nil {
+		block.filterReader = newDigestFilterReader(block.rawBytes, block.blockDigest)
+		return block.filterReader, nil
 	}
 
-	// Block is not cached. Guard against calling more than once
-	if block.readOp != opInitial {
+	if block.blockDigestString == "" {
+		block.BlockDigest()
+	}
+
+	if !block.IsCached() {
 		return nil, errContentReAccessed
 	}
-	block.readOp = opRawBytes
 
-	block.rawBytes = io.TeeReader(block.rawBytes, block.blockDigest)
-	return block.rawBytes, nil
+	if _, err := block.rawBytes.(io.Seeker).Seek(0, io.SeekStart); err != nil {
+		return nil, err
+	}
+	return newDigestFilterReader(block.rawBytes), nil
 }
 
 func (block *genericBlock) BlockDigest() string {
-	block.digestOnce.Do(func() {
-		if block.cached {
-			if _, err := block.rawBytes.(io.Seeker).Seek(0, io.SeekStart); err != nil {
-				panic(err)
-			}
-			block.blockDigest.Reset()
-			_, _ = io.Copy(block.blockDigest, block.rawBytes)
-			return
+	if block.blockDigestString == "" {
+		if block.filterReader == nil {
+			block.filterReader = newDigestFilterReader(block.rawBytes, block.blockDigest)
 		}
-
-		if block.readOp == opInitial {
-			_, _ = block.RawBytes()
-		}
-		block.readOp = opRawBytes
-		_, _ = io.Copy(ioutil.Discard, block.rawBytes)
-	})
-	return block.blockDigest.format()
+		_, _ = io.Copy(ioutil.Discard, block.filterReader)
+		block.blockDigestString = block.blockDigest.format()
+	}
+	return block.blockDigestString
 }
-
-// The readOp constants describe access to RawBytes() or PayloadBytes() on a PayloadBlock(),
-// so that RawBytes and PayloadBytes() can check for invalid usage.
-type readOp int8
-
-const (
-	opInitial      readOp = 0 // Initial value.
-	opRawBytes     readOp = 1
-	opPayloadBytes readOp = 2
-)
 
 var errContentReAccessed = errors.New("gowarc.Block: tried to access content twice")

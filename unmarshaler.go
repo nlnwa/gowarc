@@ -151,7 +151,15 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		return err
 	}
 
-	err = record.parseBlock(bufio.NewReader(c2), validation)
+	blockDigest, err := newDigestFromField(record, WarcBlockDigest)
+	if err != nil {
+		return record, offset, validation, err
+	}
+	payloadDigest, err := newDigestFromField(record, WarcPayloadDigest)
+	if err != nil {
+		return record, offset, validation, err
+	}
+	err = record.parseBlock(bufio.NewReader(c2), blockDigest, payloadDigest, validation)
 
 	return record, offset, validation, err
 }

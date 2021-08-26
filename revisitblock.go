@@ -23,10 +23,10 @@ import (
 )
 
 type revisitBlock struct {
-	opts          *warcRecordOptions
-	headerBytes   []byte
-	blockDigest   string
-	payloadDigest string
+	opts                *warcRecordOptions
+	headerBytes         []byte
+	blockDigestString   string
+	payloadDigestString string
 }
 
 func (block *revisitBlock) IsCached() bool {
@@ -46,11 +46,11 @@ func (block *revisitBlock) PayloadBytes() (io.Reader, error) {
 }
 
 func (block *revisitBlock) BlockDigest() string {
-	return block.blockDigest
+	return block.blockDigestString
 }
 
 func (block *revisitBlock) PayloadDigest() string {
-	return block.payloadDigest
+	return block.payloadDigestString
 }
 
 func (block *revisitBlock) Write(w io.Writer) (int64, error) {
@@ -74,36 +74,38 @@ func newRevisitBlock(opts *warcRecordOptions, src Block) (*revisitBlock, error) 
 	switch v := src.(type) {
 	case HttpRequestBlock:
 		block.headerBytes = v.HttpHeaderBytes()
-		block.payloadDigest = v.PayloadDigest()
+		block.payloadDigestString = v.PayloadDigest()
 	case HttpResponseBlock:
 		block.headerBytes = v.HttpHeaderBytes()
-		block.payloadDigest = v.PayloadDigest()
+		block.payloadDigestString = v.PayloadDigest()
 	default:
 		return nil, fmt.Errorf("making revisit of %T not supported", v)
 	}
 
-	blockDigest, _ := newDigest("sha1")
+	blockDigest, _ := newDigest(block.opts.defaultDigestAlgorithm)
 	if _, err := blockDigest.Write(block.headerBytes); err != nil {
 		return nil, err
 	}
-	block.blockDigest = blockDigest.format()
+	block.blockDigestString = blockDigest.format()
 
 	return block, nil
 }
 
 // parseRevisitBlock creates a new revisitBlock from a reader
-func parseRevisitBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDigest string) (*revisitBlock, error) {
+func parseRevisitBlock(opts *warcRecordOptions, r io.Reader, blockDigest *digest, payloadDigest string) (*revisitBlock, error) {
 	block := &revisitBlock{
-		opts:          opts,
-		blockDigest:   blockDigest,
-		payloadDigest: payloadDigest,
+		opts:                opts,
+		payloadDigestString: payloadDigest,
 	}
 
 	content := &bytes.Buffer{}
-	if _, err := io.Copy(content, r); err != nil {
+	rr := io.TeeReader(r, blockDigest)
+	if _, err := io.Copy(content, rr); err != nil {
 		return nil, err
 	}
 	block.headerBytes = content.Bytes()
+
+	block.blockDigestString = blockDigest.format()
 
 	return block, nil
 }

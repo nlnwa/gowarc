@@ -106,7 +106,23 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 	if err != nil {
 		return wr, validation, err
 	}
-	err = wr.parseBlock(rb.content, validation)
+
+	blockDigest, err := newDigestFromField(wr, WarcBlockDigest)
+	if err != nil {
+		return wr, validation, err
+	}
+	payloadDigest, err := newDigestFromField(wr, WarcPayloadDigest)
+	if err != nil {
+		return wr, validation, err
+	}
+
+	err = wr.parseBlock(rb.content, blockDigest, payloadDigest, validation)
+	if err != nil {
+		return wr, validation, err
+	}
+
+	err = wr.validateDigest(blockDigest, payloadDigest, validation)
+
 	return wr, validation, err
 }
 
@@ -135,27 +151,6 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 			wr.headers.Set(ContentLength, size)
 		}
 	}
-
-	d, err := newDigest(wr.WarcHeader().Get(WarcBlockDigest))
-	if err != nil {
-		return validation, err
-	}
-	if _, err := io.Copy(d, rb.content); err != nil {
-		return validation, err
-	}
-	if err := d.validate(); err != nil {
-		switch rb.opts.errSpec {
-		case ErrIgnore:
-		case ErrWarn:
-			validation.addError(err)
-			if rb.opts.fixDigest {
-				wr.WarcHeader().Set(WarcBlockDigest, d.format())
-			}
-		case ErrFail:
-			return validation, fmt.Errorf("wrong block digest " + err.Error())
-		}
-	}
-	_, err = rb.content.Seek(0, io.SeekStart)
 	return validation, err
 }
 
