@@ -92,7 +92,8 @@ func (d digestFilterReader) Read(p []byte) (n int, err error) {
 	if n > 0 {
 		pp := p[:n]
 		for _, dd := range d.digests {
-			dd.Write(pp)
+			// OK to ignore error. The digest might be wrong, but client gets wanted data.
+			_, _ = dd.Write(pp)
 		}
 	}
 	return
