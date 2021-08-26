@@ -20,6 +20,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"strings"
+
 	"github.com/dgraph-io/badger/v2"
 	"github.com/nlnwa/gowarc/pkg/index"
 	"github.com/nlnwa/gowarc/pkg/loader"
@@ -27,9 +31,6 @@ import (
 	"github.com/nlnwa/gowarc/warcoptions"
 	"github.com/nlnwa/gowarc/warcrecord"
 	"github.com/nlnwa/gowarc/warcwriter"
-	"io"
-	"net/http"
-	"strings"
 )
 
 type resourceHandler struct {

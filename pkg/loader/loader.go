@@ -18,6 +18,7 @@ package loader
 
 import (
 	"context"
+
 	"github.com/nlnwa/gowarc/warcrecord"
 	log "github.com/sirupsen/logrus"
 )
@@ -55,14 +56,20 @@ func (l *Loader) Get(ctx context.Context, warcId string) (record warcrecord.Warc
 		log.Debugf("resolving revisit  %v -> %v", record.WarcHeader().Get(warcrecord.WarcRecordID), record.WarcHeader().Get(warcrecord.WarcRefersTo))
 		storageRef, err = l.Resolver.Resolve(record.WarcHeader().Get(warcrecord.WarcRefersTo))
 		if err != nil {
+			log.Infof("failed to resolve referer: %s", err)
 			return
 		}
 		var revisitOf warcrecord.WarcRecord
 		revisitOf, err = l.Loader.Load(ctx, storageRef)
 		if err != nil {
+			log.Infof("failed to load block: %s", err)
 			return
 		}
 		record, err = warcrecord.Merge(record, revisitOf)
+		if err != nil {
+			log.Warnf("failed to merge record and revisit with ref %s: %s", storageRef, err)
+			return
+		}
 	}
 
 	return
