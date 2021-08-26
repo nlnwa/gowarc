@@ -20,10 +20,11 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"net/http"
 	"sync"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const CRLF = "\r\n"
@@ -138,8 +139,16 @@ func Merge(revisit, refersTo WarcRecord) (WarcRecord, error) {
 	m.headers.Delete(WarcRefersToDate)
 	m.headers.Delete(WarcProfile)
 
-	b := m.block.(*RevisitBlock)
-	d := refersTo.Block().(PayloadBlock)
+	b, ok := m.block.(*RevisitBlock)
+	if !ok {
+		return nil, fmt.Errorf("revisit block is not of type RevisitBlock")
+	}
+
+	d, ok := refersTo.Block().(PayloadBlock)
+	if !ok {
+		return nil, fmt.Errorf("referer is not of type PayloadBlock")
+	}
+
 	b.data, err = d.PayloadBytes()
 	if err != nil {
 		log.Warnf("Merge err2: %v", err)
