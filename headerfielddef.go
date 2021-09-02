@@ -19,6 +19,8 @@ package gowarc
 import (
 	"errors"
 	"fmt"
+	"github.com/nlnwa/whatwg-url/url"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -184,7 +186,7 @@ var fieldDefs = []fieldDef{
 	{WarcFilename, pString, false,
 		Warcinfo,
 		V1_0.id | V1_1.id},
-	{WarcIPAddress, pString, false,
+	{WarcIPAddress, pIp, false,
 		Response | Resource | Request | Metadata | Revisit,
 		V1_0.id | V1_1.id},
 	{WarcIdentifiedPayloadType, pString, false,
@@ -193,7 +195,7 @@ var fieldDefs = []fieldDef{
 	{WarcPayloadDigest, pDigest, false,
 		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
-	{WarcProfile, pString, false,
+	{WarcProfile, pURI, false,
 		Revisit,
 		V1_0.id | V1_1.id},
 	{WarcRecordID, pWarcId, false,
@@ -205,7 +207,7 @@ var fieldDefs = []fieldDef{
 	{WarcRefersToDate, pTime, false,
 		Revisit,
 		V1_1.id},
-	{WarcRefersToTargetURI, pString, false,
+	{WarcRefersToTargetURI, pURI, false,
 		Revisit,
 		V1_1.id},
 	{WarcSegmentNumber, pInt, false,
@@ -217,7 +219,7 @@ var fieldDefs = []fieldDef{
 	{WarcSegmentTotalLength, pLong, false,
 		Continuation,
 		V1_0.id | V1_1.id},
-	{WarcTargetURI, pString, false,
+	{WarcTargetURI, pURI, false,
 		Warcinfo | Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
 	{WarcTruncated, pTruncReason, false,
@@ -253,85 +255,110 @@ var (
 		return value, nil
 	}
 	pString = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if _, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
+		}
+		return value, nil
+	}
+	pURI = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
+		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
+			return "", err
+		} else if shouldValidate {
+			if _, err := url.Parse(value); err != nil {
+				return "", err
+			}
+		}
+		return value, nil
+	}
+	pIp = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
+		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
+			return "", err
+		} else if shouldValidate {
+			if ip := net.ParseIP(value); ip == nil {
+				return "", fmt.Errorf("illegal ip address: %s", value)
+			}
 		}
 		return value, nil
 	}
 	pTime = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
-		}
-		if _, err := time.Parse(time.RFC3339, value); err != nil {
-			return "", err
+		} else if shouldValidate {
+			if _, err := time.Parse(time.RFC3339, value); err != nil {
+				return "", err
+			}
 		}
 		return value, nil
 	}
 	pWarcType = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		//if value != wr.RecordType.String() {
-		//	return "", fmt.Errorf("not allowed to change record type")
-		//}
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if _, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
 	pWarcId = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
+		} else if shouldValidate {
+			v := strings.Trim(value, "<>")
+			if value == v {
+				return "", fmt.Errorf("WARC id should be encapsulated by <>")
+			}
+			if _, err := url.Parse(v); err != nil {
+				return "", err
+			}
 		}
 		return value, nil
-		//v := strings.Trim(value, "<>")
-		//if value != v {
-		//	return "", fmt.Errorf("WARC id should not be encapsulated by brackets")
-		//}
-		//return v, nil
 	}
 	pInt = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
-		}
-		if _, err := strconv.Atoi(value); err != nil {
-			return "", err
+		} else if shouldValidate {
+			if _, err := strconv.Atoi(value); err != nil {
+				return "", err
+			}
 		}
 		return value, nil
 	}
 	pLong = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
-		}
-		if _, err := strconv.ParseInt(value, 0, 64); err != nil {
-			return "", err
+		} else if shouldValidate {
+			if _, err := strconv.ParseInt(value, 0, 64); err != nil {
+				return "", err
+			}
 		}
 		return value, nil
 	}
 	pDigest = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if _, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
 		}
-		// TODO: Check Digest
 		return value, nil
 	}
 	pTruncReason = func(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (string, error) {
-		if err := checkLegal(opts, name, value, version, recordType, def); err != nil {
+		if _, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
 		}
 		return value, nil
 	}
 )
 
-func checkLegal(opts *warcRecordOptions, name, value string, version *WarcVersion, recordType RecordType, def fieldDef) (err error) {
+func checkLegal(opts *warcRecordOptions, name string, version *WarcVersion, recordType RecordType, def fieldDef) (shouldValidate bool, err error) {
 	// All fields are allowed for unknown record types
 	if recordType == 0 {
 		return
 	}
 
+	// If field is not defined in spec version, skip validation
 	if opts.errSpec > ErrIgnore && version.id&def.supportedSpec == 0 {
 		return
 	}
+
 	if opts.errSpec > ErrIgnore && recordType&def.supportedRec == 0 {
 		err = fmt.Errorf("illegal field '%v' in record type '%v'", name, recordType.String())
 		return
 	}
+	shouldValidate = true
 	return
 }

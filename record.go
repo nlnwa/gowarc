@@ -373,12 +373,12 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 				switch wr.opts.errSpec {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(err)
+					validation.addError(fmt.Errorf("block: %w", err))
 					if wr.opts.fixDigest {
 						wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
 					}
 				case ErrFail:
-					return fmt.Errorf("wrong block digest " + err.Error())
+					return fmt.Errorf("block: %w", err)
 				}
 			}
 		}
@@ -402,12 +402,12 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 				switch wr.opts.errSpec {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(err)
+					validation.addError(fmt.Errorf("payload: %w", err))
 					if wr.opts.fixDigest {
 						wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
 					}
 				case ErrFail:
-					return fmt.Errorf("wrong payload digest " + err.Error())
+					return fmt.Errorf("payload: %w", err)
 				}
 			}
 		}

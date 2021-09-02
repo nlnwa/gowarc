@@ -140,11 +140,12 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
 
-	// Adding 4 bytes to length to include the end of record marker (\r\n\r\n)
-	// TODO: validate that record ends with correct marker
-	c2 := countingreader.NewLimited(r, length+4)
+	c2 := countingreader.NewLimited(r, length)
 	record.closer = func() error {
 		_, err := io.Copy(ioutil.Discard, c2)
+		// Discarding 2 bytes which makes up the end of record marker (\r\n)
+		// TODO: validate that record ends with correct marker
+		_, _ = r.Discard(2)
 		if g != nil {
 			_ = g.Close()
 		}

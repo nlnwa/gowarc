@@ -177,7 +177,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:BF9D96D3F3F230CE8E2C6A3E5E1D51A81016B55E"},
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: WarcProfile, Value: ProfileServerNotModified},
-					&nameValue{Name: WarcRefersTo, Value: "targetId"},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcTruncated, Value: "length"},
 				},
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
