@@ -164,7 +164,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 	return record, offset, validation, err
 }
 
-func (u *unmarshaler) resolveRecordVersion(s string, validation *Validation) (*version, error) {
+func (u *unmarshaler) resolveRecordVersion(s string, validation *Validation) (*WarcVersion, error) {
 	switch s {
 	case V1_0.txt:
 		return V1_0, nil
@@ -174,11 +174,11 @@ func (u *unmarshaler) resolveRecordVersion(s string, validation *Validation) (*v
 		switch u.opts.errSpec {
 		case ErrWarn:
 			validation.addError(fmt.Errorf("unsupported WARC version: %v", s))
-			return &version{txt: s}, nil
+			return &WarcVersion{txt: s}, nil
 		case ErrFail:
 			return nil, fmt.Errorf("unsupported WARC version: %v", s)
 		default:
-			return &version{txt: s}, nil
+			return &WarcVersion{txt: s}, nil
 		}
 	}
 }

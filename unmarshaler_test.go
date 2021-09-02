@@ -28,7 +28,7 @@ import (
 
 func Test_unmarshaler_Unmarshal(t *testing.T) {
 	type want struct {
-		version    *version
+		version    *WarcVersion
 		recordType RecordType
 		headers    *WarcFields
 		blockType  interface{}

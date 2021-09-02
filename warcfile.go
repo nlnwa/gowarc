@@ -139,11 +139,12 @@ func (w *WarcFileWriter) Shutdown() error {
 }
 
 type singleWarcFileWriter struct {
-	opts            *warcFileWriterOptions
-	currentFileName string
-	currentFile     *os.File
-	currentFileSize int64
-	writeLock       sync.Mutex
+	opts              *warcFileWriterOptions
+	currentFileName   string
+	currentFile       *os.File
+	currentFileSize   int64
+	currentWarcInfoId string
+	writeLock         sync.Mutex
 }
 
 func (w *singleWarcFileWriter) Write(record WarcRecord) (int64, string, int64, error) {
@@ -240,7 +241,9 @@ func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, 
 		defer func() { _ = gz.Close() }()
 		writer = gz
 	}
-
+	if w.currentWarcInfoId != "" {
+		record.WarcHeader().Set(WarcWarcinfoID, w.currentWarcInfoId)
+	}
 	nextRec, size, err := w.opts.marshaler.Marshal(writer, record, maxRecordSize)
 	if err != nil {
 		return size, err
@@ -267,10 +270,12 @@ func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, err
 	if err != nil {
 		return 0, err
 	}
+	w.currentWarcInfoId = ""
 	n, err := w.writeRecord(w.currentFile, warcinfo, 0)
 	if err != nil {
 		return 0, err
 	}
+	w.currentWarcInfoId = warcinfo.WarcHeader().Get(WarcRecordID)
 	// sync file to reduce possibility of half written records in case of crash
 	if err := w.currentFile.Sync(); err != nil {
 		return 0, err
@@ -491,7 +496,11 @@ func WithExpectedCompressionRatio(ratio float64) WarcFileWriterOption {
 // WithWarcInfoFunc sets a warcinfo-record generator function to be called for every new WARC-file created.
 // The function receives a WarcRecordBuilder which is prepopulated with WARC-Record-ID, WARC-Type, WARC-Date and Content-Type.
 // After the submitted function returns, Content-Length and WARC-Block-Digest fields are calculated.
-// defaults nil
+//
+// When this option is set, records written to the warcfile will have the WARC-Warcinfo-ID automatically set to point
+// to the generated warcinfo record.
+//
+// defaults nil (no generation of warcinfo record)
 func WithWarcInfoFunc(f func(recordBuilder WarcRecordBuilder) error) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
 		o.warcInfoFunc = f

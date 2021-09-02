@@ -34,7 +34,7 @@ const (
 )
 
 type WarcRecord interface {
-	Version() *version
+	Version() *WarcVersion
 	Type() RecordType
 	WarcHeader() *WarcFields
 	Block() Block
@@ -45,29 +45,29 @@ type WarcRecord interface {
 	Merge(record ...WarcRecord) (WarcRecord, error)
 }
 
-type version struct {
+type WarcVersion struct {
 	id    uint8
 	txt   string
 	major uint8
 	minor uint8
 }
 
-func (v *version) String() string {
+func (v *WarcVersion) String() string {
 	return "WARC/" + v.txt
 }
 
-func (v *version) Major() uint8 {
+func (v *WarcVersion) Major() uint8 {
 	return v.major
 }
 
-func (v *version) Minor() uint8 {
+func (v *WarcVersion) Minor() uint8 {
 	return v.minor
 }
 
 var (
 	// WARC versions
-	V1_0 = &version{id: 1, txt: "1.0", major: 1, minor: 0} // WARC 1.0
-	V1_1 = &version{id: 2, txt: "1.1", major: 1, minor: 1} // WARC 1.1
+	V1_0 = &WarcVersion{id: 1, txt: "1.0", major: 1, minor: 0} // WARC 1.0
+	V1_1 = &WarcVersion{id: 2, txt: "1.1", major: 1, minor: 1} // WARC 1.1
 )
 
 type RecordType uint16
@@ -151,14 +151,14 @@ const (
 
 type warcRecord struct {
 	opts       *warcRecordOptions
-	version    *version
+	version    *WarcVersion
 	headers    *WarcFields
 	recordType RecordType
 	block      Block
 	closer     func() error
 }
 
-func (wr *warcRecord) Version() *version { return wr.version }
+func (wr *warcRecord) Version() *WarcVersion { return wr.version }
 
 func (wr *warcRecord) Type() RecordType { return wr.recordType }
 

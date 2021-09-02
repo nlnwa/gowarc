@@ -26,6 +26,13 @@ import (
 	"time"
 )
 
+const (
+	uncompressedRecordSize               int64 = 529
+	compressedRecordSize                 int64 = 392
+	uncompressedRecordWithWarcInfoIdSize int64 = 596
+	compressedRecordWithWarcInfoIdSize   int64 = 428
+)
+
 func TestWarcFileWriter_Write_uncompressed(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
@@ -121,14 +128,14 @@ func TestWarcFileWriter_Write_warcinfo_uncompressed(t *testing.T) {
 	uncompressedWarcinfoSize := int64(316)
 	offset, fileName, size, err := w.Write(createTestRecord())
 	assert.NoError(err)
-	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(uncompressedRecordWithWarcInfoIdSize, size, "Expected size from writer %d, but was %d", uncompressedRecordWithWarcInfoIdSize, size)
 	assert.Equalf(uncompressedWarcinfoSize, offset, "Expected offset from writer %d, but was %d", uncompressedWarcinfoSize, offset)
 	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc", fileName)
 
 	offset, fileName, size, err = w.Write(createTestRecord())
 	assert.NoError(err)
-	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
-	assert.Equalf(uncompressedWarcinfoSize+uncompressedRecordSize, offset, "Expected offset from writer %d, but was %d", uncompressedWarcinfoSize+uncompressedRecordSize, offset)
+	assert.Equalf(uncompressedRecordWithWarcInfoIdSize, size, "Expected size from writer %d, but was %d", uncompressedRecordWithWarcInfoIdSize, size)
+	assert.Equalf(uncompressedWarcinfoSize+uncompressedRecordWithWarcInfoIdSize, offset, "Expected offset from writer %d, but was %d", uncompressedWarcinfoSize+uncompressedRecordWithWarcInfoIdSize, offset)
 	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc", fileName)
 
 	// Close writer
@@ -161,14 +168,14 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 	compressedWarcinfoSize := int64(257)
 	offset, fileName, size, err := w.Write(createTestRecord())
 	assert.NoError(err)
-	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
+	assert.Equalf(uncompressedRecordWithWarcInfoIdSize, size, "Expected size from writer %d, but was %d", uncompressedRecordWithWarcInfoIdSize, size)
 	assert.Equalf(compressedWarcinfoSize, offset, "Expected offset from writer %d, but was %d", compressedWarcinfoSize, offset)
 	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc.gz", fileName)
 
 	offset, fileName, size, err = w.Write(createTestRecord())
 	assert.NoError(err)
-	assert.Equalf(uncompressedRecordSize, size, "Expected size from writer %d, but was %d", uncompressedRecordSize, size)
-	assert.Equalf(compressedWarcinfoSize+compressedRecordSize, offset, "Expected offset from writer %d, but was %d", compressedWarcinfoSize+compressedRecordSize, offset)
+	assert.Equalf(uncompressedRecordWithWarcInfoIdSize, size, "Expected size from writer %d, but was %d", uncompressedRecordWithWarcInfoIdSize, size)
+	assert.Equalf(compressedWarcinfoSize+compressedRecordWithWarcInfoIdSize, offset, "Expected offset from writer %d, but was %d", compressedWarcinfoSize+compressedRecordWithWarcInfoIdSize, offset)
 	assert.Equal("foo-20010912053020-0001-10.10.10.10.warc.gz", fileName)
 
 	// Close writer
@@ -377,11 +384,6 @@ func TestWarcFileWriter_Write(t *testing.T) {
 		})
 	}
 }
-
-const (
-	uncompressedRecordSize int64 = 529
-	compressedRecordSize   int64 = 392
-)
 
 func createTestRecord() WarcRecord {
 	builder := NewRecordBuilder(Response, WithFixDigest(false), WithStrictValidation())

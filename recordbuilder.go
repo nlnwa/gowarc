@@ -40,7 +40,7 @@ type WarcRecordBuilder interface {
 
 type recordBuilder struct {
 	opts       *warcRecordOptions
-	version    *version
+	version    *WarcVersion
 	headers    *WarcFields
 	recordType RecordType
 	content    diskbuffer.Buffer

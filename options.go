@@ -19,7 +19,7 @@ package gowarc
 import "github.com/nlnwa/gowarc/internal/diskbuffer"
 
 type warcRecordOptions struct {
-	warcVersion             *version
+	warcVersion             *WarcVersion
 	errSyntax               errorPolicy
 	errSpec                 errorPolicy
 	errUnknowRecordType     errorPolicy
@@ -90,7 +90,7 @@ func newOptions(opts ...WarcRecordOption) *warcRecordOptions {
 
 // WithVersion sets the WARC version to use for new records
 // defaults to WARC/1.1
-func WithVersion(version *version) WarcRecordOption {
+func WithVersion(version *WarcVersion) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.warcVersion = version
 	})
