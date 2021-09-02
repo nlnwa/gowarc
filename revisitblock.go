@@ -25,6 +25,7 @@ import (
 type revisitBlock struct {
 	opts                *warcRecordOptions
 	headerBytes         []byte
+	blockDigest         *digest
 	blockDigestString   string
 	payloadDigestString string
 }
@@ -65,7 +66,7 @@ func (block *revisitBlock) Write(w io.Writer) (int64, error) {
 	return bytesWritten, err
 }
 
-// newRevisitBlock creates a from a PayloadBlock
+// newRevisitBlock creates a revisitBlock from a PayloadBlock
 func newRevisitBlock(opts *warcRecordOptions, src Block) (*revisitBlock, error) {
 	block := &revisitBlock{
 		opts: opts,
@@ -87,6 +88,7 @@ func newRevisitBlock(opts *warcRecordOptions, src Block) (*revisitBlock, error) 
 		return nil, err
 	}
 	block.blockDigestString = blockDigest.format()
+	block.blockDigest = blockDigest
 
 	return block, nil
 }
@@ -106,6 +108,7 @@ func parseRevisitBlock(opts *warcRecordOptions, r io.Reader, blockDigest *digest
 	block.headerBytes = content.Bytes()
 
 	block.blockDigestString = blockDigest.format()
+	block.blockDigest = blockDigest
 
 	return block, nil
 }

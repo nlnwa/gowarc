@@ -53,7 +53,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
 				"WARC-Type: warcinfo\r\n" +
 				"Content-Type: application/warc-fields\r\n" +
-				"Warc-Block-Digest: sha1:AF4D582B4FFC017D07A947D841E392A821F754F3\r\n" +
+				"Warc-Block-Digest: sha1:BBB3E40054DF0B7BA6DD470D2FA561722D9EDBAC\r\n" +
 				"Content-Length: 240\r\n" +
 				"\r\n" +
 				"software: Veidemann v1.0\r\n" +
@@ -70,7 +70,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
 					&nameValue{Name: ContentType, Value: "application/warc-fields"},
-					&nameValue{Name: WarcBlockDigest, Value: "sha1:AF4D582B4FFC017D07A947D841E392A821F754F3"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:BBB3E40054DF0B7BA6DD470D2FA561722D9EDBAC"},
 					&nameValue{Name: ContentLength, Value: "240"},
 				},
 				blockType: &warcFieldsBlock{},
@@ -408,6 +408,15 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			u := NewUnmarshaler(tt.opts...)
 			data := bufio.NewReader(strings.NewReader(tt.input))
 			gotRecord, gotOffset, validation, err := u.Unmarshal(data)
+			defer func() {
+				err := gotRecord.Close()
+				if tt.wantErr {
+					require.Error(err)
+				} else {
+					require.NoError(err)
+				}
+			}()
+
 			if tt.wantErr {
 				require.Error(err)
 			} else {
@@ -430,6 +439,14 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			assert.Equal(contentLength, len(content), "ContentLength")
 			assert.Equal(tt.want.content, string(content), "Content")
 			assert.Equal(tt.wantOffset, gotOffset, "Offset")
+
+			err = gotRecord.ValidateDigest(validation)
+			if tt.wantErr {
+				require.Error(err)
+			} else {
+				require.NoError(err)
+			}
+			assert.True(validation.Valid(), validation.String())
 		})
 	}
 }

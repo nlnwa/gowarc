@@ -43,6 +43,7 @@ type WarcRecord interface {
 	ToRevisitRecord(ref *RevisitRef) (WarcRecord, error)
 	RevisitRef() (*RevisitRef, error)
 	Merge(record ...WarcRecord) (WarcRecord, error)
+	ValidateDigest(validation *Validation) error
 }
 
 type WarcVersion struct {
@@ -189,7 +190,7 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 		}
 	case ProfileServerNotModified:
 	default:
-		return nil, fmt.Errorf("Unknown revisit profile")
+		return nil, fmt.Errorf("unknown revisit profile")
 	}
 
 	h.Set(WarcType, Revisit.String())
@@ -261,7 +262,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 
 	b, ok := wr.block.(*revisitBlock)
 	if !ok {
-		return nil, fmt.Errorf("the revisit record's has wrong block type. Creation of record must be done with SkipParseBlock set to false.")
+		return nil, fmt.Errorf("the revisit record's has wrong block type. Creation of record must be done with SkipParseBlock set to false")
 	}
 	switch v := record[0].Block().(type) {
 	case *httpRequestBlock:
@@ -294,7 +295,16 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	return wr, nil
 }
 
-func (wr *warcRecord) parseBlock(reader io.Reader, blockDigest, payloadDigest *digest, validation *Validation) (err error) {
+func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
+	blockDigest, err := newDigestFromField(wr, WarcBlockDigest)
+	if err != nil {
+		return err
+	}
+	payloadDigest, err := newDigestFromField(wr, WarcPayloadDigest)
+	if err != nil {
+		return err
+	}
+
 	if !wr.opts.skipParseBlock {
 		contentType := strings.ToLower(wr.headers.Get(ContentType))
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
@@ -329,25 +339,47 @@ func (wr *warcRecord) parseBlock(reader io.Reader, blockDigest, payloadDigest *d
 	return
 }
 
-func (wr *warcRecord) validateDigest(blockDigest, payloadDigest *digest, validation *Validation) error {
+// ValidateDigest validates block and payload digests if present.
+// If option FixDigest is set, an invalid or missing digest will be corrected in the header.
+// If the record is not cached, it might not be possible to read any content from this record after validation.
+func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	wr.Block().BlockDigest()
-	if blockDigest.hash == "" {
-		// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
-		if wr.opts.fixDigest {
-			wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
-			return nil
-		}
-	} else {
-		if err := blockDigest.validate(); err != nil {
-			switch wr.opts.errSpec {
-			case ErrIgnore:
-			case ErrWarn:
-				validation.addError(err)
-				if wr.opts.fixDigest {
-					wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
+
+	var blockDigest, payloadDigest *digest
+	switch v := wr.Block().(type) {
+	case *genericBlock:
+		blockDigest = v.blockDigest
+	case *httpRequestBlock:
+		blockDigest = v.blockDigest
+		payloadDigest = v.payloadDigest
+	case *httpResponseBlock:
+		blockDigest = v.blockDigest
+		payloadDigest = v.payloadDigest
+	case *revisitBlock:
+		blockDigest = v.blockDigest
+	case *warcFieldsBlock:
+		blockDigest = v.blockDigest
+	}
+
+	if blockDigest != nil {
+		if blockDigest.hash == "" {
+			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
+			if wr.opts.fixDigest {
+				wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
+				return nil
+			}
+		} else {
+			if err := blockDigest.validate(); err != nil {
+				switch wr.opts.errSpec {
+				case ErrIgnore:
+				case ErrWarn:
+					validation.addError(err)
+					if wr.opts.fixDigest {
+						wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
+					}
+				case ErrFail:
+					return fmt.Errorf("wrong block digest " + err.Error())
 				}
-			case ErrFail:
-				return fmt.Errorf("wrong block digest " + err.Error())
 			}
 		}
 	}
@@ -358,7 +390,7 @@ func (wr *warcRecord) validateDigest(blockDigest, payloadDigest *digest, validat
 		return nil
 	}
 
-	if _, ok := wr.block.(PayloadBlock); ok {
+	if payloadDigest != nil {
 		if payloadDigest.hash == "" {
 			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
 			if wr.opts.fixDigest {

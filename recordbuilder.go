@@ -46,30 +46,40 @@ type recordBuilder struct {
 	content    diskbuffer.Buffer
 }
 
+// Write implements the io.Writer interface
+// Data written is added to the record's content block
 func (rb *recordBuilder) Write(p []byte) (n int, err error) {
 	return rb.content.Write(p)
 }
 
+// WriteString implements the io.StringWriter interface
+// Data written is added to the record's content block
 func (rb *recordBuilder) WriteString(s string) (n int, err error) {
 	return rb.content.WriteString(s)
 }
 
+// ReadFrom implements the io.ReaderFrom interface
+// Data written is added to the record's content block
 func (rb *recordBuilder) ReadFrom(r io.Reader) (n int64, err error) {
 	return rb.content.ReadFrom(r)
 }
 
+// AddWarcHeader adds a new WARC header field with the given name and a string value to the record
 func (rb *recordBuilder) AddWarcHeader(name string, value string) {
 	rb.headers.Add(name, value)
 }
 
+// AddWarcHeaderInt adds a new WARC header field with the given name and an int value to the record
 func (rb *recordBuilder) AddWarcHeaderInt(name string, value int) {
 	rb.headers.Add(name, strconv.Itoa(value))
 }
 
+// AddWarcHeaderInt64 adds a new WARC header field with the given name and an int64 value to the record
 func (rb *recordBuilder) AddWarcHeaderInt64(name string, value int64) {
 	rb.headers.Add(name, strconv.FormatInt(value, 10))
 }
 
+// AddWarcHeaderTime adds a new WARC header field with the given name and a time.Time value to the record
 func (rb *recordBuilder) AddWarcHeaderTime(name string, value time.Time) {
 	rb.headers.Add(name, value.UTC().Format(time.RFC3339))
 }
@@ -107,21 +117,12 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 		return wr, validation, err
 	}
 
-	blockDigest, err := newDigestFromField(wr, WarcBlockDigest)
-	if err != nil {
-		return wr, validation, err
-	}
-	payloadDigest, err := newDigestFromField(wr, WarcPayloadDigest)
+	err = wr.parseBlock(rb.content, validation)
 	if err != nil {
 		return wr, validation, err
 	}
 
-	err = wr.parseBlock(rb.content, blockDigest, payloadDigest, validation)
-	if err != nil {
-		return wr, validation, err
-	}
-
-	err = wr.validateDigest(blockDigest, payloadDigest, validation)
+	err = wr.ValidateDigest(validation)
 
 	return wr, validation, err
 }

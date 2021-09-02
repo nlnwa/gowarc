@@ -21,7 +21,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"fmt"
-	countingreader2 "github.com/nlnwa/gowarc/internal/countingreader"
+	"github.com/nlnwa/gowarc/internal/countingreader"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
@@ -142,24 +142,16 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 	// Adding 4 bytes to length to include the end of record marker (\r\n\r\n)
 	// TODO: validate that record ends with correct marker
-	c2 := countingreader2.NewLimited(r, length+4)
+	c2 := countingreader.NewLimited(r, length+4)
 	record.closer = func() error {
 		_, err := io.Copy(ioutil.Discard, c2)
 		if g != nil {
-			g.Close()
+			_ = g.Close()
 		}
 		return err
 	}
 
-	blockDigest, err := newDigestFromField(record, WarcBlockDigest)
-	if err != nil {
-		return record, offset, validation, err
-	}
-	payloadDigest, err := newDigestFromField(record, WarcPayloadDigest)
-	if err != nil {
-		return record, offset, validation, err
-	}
-	err = record.parseBlock(bufio.NewReader(c2), blockDigest, payloadDigest, validation)
+	err = record.parseBlock(bufio.NewReader(c2), validation)
 
 	return record, offset, validation, err
 }
