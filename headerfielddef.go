@@ -109,7 +109,7 @@ func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation
 		if (Warcinfo|Conversion|Continuation)&rt != 0 && wf.Has(WarcConcurrentTo) {
 			switch opts.errSpec {
 			case ErrWarn:
-				validation.addError(newHeaderFieldErrorf("", "missing required field: %s", ContentType))
+				validation.addError(newHeaderFieldErrorf("", "not allowed for record type: %s", ContentType))
 			case ErrFail:
 				return rt, newHeaderFieldErrorf(WarcConcurrentTo, "not allowed for record type: %s", rt)
 			}
@@ -301,7 +301,7 @@ var (
 			return "", err
 		} else if shouldValidate {
 			v := strings.Trim(value, "<>")
-			if value == v {
+			if len(value) != len(v)+2 {
 				return "", fmt.Errorf("WARC id should be encapsulated by <>")
 			}
 			if _, err := url.Parse(v); err != nil {
