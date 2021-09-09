@@ -36,6 +36,7 @@ type WarcRecordBuilder interface {
 	AddWarcHeaderTime(name string, value time.Time)
 	Build() (WarcRecord, *Validation, error)
 	Size() int64
+	SetRecordType(recordType RecordType)
 }
 
 type recordBuilder struct {
@@ -97,6 +98,14 @@ func (rb *recordBuilder) Size() int64 {
 	return rb.content.Size()
 }
 
+// SetRecordType overrides the record type set in NewRecordBuilder
+func (rb *recordBuilder) SetRecordType(recordType RecordType) {
+	rb.recordType = recordType
+	if recordType != 0 {
+		rb.headers.Set(WarcType, recordType.String())
+	}
+}
+
 func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
 		rb.headers.Set(WarcRecordID, "<"+uuid.New().URN()+">")
@@ -155,6 +164,12 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 	return validation, err
 }
 
+// NewRecordBuilder initializes a WarcRecordBuilder used for creating a new record.
+//
+// WarcRecordBuilder implements io.Writer for adding the content block. recordType might be 0, but then SetRecordType or
+// AddWarcHeader(WarcType, "myRecordType") must be called before Build is called.
+//
+// When finished with adding headers and writing content, call Build on the WarcRecordBuilder to create a WarcRecord.
 func NewRecordBuilder(recordType RecordType, opts ...WarcRecordOption) WarcRecordBuilder {
 	o := newOptions(opts...)
 
