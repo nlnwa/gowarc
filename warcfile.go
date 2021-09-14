@@ -106,10 +106,10 @@ type job struct {
 }
 
 type WriteResponse struct {
-	fileName     string // filename
-	fileOffset   int64  // the offset in file
-	bytesWritten int64  // number of uncompressed bytes written
-	err          error  // eventual error
+	FileName     string // filename
+	FileOffset   int64  // the offset in file
+	BytesWritten int64  // number of uncompressed bytes written
+	Err          error  // eventual error
 }
 
 // Write marshals one or more WarcRecords to file.
@@ -195,14 +195,14 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (response WriteResponse)
 				size = int64(float64(size) * w.opts.expectedCompressionRatio)
 			}
 			if err != nil {
-				response.err = err
+				response.Err = err
 				return
 			}
 			if w.currentFileSize > 0 && (w.currentFileSize+size) > w.opts.maxFileSize {
 				// Not enough space in file, close it so a new will be created
 				err = w.close()
 				if err != nil {
-					response.err = err
+					response.Err = err
 					return
 				}
 			}
@@ -212,24 +212,24 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (response WriteResponse)
 	// Create new file if necessary
 	if w.currentFile == nil {
 		if err := w.createFile(); err != nil {
-			response.err = err
+			response.Err = err
 			return
 		}
 	}
 
-	response.fileOffset = w.currentFileSize
-	response.fileName = w.currentFileName
-	response.bytesWritten, response.err = w.writeRecord(w.currentFile, record, maxRecordSize)
-	if response.err != nil {
+	response.FileOffset = w.currentFileSize
+	response.FileName = w.currentFileName
+	response.BytesWritten, response.Err = w.writeRecord(w.currentFile, record, maxRecordSize)
+	if response.Err != nil {
 		return
 	}
 	// sync file to reduce possibility of half written records in case of crash
-	if response.err = w.currentFile.Sync(); response.err != nil {
+	if response.Err = w.currentFile.Sync(); response.Err != nil {
 		return
 	}
 	fi, err := w.currentFile.Stat()
 	if err != nil {
-		response.err = err
+		response.Err = err
 		return
 	}
 	w.currentFileSize = fi.Size()
@@ -280,8 +280,8 @@ func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, 
 	}
 	if nextRec != nil {
 		res := w.Write(nextRec)
-		res.bytesWritten += size
-		return res.bytesWritten, res.err
+		res.BytesWritten += size
+		return res.BytesWritten, res.Err
 	}
 	return size, nil
 }
