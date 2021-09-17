@@ -122,7 +122,7 @@ func TestRecordBuilder(t *testing.T) {
 		{
 			"valid request record",
 			args{
-				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false)},
+				[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false), WithAddMissingDigest(false)},
 				Request,
 				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},

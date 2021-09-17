@@ -485,7 +485,7 @@ func TestWarcFileWriter_Write(t *testing.T) {
 }
 
 func createTestRecord() WarcRecord {
-	builder := NewRecordBuilder(Response, WithFixDigest(false), WithStrictValidation())
+	builder := NewRecordBuilder(Response, WithFixDigest(false), WithStrictValidation(), WithAddMissingDigest(false))
 	_, err := builder.WriteString("HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content\n")

@@ -364,9 +364,8 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	if blockDigest != nil {
 		if blockDigest.hash == "" {
 			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
-			if wr.opts.fixDigest {
+			if wr.opts.addMissingDigest {
 				wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
-				return nil
 			}
 		} else {
 			if err := blockDigest.validate(); err != nil {
@@ -393,9 +392,8 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	if payloadDigest != nil {
 		if payloadDigest.hash == "" {
 			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
-			if wr.opts.fixDigest {
+			if wr.opts.addMissingDigest {
 				wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
-				return nil
 			}
 		} else {
 			if err := payloadDigest.validate(); err != nil {

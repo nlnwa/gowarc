@@ -67,9 +67,17 @@ func (g *PatternNameGenerator) NewWarcfileName() (string, string) {
 }
 
 type WarcFileWriter struct {
-	opts    *warcFileWriterOptions
-	writers []*singleWarcFileWriter
-	jobs    chan *job
+	opts        *warcFileWriterOptions
+	writers     []*singleWarcFileWriter
+	shutWriters *sync.WaitGroup
+	jobs        chan *job
+	middleCh    chan *job
+	closing     chan struct{} // signal channel
+	closed      chan struct{}
+}
+
+func (w *WarcFileWriter) String() string {
+	return fmt.Sprintf("WarcFileWriter (%s)", w.opts)
 }
 
 // NewWarcFileWriter creates a new WarcFileWriter with the supplied options.
@@ -78,10 +86,43 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 	for _, opt := range opts {
 		opt.apply(&o)
 	}
-	w := &WarcFileWriter{opts: &o}
-	w.jobs = make(chan *job)
+	w := &WarcFileWriter{opts: &o,
+		closing:     make(chan struct{}), // signal channel
+		closed:      make(chan struct{}),
+		middleCh:    make(chan *job),
+		jobs:        make(chan *job),
+		shutWriters: &sync.WaitGroup{},
+	}
+	w.shutWriters.Add(o.maxConcurrentWriters)
+
+	// the middle layer
+	go func() {
+		exit := func(v *job, needSend bool) {
+			close(w.closed)
+			if needSend {
+				w.jobs <- v
+			}
+			close(w.jobs)
+		}
+
+		for {
+			select {
+			case <-w.closing:
+				exit(nil, false)
+				return
+			case v := <-w.middleCh:
+				select {
+				case <-w.closing:
+					exit(v, true)
+					return
+				case w.jobs <- v:
+				}
+			}
+		}
+	}()
+
 	for i := 0; i < o.maxConcurrentWriters; i++ {
-		writer := &singleWarcFileWriter{opts: &o}
+		writer := &singleWarcFileWriter{opts: &o, shutWriters: w.shutWriters}
 		w.writers = append(w.writers, writer)
 		go worker(writer, w.jobs)
 	}
@@ -89,20 +130,23 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 }
 
 func worker(w *singleWarcFileWriter, jobs <-chan *job) {
+	defer func() {
+		w.Close()
+		w.shutWriters.Done()
+	}()
+
 	for j := range jobs {
 		res := make([]WriteResponse, len(j.records))
 		for i, r := range j.records {
 			res[i] = w.Write(r)
 		}
-		j.responses = res
-		j.wg.Done()
+		j.responses <- res
 	}
 }
 
 type job struct {
 	records   []WarcRecord
-	responses []WriteResponse
-	wg        sync.WaitGroup
+	responses chan<- []WriteResponse
 }
 
 type WriteResponse struct {
@@ -119,6 +163,22 @@ type WriteResponse struct {
 //
 // Returns a slice with one WriteResponse for each record written.
 func (w *WarcFileWriter) Write(record ...WarcRecord) []WriteResponse {
+	select {
+	case <-w.closed:
+		return nil
+	default:
+	}
+
+	job, result := w.createWriteJob(record...)
+	select {
+	case <-w.closed:
+		return nil
+	case w.middleCh <- job:
+		return <-result
+	}
+}
+
+func (w *WarcFileWriter) createWriteJob(record ...WarcRecord) (*job, <-chan []WriteResponse) {
 	if w.opts.addConcurrentHeader {
 		for k, wr := range record {
 			for k2, wr2 := range record {
@@ -130,14 +190,12 @@ func (w *WarcFileWriter) Write(record ...WarcRecord) []WriteResponse {
 		}
 	}
 
+	result := make(chan []WriteResponse)
 	job := &job{
-		records: record,
-		wg:      sync.WaitGroup{},
+		records:   record,
+		responses: result,
 	}
-	job.wg.Add(1)
-	w.jobs <- job
-	job.wg.Wait()
-	return job.responses
+	return job, result
 }
 
 // Close closes the current files beeing written to.
@@ -155,11 +213,17 @@ func (w *WarcFileWriter) Close() error {
 	return nil
 }
 
-// Shutdown closes the current file being written to and then releases all resources used by the WarcFileWriter.
+// Shutdown closes the current file(s) being written to and then releases all resources used by the WarcFileWriter.
 // Calling Write after Shutdown will panic.
 func (w *WarcFileWriter) Shutdown() error {
-	close(w.jobs)
-	return w.Close()
+	select {
+	case w.closing <- struct{}{}:
+		<-w.closed
+	case <-w.closed:
+	}
+
+	w.shutWriters.Wait()
+	return nil
 }
 
 type singleWarcFileWriter struct {
@@ -169,6 +233,7 @@ type singleWarcFileWriter struct {
 	currentFileSize   int64
 	currentWarcInfoId string
 	writeLock         sync.Mutex
+	shutWriters       *sync.WaitGroup
 }
 
 func (w *singleWarcFileWriter) Write(record WarcRecord) (response WriteResponse) {
@@ -413,6 +478,10 @@ type warcFileWriterOptions struct {
 	addConcurrentHeader      bool
 }
 
+func (w *warcFileWriterOptions) String() string {
+	return fmt.Sprintf("File size: %d, Compressed: %v, Num writers: %d", w.maxFileSize, w.compress, w.maxConcurrentWriters)
+}
+
 // WarcFileWriterOption configures how to write WARC files.
 type WarcFileWriterOption interface {
 	apply(*warcFileWriterOptions)
@@ -436,7 +505,7 @@ func newFuncWarcFileOption(f func(*warcFileWriterOptions)) *funcWarcFileWriterOp
 
 func defaultwarcFileWriterOptions() warcFileWriterOptions {
 	return warcFileWriterOptions{
-		maxFileSize:              1024 ^ 3, // 1 GiB
+		maxFileSize:              1024 * 1024 * 1024, // 1 GiB
 		compress:                 true,
 		expectedCompressionRatio: .5,
 		useSegmentation:          false,
