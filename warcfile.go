@@ -198,9 +198,9 @@ func (w *WarcFileWriter) createWriteJob(record ...WarcRecord) (*job, <-chan []Wr
 	return job, result
 }
 
-// Close closes the current files beeing written to.
-// It is legal to call Write after close, but then new files will be created.
-func (w *WarcFileWriter) Close() error {
+// Rotate closes the current files beeing written to.
+// A call to Write after Rotate creates new files.
+func (w *WarcFileWriter) Rotate() error {
 	var err multiErr
 	for _, writer := range w.writers {
 		if e := writer.Close(); e != nil {
@@ -213,9 +213,9 @@ func (w *WarcFileWriter) Close() error {
 	return nil
 }
 
-// Shutdown closes the current file(s) being written to and then releases all resources used by the WarcFileWriter.
-// Calling Write after Shutdown will panic.
-func (w *WarcFileWriter) Shutdown() error {
+// Close closes the current file(s) being written to and then releases all resources used by the WarcFileWriter.
+// Calling Write after Close will panic.
+func (w *WarcFileWriter) Close() error {
 	select {
 	case w.closing <- struct{}{}:
 		<-w.closed
@@ -440,6 +440,24 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 	return wf, nil
 }
 
+// Next reads the next WarcRecord from the WarcFileReader.
+//
+// Returned values depends on the errorPolicy options set on WarcFileReader:
+//
+// If set to ErrIgnore for all errors, a WarcRecord and its offset is returned without any validation. Error is only returned
+// if the file is to bad to be able to parse anything meaningful.
+//
+// If set to ErrWarn for all errors, the same as with ErrIgnore is returned, but record is validated and all validation
+// errors are collected in a Validation object which can be examined.
+//
+// If set to ErrFail for all errors, an error is returned in case of validation error and WarcRecord is nil.
+//
+// If different errorPolicies are set for WithSyntaxErrorPolicy, WithSpecViolationPolicy and WithUnknownRecordTypePolicy,
+// then a mix of the above return values are possible.
+//
+// WarcRecord will always be nil if error is returned.
+//
+// When at end of file only io.EOF is returned.
 func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 	var validation *Validation
 	if wf.currentRecord != nil {
@@ -459,6 +477,7 @@ func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 	return wf.currentRecord, wf.offset + recordOffset, validation, err
 }
 
+// Close closes the WarcFileReader.
 func (wf *WarcFileReader) Close() error {
 	return wf.file.Close()
 }

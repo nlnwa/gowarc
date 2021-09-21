@@ -65,7 +65,6 @@ func TestWarcFileWriter_Write_uncompressed(t *testing.T) {
 
 	// Close writer
 	assert.NoError(w.Close())
-	assert.NoError(w.Shutdown())
 }
 
 func TestWarcFileWriter_Write_compressed(t *testing.T) {
@@ -100,7 +99,6 @@ func TestWarcFileWriter_Write_compressed(t *testing.T) {
 
 	// Close writer
 	assert.NoError(w.Close())
-	assert.NoError(w.Shutdown())
 }
 
 func TestWarcFileWriter_Write_warcinfo_uncompressed(t *testing.T) {
@@ -140,7 +138,6 @@ func TestWarcFileWriter_Write_warcinfo_uncompressed(t *testing.T) {
 
 	// Close writer
 	assert.NoError(w.Close())
-	assert.NoError(w.Shutdown())
 }
 
 func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
@@ -180,7 +177,6 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 
 	// Close writer
 	assert.NoError(w.Close())
-	assert.NoError(w.Shutdown())
 }
 
 func TestWarcFileWriter_Write_multi(t *testing.T) {
@@ -219,7 +215,6 @@ func TestWarcFileWriter_Write_multi(t *testing.T) {
 
 	// Close writer
 	assert.NoError(w.Close())
-	assert.NoError(w.Shutdown())
 }
 
 func TestWarcFileWriter_Write_multi_with_crossreference(t *testing.T) {
@@ -279,7 +274,6 @@ func TestWarcFileWriter_Write_multi_with_crossreference(t *testing.T) {
 
 	// Close writer
 	assert.NoError(w.Close())
-	assert.NoError(w.Shutdown())
 }
 
 func TestWarcFileWriter_Write(t *testing.T) {
@@ -474,12 +468,12 @@ func TestWarcFileWriter_Write(t *testing.T) {
 			}
 
 			// Close writer
-			assert.NoError(w.Close())
+			assert.NoError(w.Rotate())
 			// Check that last file was closed
 			for _, wantFile := range tt.wantFiles {
 				checkFile(assert, testdir, wantFile.pattern, wantFile.size)
 			}
-			assert.NoError(w.Shutdown())
+			assert.NoError(w.Close())
 		})
 	}
 }
