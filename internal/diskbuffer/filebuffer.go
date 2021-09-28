@@ -1,7 +1,9 @@
 package diskbuffer
 
 import (
+	"errors"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"os"
 )
@@ -35,11 +37,16 @@ func (b *fileBuffer) close() error {
 	}
 
 	b.len = 0
-	if err := b.diskFile.Close(); err != nil {
-		return err
+	err := b.diskFile.Close()
+	if err != nil {
+		if !errors.Is(err, fs.ErrClosed) {
+			return err
+		}
 	}
 	if err := os.Remove(b.diskFile.Name()); err != nil {
-		return err
+		if !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
 	}
 	return nil
 }
