@@ -53,12 +53,13 @@ func (b *memBuffer) bytes() []byte { return b.buf[:b.len] }
 // grow grows the buffer to give space for n more bytes if capacity allows.
 // It returns the index where bytes should be written and true if at least one byte can be written to buffer.
 func (b *memBuffer) grow(n int64) (int64, bool) {
+	if b.len >= b.max {
+		return b.len, false
+	}
+
 	c := int64(cap(b.buf))
 	if (c - b.len) >= n {
 		return b.len, true
-	}
-	if c >= b.max {
-		return b.len, false
 	}
 
 	newSize := int64(2*len(b.buf)) + n
