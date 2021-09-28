@@ -288,9 +288,11 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (response WriteResponse)
 	if response.Err != nil {
 		return
 	}
-	// sync file to reduce possibility of half written records in case of crash
-	if response.Err = w.currentFile.Sync(); response.Err != nil {
-		return
+	if w.opts.flush {
+		// sync file to reduce possibility of half written records in case of crash
+		if response.Err = w.currentFile.Sync(); response.Err != nil {
+			return
+		}
 	}
 	fi, err := w.currentFile.Stat()
 	if err != nil {
@@ -371,9 +373,11 @@ func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, err
 		return 0, err
 	}
 	w.currentWarcInfoId = warcinfo.WarcHeader().Get(WarcRecordID)
-	// sync file to reduce possibility of half written records in case of crash
-	if err := w.currentFile.Sync(); err != nil {
-		return 0, err
+	if w.opts.flush {
+		// sync file to reduce possibility of half written records in case of crash
+		if err := w.currentFile.Sync(); err != nil {
+			return 0, err
+		}
 	}
 	fi, err := w.currentFile.Stat()
 	if err != nil {
@@ -495,6 +499,7 @@ type warcFileWriterOptions struct {
 	maxConcurrentWriters     int
 	warcInfoFunc             func(recordBuilder WarcRecordBuilder) error
 	addConcurrentHeader      bool
+	flush                    bool
 }
 
 func (w *warcFileWriterOptions) String() string {
@@ -550,6 +555,14 @@ func WithMaxFileSize(size int64) WarcFileWriterOption {
 func WithCompression(compress bool) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
 		o.compress = compress
+	})
+}
+
+// WithFlush sets if writer should commit each record to stable storage.
+// defaults to false
+func WithFlush(flush bool) WarcFileWriterOption {
+	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
+		o.flush = flush
 	})
 }
 
