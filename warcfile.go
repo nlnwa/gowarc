@@ -354,7 +354,7 @@ func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, 
 }
 
 func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, error) {
-	r := NewRecordBuilder(Warcinfo)
+	r := NewRecordBuilder(Warcinfo, w.opts.recordOptions...)
 	r.AddWarcHeader(WarcDate, timestamp.UTCW3cIso8601(now()))
 	r.AddWarcHeader(WarcFilename, fileName)
 	r.AddWarcHeader(ContentType, ApplicationWarcFields)
@@ -500,6 +500,7 @@ type warcFileWriterOptions struct {
 	warcInfoFunc             func(recordBuilder WarcRecordBuilder) error
 	addConcurrentHeader      bool
 	flush                    bool
+	recordOptions            []WarcRecordOption
 }
 
 func (w *warcFileWriterOptions) String() string {
@@ -539,6 +540,7 @@ func defaultwarcFileWriterOptions() warcFileWriterOptions {
 		marshaler:                &defaultMarshaler{},
 		maxConcurrentWriters:     1,
 		addConcurrentHeader:      false,
+		recordOptions:            []WarcRecordOption{},
 	}
 }
 
@@ -633,6 +635,8 @@ func WithExpectedCompressionRatio(ratio float64) WarcFileWriterOption {
 // When this option is set, records written to the warcfile will have the WARC-Warcinfo-ID automatically set to point
 // to the generated warcinfo record.
 //
+// Use WithRecordOptions to modify the options used to create the WarcInfo record.
+//
 // defaults nil (no generation of warcinfo record)
 func WithWarcInfoFunc(f func(recordBuilder WarcRecordBuilder) error) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
@@ -646,5 +650,14 @@ func WithWarcInfoFunc(f func(recordBuilder WarcRecordBuilder) error) WarcFileWri
 func WithAddWarcConcurrentToHeader(addConcurrentHeader bool) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
 		o.addConcurrentHeader = addConcurrentHeader
+	})
+}
+
+// WithRecordOptions sets the options to use for creating WarcInfo records.
+//
+// See WithWarcInfoFunc
+func WithRecordOptions(opts ...WarcRecordOption) WarcFileWriterOption {
+	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
+		o.recordOptions = opts
 	})
 }
