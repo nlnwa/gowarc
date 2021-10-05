@@ -25,6 +25,7 @@ import (
 	"github.com/nlnwa/gowarc/internal/timestamp"
 	"github.com/prometheus/tsdb/fileutil"
 	"io"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -131,7 +132,9 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 
 func worker(w *singleWarcFileWriter, jobs <-chan *job) {
 	defer func() {
-		w.Close()
+		if err := w.Close(); err != nil {
+			log.Println(err)
+		}
 		w.shutWriters.Done()
 	}()
 
@@ -403,10 +406,10 @@ func (w *singleWarcFileWriter) close() error {
 		w.currentFile = nil
 		w.currentFileName = ""
 		if err := f.Close(); err != nil {
-			return err
+			return fmt.Errorf("failed to close file: %s: %w", f.Name(), err)
 		}
 		if err := fileutil.Rename(f.Name(), strings.TrimSuffix(f.Name(), w.opts.openFileSuffix)); err != nil {
-			return err
+			return fmt.Errorf("failed to rename file: %s: %w", f.Name(), err)
 		}
 	}
 	return nil
