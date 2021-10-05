@@ -62,9 +62,8 @@ WARC record: version: WARC/1.1, type: response, id: <urn:uuid:e9a0cecc-0221-11e7
 
 ### godoc
 
-For complete documentation and examples. Read the godoc online at: https://pkg.go.dev/github.com/nlnwa/gowarc
+For complete documentation and examples consult the godoc online at: https://pkg.go.dev/github.com/nlnwa/gowarc
 
 ## Command line
 
-gowarc also comes with a command line utility for inspecting WARC-files. It is still in early alpha and documentation is
-yet to come, but the brave ones can download it here: https://github.com/nlnwa/gowarc/releases/latest
+https://github.com/nlnwa/warchaeology is a command line tool that use gowarc.

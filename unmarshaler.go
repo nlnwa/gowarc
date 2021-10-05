@@ -22,7 +22,6 @@ import (
 	"compress/gzip"
 	"fmt"
 	"github.com/nlnwa/gowarc/internal/countingreader"
-	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"strconv"
@@ -80,7 +79,6 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 	var g *gzip.Reader
 	if magic[0] == 0x1f && magic[1] == 0x8b {
-		log.Debug("detected gzip record")
 		g, err = gzip.NewReader(b)
 		if err != nil {
 			return nil, offset, validation, err

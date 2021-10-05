@@ -11,15 +11,6 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Compiled binary
-/warc
-
-# Gowarc cache
-/warcdb
-
-# User specific config
-/config.yaml
-
 .idea
 /proto/tools/
 dist/
