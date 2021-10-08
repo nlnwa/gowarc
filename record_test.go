@@ -48,7 +48,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"),
-			&RevisitRef{Profile: ProfileServerNotModified, TargetRecordId: "targetId"},
+			&RevisitRef{Profile: ProfileServerNotModifiedV1_1, TargetRecordId: "targetId"},
 			want{
 				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -58,7 +58,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: ContentLength, Value: "238"},
-					&nameValue{Name: WarcProfile, Value: ProfileServerNotModified},
+					&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
 					&nameValue{Name: WarcRefersTo, Value: "targetId"},
 					&nameValue{Name: WarcTruncated, Value: "length"},
 				},
@@ -82,7 +82,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"),
-			&RevisitRef{Profile: ProfileIdenticalPayloadDigest, TargetRecordId: "targetId"},
+			&RevisitRef{Profile: ProfileIdenticalPayloadDigestV1_1, TargetRecordId: "targetId"},
 			want{
 				&WarcFields{
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
@@ -92,7 +92,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: ContentLength, Value: "238"},
-					&nameValue{Name: WarcProfile, Value: ProfileIdenticalPayloadDigest},
+					&nameValue{Name: WarcProfile, Value: ProfileIdenticalPayloadDigestV1_1},
 					&nameValue{Name: WarcRefersTo, Value: "targetId"},
 					&nameValue{Name: WarcTruncated, Value: "length"},
 				},
@@ -115,7 +115,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"),
-			&RevisitRef{Profile: ProfileIdenticalPayloadDigest, TargetRecordId: "targetId"},
+			&RevisitRef{Profile: ProfileIdenticalPayloadDigestV1_1, TargetRecordId: "targetId"},
 			want{},
 			true,
 		},
@@ -176,7 +176,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 					&nameValue{Name: ContentLength, Value: "238"},
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:BF9D96D3F3F230CE8E2C6A3E5E1D51A81016B55E"},
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
-					&nameValue{Name: WarcProfile, Value: ProfileServerNotModified},
+					&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
 					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcTruncated, Value: "length"},
 				},

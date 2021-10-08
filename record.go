@@ -146,8 +146,10 @@ const (
 
 const (
 	// Well known revisit profiles
-	ProfileIdenticalPayloadDigest = "http://netpreserve.org/warc/1.1/revisit/identical-payload-digest"
-	ProfileServerNotModified      = "http://netpreserve.org/warc/1.1/revisit/server-not-modified"
+	ProfileIdenticalPayloadDigestV1_1 = "http://netpreserve.org/warc/1.1/revisit/identical-payload-digest"
+	ProfileServerNotModifiedV1_1      = "http://netpreserve.org/warc/1.1/revisit/server-not-modified"
+	ProfileIdenticalPayloadDigestV1_0 = "http://netpreserve.org/warc/1.0/revisit/identical-payload-digest"
+	ProfileServerNotModifiedV1_0      = "http://netpreserve.org/warc/1.0/revisit/server-not-modified"
 )
 
 type warcRecord struct {
@@ -184,11 +186,14 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 	h := wr.headers.clone()
 
 	switch ref.Profile {
-	case ProfileIdenticalPayloadDigest:
+	case ProfileIdenticalPayloadDigestV1_0:
+		fallthrough
+	case ProfileIdenticalPayloadDigestV1_1:
 		if !wr.headers.Has(WarcPayloadDigest) {
 			return nil, fmt.Errorf("payload digest is required for Identical Payload Digest Profile")
 		}
-	case ProfileServerNotModified:
+	case ProfileServerNotModifiedV1_0:
+	case ProfileServerNotModifiedV1_1:
 	default:
 		return nil, fmt.Errorf("unknown revisit profile")
 	}
