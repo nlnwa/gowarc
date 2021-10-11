@@ -124,6 +124,9 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 
 	for i := 0; i < o.maxConcurrentWriters; i++ {
 		writer := &singleWarcFileWriter{opts: &o, shutWriters: w.shutWriters}
+		if o.compress {
+			writer.gz = gzip.NewWriter(nil)
+		}
 		w.writers = append(w.writers, writer)
 		go worker(writer, w.jobs)
 	}
@@ -237,6 +240,7 @@ type singleWarcFileWriter struct {
 	currentWarcInfoId string
 	writeLock         sync.Mutex
 	shutWriters       *sync.WaitGroup
+	gz                *gzip.Writer // Holds gzip writer, enabling reuse
 }
 
 func (w *singleWarcFileWriter) Write(record WarcRecord) (response WriteResponse) {
@@ -337,9 +341,9 @@ func (w *singleWarcFileWriter) createFile() error {
 
 func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, maxRecordSize int64) (int64, error) {
 	if w.opts.compress {
-		gz := gzip.NewWriter(writer)
-		defer func() { _ = gz.Close() }()
-		writer = gz
+		w.gz.Reset(writer)
+		defer func() { _ = w.gz.Close() }()
+		writer = w.gz
 	}
 	if w.currentWarcInfoId != "" {
 		record.WarcHeader().Set(WarcWarcinfoID, w.currentWarcInfoId)

@@ -18,6 +18,8 @@ package gowarc
 
 import (
 	"bufio"
+	"bytes"
+	"compress/gzip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
@@ -448,5 +450,35 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			}
 			assert.True(validation.Valid(), validation.String())
 		})
+	}
+}
+
+var unmarshallerBenchmarkResult interface{}
+
+func BenchmarkUnmarshaler_Unmarshal_compressed(b *testing.B) {
+	record := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: response\r\n" +
+		"Content-Type: application/http;msgtype=response\r\n" +
+		"Warc-Block-Digest: sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4\r\n" +
+		"Content-Length: 257\r\n" +
+		"\r\n" +
+		"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
+		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"
+
+	recordCompressed := &bytes.Buffer{}
+
+	z := gzip.NewWriter(recordCompressed)
+	_, _ = z.Write([]byte(record))
+	_ = z.Close()
+
+	u := NewUnmarshaler(WithNoValidation())
+
+	for n := 0; n < b.N; n++ {
+		data := bufio.NewReader(bytes.NewReader(recordCompressed.Bytes()))
+		gotRecord, _, _, _ := u.Unmarshal(data)
+		unmarshallerBenchmarkResult = gotRecord.Close()
 	}
 }

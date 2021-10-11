@@ -35,6 +35,7 @@ type unmarshaler struct {
 	opts             *warcRecordOptions
 	warcFieldsParser *warcfieldsParser
 	LastOffset       int64
+	gz               *gzip.Reader // Holds gzip reader for enabling reuse
 }
 
 func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
@@ -77,14 +78,17 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 				expectedRecordStartOffset, offset), &position{}))
 	}
 
-	var g *gzip.Reader
 	if magic[0] == 0x1f && magic[1] == 0x8b {
-		g, err = gzip.NewReader(b)
+		if u.gz == nil {
+			u.gz, err = gzip.NewReader(b)
+		} else {
+			err = u.gz.Reset(b)
+		}
 		if err != nil {
 			return nil, offset, validation, err
 		}
-		g.Multistream(false)
-		r = bufio.NewReader(g)
+		u.gz.Multistream(false)
+		r = bufio.NewReader(u.gz)
 	} else {
 		r = b
 	}
@@ -144,8 +148,8 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		// Discarding 2 bytes which makes up the end of record marker (\r\n)
 		// TODO: validate that record ends with correct marker
 		_, _ = r.Discard(2)
-		if g != nil {
-			_ = g.Close()
+		if u.gz != nil {
+			_ = u.gz.Close()
 		}
 		return err
 	}
