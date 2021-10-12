@@ -567,3 +567,28 @@ func TestDefaultNameGenerator_NewWarcfileName(t *testing.T) {
 		})
 	}
 }
+
+var warcFileWriterBenchmarkResult interface{}
+
+func BenchmarkWarcFileWriter_Write_compressed(b *testing.B) {
+	now = func() time.Time {
+		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	assert := assert.New(b)
+
+	testdir := "tmp-test"
+	nameGenerator := &PatternNameGenerator{Prefix: "bench-", Directory: testdir}
+	assert.NoError(os.Mkdir(testdir, 0755))
+	w := NewWarcFileWriter(
+		WithCompression(true),
+		WithFileNameGenerator(nameGenerator),
+		WithMaxFileSize(0),
+		WithMaxConcurrentWriters(1))
+	defer func() { assert.NoError(w.Close()) }()
+	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
+
+	for n := 0; n < b.N; n++ {
+		res := w.Write(createTestRecord())
+		warcFileWriterBenchmarkResult = res
+	}
+}
