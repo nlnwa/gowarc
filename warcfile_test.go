@@ -578,8 +578,7 @@ func BenchmarkWarcFileWriter_Write_compressed(b *testing.B) {
 
 	testdir := "tmp-test"
 	nameGenerator := &PatternNameGenerator{Prefix: "bench-", Directory: testdir}
-
-	os.Mkdir(testdir, 0755)
+	assert.NoError(os.Mkdir(testdir, 0755))
 	w := NewWarcFileWriter(
 		WithCompression(true),
 		WithFileNameGenerator(nameGenerator),
