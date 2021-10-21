@@ -5,6 +5,7 @@ go 1.16
 require (
 	github.com/go-logfmt/logfmt v0.4.0 // indirect
 	github.com/google/uuid v1.2.0
+	github.com/klauspost/compress v1.13.6
 	github.com/kr/text v0.2.0 // indirect
 	github.com/nlnwa/whatwg-url v0.0.0-20200306110950-d1a95e2e8fc3
 	github.com/pkg/errors v0.8.1 // indirect

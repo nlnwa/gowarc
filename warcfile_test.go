@@ -30,12 +30,15 @@ const (
 	uncompressedRecordSize               int64 = 529
 	compressedRecordSize                 int64 = 392
 	uncompressedRecordWithWarcInfoIdSize int64 = 596
-	compressedRecordWithWarcInfoIdSize   int64 = 428
+	compressedRecordWithWarcInfoIdSize   int64 = 429
 )
 
 func TestWarcFileWriter_Write_uncompressed(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	hostOrIp = func() string {
+		return "example"
 	}
 	assert := assert.New(t)
 
@@ -55,13 +58,13 @@ func TestWarcFileWriter_Write_uncompressed(t *testing.T) {
 	assert.NoError(res[0].Err)
 	assert.Equalf(uncompressedRecordSize, res[0].BytesWritten, "Expected size from writer %d, but was %d", uncompressedRecordSize, res[0].BytesWritten)
 	assert.Equalf(int64(0), res[0].FileOffset, "Expected offset from writer %d, but was %d", int64(0), res[0].FileOffset)
-	assert.Regexp("^foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc$", res[0].FileName)
+	assert.Regexp("^foo-\\d{14}-0001-example.warc$", res[0].FileName)
 
 	res = w.Write(createTestRecord())
 	assert.NoError(res[0].Err)
 	assert.Equalf(uncompressedRecordSize, res[0].BytesWritten, "Expected size from writer %d, but was %d", uncompressedRecordSize, res[0].BytesWritten)
 	assert.Equalf(uncompressedRecordSize, res[0].FileOffset, "Expected offset from writer %d, but was %d", uncompressedRecordSize, res[0].FileOffset)
-	assert.Regexp("^foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc$", res[0].FileName)
+	assert.Regexp("^foo-\\d{14}-0001-example.warc$", res[0].FileName)
 
 	// Close writer
 	assert.NoError(w.Close())
@@ -70,6 +73,9 @@ func TestWarcFileWriter_Write_uncompressed(t *testing.T) {
 func TestWarcFileWriter_Write_compressed(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	hostOrIp = func() string {
+		return "example"
 	}
 	assert := assert.New(t)
 
@@ -89,13 +95,13 @@ func TestWarcFileWriter_Write_compressed(t *testing.T) {
 	assert.NoError(res[0].Err)
 	assert.Equalf(uncompressedRecordSize, res[0].BytesWritten, "Expected size from writer %d, but was %d", uncompressedRecordSize, res[0].BytesWritten)
 	assert.Equalf(int64(0), res[0].FileOffset, "Expected offset from writer %d, but was %d", int64(0), res[0].FileOffset)
-	assert.Regexp("^foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc.gz$", res[0].FileName)
+	assert.Regexp("^foo-\\d{14}-0001-example.warc.gz$", res[0].FileName)
 
 	res = w.Write(createTestRecord())
 	assert.NoError(res[0].Err)
 	assert.Equalf(uncompressedRecordSize, res[0].BytesWritten, "Expected size from writer %d, but was %d", uncompressedRecordSize, res[0].BytesWritten)
 	assert.Equalf(compressedRecordSize, res[0].FileOffset, "Expected offset from writer %d, but was %d", compressedRecordSize, res[0].FileOffset)
-	assert.Regexp("^foo-\\d{14}-0001-\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}.warc.gz$", res[0].FileName)
+	assert.Regexp("^foo-\\d{14}-0001-example.warc.gz$", res[0].FileName)
 
 	// Close writer
 	assert.NoError(w.Close())
@@ -104,6 +110,9 @@ func TestWarcFileWriter_Write_compressed(t *testing.T) {
 func TestWarcFileWriter_Write_warcinfo_uncompressed(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	hostOrIp = func() string {
+		return "example"
 	}
 	assert := assert.New(t)
 
@@ -144,6 +153,9 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
 	}
+	hostOrIp = func() string {
+		return "example"
+	}
 	assert := assert.New(t)
 
 	testdir := "tmp-test"
@@ -162,7 +174,7 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
 
 	// Write two records sequentially
-	compressedWarcinfoSize := int64(257)
+	compressedWarcinfoSize := int64(254)
 	res := w.Write(createTestRecord())
 	assert.NoError(res[0].Err)
 	assert.Equalf(uncompressedRecordWithWarcInfoIdSize, res[0].BytesWritten, "Expected size from writer %d, but was %d", uncompressedRecordWithWarcInfoIdSize, res[0].BytesWritten)
@@ -182,6 +194,9 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 func TestWarcFileWriter_Write_multi(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	hostOrIp = func() string {
+		return "example"
 	}
 	assert := assert.New(t)
 
@@ -220,6 +235,9 @@ func TestWarcFileWriter_Write_multi(t *testing.T) {
 func TestWarcFileWriter_Write_multi_with_crossreference(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	hostOrIp = func() string {
+		return "example"
 	}
 	assert := assert.New(t)
 
@@ -279,6 +297,9 @@ func TestWarcFileWriter_Write_multi_with_crossreference(t *testing.T) {
 func TestWarcFileWriter_Write(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
+	}
+	hostOrIp = func() string {
+		return "example"
 	}
 	type args struct {
 		fileName             string
@@ -545,6 +566,9 @@ func TestDefaultNameGenerator_NewWarcfileName(t *testing.T) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
 	}
+	hostOrIp = func() string {
+		return "example"
+	}
 	tests := []struct {
 		name        string
 		generator   PatternNameGenerator
@@ -552,10 +576,10 @@ func TestDefaultNameGenerator_NewWarcfileName(t *testing.T) {
 		wantDir     string
 		wantMatch   string
 	}{
-		{"default", PatternNameGenerator{}, 5, "", "^20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
-		{"prefix", PatternNameGenerator{Prefix: "foo-"}, 5, "", "^foo-20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
-		{"dir", PatternNameGenerator{Directory: "mydir"}, 5, "mydir", "^20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
-		{"dir+prefix", PatternNameGenerator{Prefix: "foo-", Directory: "mydir"}, 5, "mydir", "^foo-20010912053020-000\\d-\\d{1,3}.\\d{1,3}.\\d{1,3}.\\d{1,3}.warc$"},
+		{"default", PatternNameGenerator{}, 5, "", "^20010912053020-000\\d-example.warc$"},
+		{"prefix", PatternNameGenerator{Prefix: "foo-"}, 5, "", "^foo-20010912053020-000\\d-example.warc$"},
+		{"dir", PatternNameGenerator{Directory: "mydir"}, 5, "mydir", "^20010912053020-000\\d-example.warc$"},
+		{"dir+prefix", PatternNameGenerator{Prefix: "foo-", Directory: "mydir"}, 5, "mydir", "^foo-20010912053020-000\\d-example.warc$"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -574,6 +598,10 @@ func BenchmarkWarcFileWriter_Write_compressed(b *testing.B) {
 	now = func() time.Time {
 		return time.Date(2001, 9, 12, 5, 30, 20, 0, time.UTC)
 	}
+	hostOrIp = func() string {
+		return "example"
+	}
+
 	assert := assert.New(b)
 
 	testdir := "tmp-test"

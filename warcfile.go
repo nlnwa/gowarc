@@ -18,8 +18,8 @@ package gowarc
 
 import (
 	"bufio"
-	"compress/gzip"
 	"fmt"
+	"github.com/klauspost/compress/gzip"
 	"github.com/nlnwa/gowarc/internal"
 	"github.com/nlnwa/gowarc/internal/countingreader"
 	"github.com/nlnwa/gowarc/internal/timestamp"
@@ -41,29 +41,64 @@ type WarcFileNameGenerator interface {
 }
 
 // PatternNameGenerator implements the WarcFileNameGenerator.
+// New filenames are generated based on a pattern which defaults to the recommendation in the WARC 1.1 standard
+// (https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#annex-c-informative-warc-file-size-and-name-recommendations).
+// The pattern is like golangs fmt package (https://pkg.go.dev/fmt), but allows for named fields in curly braces.
+// The available predefined names are:
+//   * prefix   - content of the Prefix field
+//   * ext      - content of the Extension field
+//   * ts       - current time as 14-digit GMT Time-stamp
+//   * serial   - atomically increased serial number for every generated file name. Initial value is 0 if Serial field is not set
+//   * ip       - primary IP address of the node
+//   * host     - host name of the node
+//   * hostOrIp - host name of the node, falling back to IP address if host name could not be resolved
 type PatternNameGenerator struct {
 	Directory string // Directory to store warcfiles. Defaults to the empty string
 	Prefix    string // Prefix available to be used in pattern. Defaults to the empty string
 	Serial    int32  // Serial number available for use in pattern. It is atomically increased with every generated file name.
-	Pattern   string // Pattern for generated file name. Defaults to: "%{prefix}s%{ts}s-%04{serial}d-%{ip}s.warc"
+	Pattern   string // Pattern for generated file name. Defaults to: "%{prefix}s%{ts}s-%04{serial}d-%{hostOrIp}s.%{ext}s"
+	Extension string // Extension for file name. Defaults to: "warc"
+	params    map[string]interface{}
 }
 
-const defaultPattern = "%{prefix}s%{ts}s-%04{serial}d-%{ip}s.warc"
+const (
+	defaultPattern   = "%{prefix}s%{ts}s-%04{serial}d-%{hostOrIp}s.%{ext}s"
+	defaultExtension = "warc"
+)
 
 // Allow overriding of time.Now for tests
 var now = time.Now
+var ip = internal.GetOutboundIP
+var host = internal.GetHostName
+var hostOrIp = internal.GetHostNameOrIP
 
+// NewWarcfileName returns a directory (might be the empty string for current directory) and a file name
 func (g *PatternNameGenerator) NewWarcfileName() (string, string) {
 	if g.Pattern == "" {
 		g.Pattern = defaultPattern
 	}
-	params := map[string]interface{}{
-		"prefix": g.Prefix,
+	if g.Extension == "" {
+		g.Extension = defaultExtension
+	}
+	if g.params == nil {
+		g.params = map[string]interface{}{
+			"prefix":   g.Prefix,
+			"ext":      g.Extension,
+			"ip":       ip(),
+			"host":     host(),
+			"hostOrIp": hostOrIp(),
+		}
+	}
+
+	p := map[string]interface{}{
 		"ts":     timestamp.UTC14(now()),
 		"serial": atomic.AddInt32(&g.Serial, 1),
-		"ip":     internal.GetOutboundIP()}
+	}
+	for k, v := range g.params {
+		p[k] = v
+	}
 
-	name := internal.Sprintt(g.Pattern, params)
+	name := internal.Sprintt(g.Pattern, p)
 	return g.Directory, name
 }
 
@@ -125,7 +160,7 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 	for i := 0; i < o.maxConcurrentWriters; i++ {
 		writer := &singleWarcFileWriter{opts: &o, shutWriters: w.shutWriters}
 		if o.compress {
-			writer.gz = gzip.NewWriter(nil)
+			writer.gz, _ = gzip.NewWriterLevel(nil, o.gzipLevel)
 		}
 		w.writers = append(w.writers, writer)
 		go worker(writer, w.jobs)
@@ -429,6 +464,12 @@ type WarcFileReader struct {
 	currentRecord  WarcRecord
 }
 
+var inputBufPool = sync.Pool{
+	New: func() interface{} {
+		return bufio.NewReaderSize(nil, 1024*1024)
+	},
+}
+
 func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) (*WarcFileReader, error) {
 	file, err := os.Open(filename) // For read access.
 	if err != nil {
@@ -447,7 +488,9 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 
 	wf.countingReader = countingreader.New(file)
 	wf.initialOffset = offset
-	wf.bufferedReader = bufio.NewReaderSize(wf.countingReader, 4*1024)
+	buf := inputBufPool.Get().(*bufio.Reader)
+	buf.Reset(wf.countingReader)
+	wf.bufferedReader = buf
 	return wf, nil
 }
 
@@ -490,6 +533,7 @@ func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 
 // Close closes the WarcFileReader.
 func (wf *WarcFileReader) Close() error {
+	inputBufPool.Put(wf.bufferedReader)
 	return wf.file.Close()
 }
 
@@ -497,6 +541,7 @@ func (wf *WarcFileReader) Close() error {
 type warcFileWriterOptions struct {
 	maxFileSize              int64
 	compress                 bool
+	gzipLevel                int
 	expectedCompressionRatio float64
 	useSegmentation          bool
 	compressSuffix           string
@@ -539,6 +584,7 @@ func defaultwarcFileWriterOptions() warcFileWriterOptions {
 	return warcFileWriterOptions{
 		maxFileSize:              1024 * 1024 * 1024, // 1 GiB
 		compress:                 true,
+		gzipLevel:                gzip.DefaultCompression,
 		expectedCompressionRatio: .5,
 		useSegmentation:          false,
 		compressSuffix:           ".gz",
@@ -559,11 +605,25 @@ func WithMaxFileSize(size int64) WarcFileWriterOption {
 	})
 }
 
-// WithCompression sets if writer should write compressed WARC files.
+// WithCompression sets if writer should write gzip compressed WARC files.
 // defaults to true
 func WithCompression(compress bool) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
 		o.compress = compress
+	})
+}
+
+// WithCompressionLevel sets the gzip level (1-9) to use for compression.
+// defaults to 5
+func WithCompressionLevel(gzipLevel int) WarcFileWriterOption {
+	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
+		if gzipLevel == gzip.DefaultCompression {
+			gzipLevel = 5
+		}
+		if gzipLevel < gzip.BestSpeed || gzipLevel > gzip.BestCompression {
+			panic("illegal compression level " + strconv.Itoa(gzipLevel) + ", must be between 1 and 9")
+		}
+		o.gzipLevel = gzipLevel
 	})
 }
 
