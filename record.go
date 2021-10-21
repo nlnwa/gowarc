@@ -177,7 +177,9 @@ func (wr *warcRecord) String() string {
 
 func (wr *warcRecord) Close() error {
 	if wr.closer != nil {
-		return wr.closer()
+		err := wr.closer()
+		wr.closer = nil
+		return err
 	}
 	return nil
 }
