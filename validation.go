@@ -24,6 +24,10 @@ import (
 // Validation contain validation results.
 type Validation []error
 
+func (v *Validation) Error() string {
+	return v.String()
+}
+
 func (v *Validation) String() string {
 	if len(*v) == 0 {
 		return ""
@@ -32,11 +36,13 @@ func (v *Validation) String() string {
 	sb := strings.Builder{}
 	sb.WriteString("gowarc: Validation errors:\n")
 	for i, e := range *v {
+		if i > 0 {
+			sb.WriteByte('\n')
+		}
 		sb.WriteString("  ")
 		sb.WriteString(strconv.Itoa(i + 1))
 		sb.WriteString(": ")
 		sb.WriteString(e.Error())
-		sb.WriteByte('\n')
 	}
 	return sb.String()
 }
