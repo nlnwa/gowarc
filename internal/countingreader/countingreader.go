@@ -58,12 +58,9 @@ func (r *Reader) Read(p []byte) (n int, err error) {
 		if int64(len(p)) > remaining {
 			p = p[:remaining]
 		}
-		n, err = r.ioReader.Read(p)
-		atomic.AddInt64(&r.bytesRead, int64(n))
-	} else {
-		n, err = r.ioReader.Read(p)
-		atomic.AddInt64(&r.bytesRead, int64(n))
 	}
+	n, err = r.ioReader.Read(p)
+	atomic.AddInt64(&r.bytesRead, int64(n))
 	return
 }
 

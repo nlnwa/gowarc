@@ -16,17 +16,49 @@
 
 package internal
 
-import "net"
+import (
+	"net"
+	"os"
+)
 
-// Get preferred outbound ip of this machine
-func GetOutboundIP() net.IP {
+func getOutboundIP() (net.IP, error) {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	localAddr := conn.LocalAddr().(*net.UDPAddr)
 
-	return localAddr.IP
+	return localAddr.IP, nil
+}
+
+// GetOutboundIP returns the preferred outbound ip of this node
+// If resolution fails, 'unknown' is returned.
+func GetOutboundIP() string {
+	if ip, err := getOutboundIP(); err == nil {
+		return ip.String()
+	}
+	return "unknown"
+}
+
+// GetHostName returns the hostname reported by the kernel.
+// If resolution fails, 'unknown' is returned.
+func GetHostName() string {
+	if host, err := os.Hostname(); err == nil {
+		return host
+	}
+	return "unknown"
+}
+
+// GetHostNameOrIP returns the hostname reported by the kernel falling back to outbound ip if hostname could not be resolved
+// If resolution fails, 'unknown' is returned.
+func GetHostNameOrIP() string {
+	if host, err := os.Hostname(); err == nil {
+		return host
+	}
+	if ip, err := getOutboundIP(); err == nil {
+		return ip.String()
+	}
+	return "unknown"
 }

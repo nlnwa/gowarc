@@ -25,7 +25,7 @@ import (
 //
 // Marshal converts a WARC record to its serialized form and returns the size of the marshalled record or any error encountered.
 //
-// Depending on implementation, Marshal might return a WarcRecord which is the continuation of the record beeing written.
+// Depending on implementation, Marshal might return a WarcRecord which is the continuation of the record being written.
 // See the description of record segmentation at https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#record-segmentation
 type Marshaler interface {
 	Marshal(w io.Writer, record WarcRecord, maxSize int64) (WarcRecord, int64, error)

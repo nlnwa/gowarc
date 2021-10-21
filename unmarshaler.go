@@ -19,8 +19,8 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
-	"compress/gzip"
 	"fmt"
+	"github.com/klauspost/compress/gzip"
 	"github.com/nlnwa/gowarc/internal/countingreader"
 	"io"
 	"io/ioutil"
@@ -52,6 +52,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 	var r *bufio.Reader
 	var offset int64
 	validation := &Validation{}
+	isGzip := false
 
 	magic, err := b.Peek(5)
 	if err != nil {
@@ -79,6 +80,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 	}
 
 	if magic[0] == 0x1f && magic[1] == 0x8b {
+		isGzip = true
 		if u.gz == nil {
 			u.gz, err = gzip.NewReader(b)
 		} else {
@@ -142,19 +144,31 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
 
-	c2 := countingreader.NewLimited(r, length)
+	content := countingreader.NewLimited(r, length)
 	record.closer = func() error {
-		_, err := io.Copy(ioutil.Discard, c2)
+		_, err := io.Copy(ioutil.Discard, content)
+
 		// Discarding 2 bytes which makes up the end of record marker (\r\n)
 		// TODO: validate that record ends with correct marker
 		_, _ = r.Discard(2)
-		if u.gz != nil {
-			_ = u.gz.Close()
+		if isGzip {
+			// Empty gzip reader to ensure gzip checksum is validated
+			b := make([]byte, 10)
+			var err error
+			for err == nil {
+				_, err = u.gz.Read(b)
+			}
+			if err != io.EOF {
+				panic(err)
+			}
+			if err := u.gz.Close(); err != nil {
+				panic(err)
+			}
 		}
 		return err
 	}
 
-	err = record.parseBlock(bufio.NewReader(c2), validation)
+	err = record.parseBlock(bufio.NewReader(content), validation)
 
 	return record, offset, validation, err
 }
