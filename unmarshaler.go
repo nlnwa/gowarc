@@ -150,7 +150,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 		// Discarding 2 bytes which makes up the end of record marker (\r\n)
 		// TODO: validate that record ends with correct marker
-		_, _ = r.Discard(2)
+		_, _ = r.Discard(4)
 		if isGzip {
 			// Empty gzip reader to ensure gzip checksum is validated
 			b := make([]byte, 10)
