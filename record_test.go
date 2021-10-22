@@ -43,6 +43,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: ContentLength, Value: "257"},
 				},
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
@@ -56,6 +57,38 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 					&nameValue{Name: WarcType, Value: "revisit"},
 					&nameValue{Name: WarcBlockDigest, Value: "sha1:BF9D96D3F3F230CE8E2C6A3E5E1D51A81016B55E"},
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "238"},
+					&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
+					&nameValue{Name: WarcRefersTo, Value: "targetId"},
+					&nameValue{Name: WarcTruncated, Value: "length"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\n",
+			},
+			false,
+		},
+		{
+			"ServerNotModified profile missing payload digest\"",
+			createRecord1(Response,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"},
+					&nameValue{Name: ContentLength, Value: "257"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"),
+			&RevisitRef{Profile: ProfileServerNotModifiedV1_1, TargetRecordId: "targetId"},
+			want{
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "revisit"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:BF9D96D3F3F230CE8E2C6A3E5E1D51A81016B55E"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 					&nameValue{Name: ContentLength, Value: "238"},
 					&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
@@ -119,6 +152,80 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 			want{},
 			true,
 		},
+		{
+			"IdenticalPayloadDigest profile resource record missing payload digest",
+			createRecord1(Resource,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentLength, Value: "19"},
+				},
+				"This is the content"),
+			&RevisitRef{Profile: ProfileIdenticalPayloadDigestV1_1, TargetRecordId: "targetId"},
+			want{
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "revisit"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: ContentLength, Value: "0"},
+					&nameValue{Name: WarcProfile, Value: ProfileIdenticalPayloadDigestV1_1},
+					&nameValue{Name: WarcRefersTo, Value: "targetId"},
+					&nameValue{Name: WarcTruncated, Value: "length"},
+				},
+				"",
+			},
+			false,
+		},
+		{
+			"IdenticalPayloadDigest profile metadata record",
+			createRecord1(Resource,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentLength, Value: "19"},
+				},
+				"This is the content"),
+			&RevisitRef{Profile: ProfileIdenticalPayloadDigestV1_1, TargetRecordId: "targetId"},
+			want{
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "revisit"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: ContentLength, Value: "0"},
+					&nameValue{Name: WarcProfile, Value: ProfileIdenticalPayloadDigestV1_1},
+					&nameValue{Name: WarcRefersTo, Value: "targetId"},
+					&nameValue{Name: WarcTruncated, Value: "length"},
+				},
+				"",
+			},
+			false,
+		},
+		{
+			"IdenticalPayloadDigest profile metadata record missing payload digest",
+			createRecord1(Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "text/plain"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentLength, Value: "19"},
+				},
+				"This is the content"),
+			&RevisitRef{Profile: ProfileIdenticalPayloadDigestV1_1, TargetRecordId: "targetId"},
+			want{},
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -170,6 +277,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 			"ServerNotModified profile",
 			createRecord1(Revisit,
 				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
@@ -178,6 +286,8 @@ func Test_warcRecord_Merge(t *testing.T) {
 					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
 					&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
 					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcRefersToTargetURI, Value: "http://example.com"},
+					&nameValue{Name: WarcRefersToDate, Value: "2016-09-19T18:03:53Z"},
 					&nameValue{Name: WarcTruncated, Value: "length"},
 				},
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
@@ -185,6 +295,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\n"),
 			[]WarcRecord{createRecord1(Response,
 				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
 					&nameValue{Name: WarcDate, Value: "2016-09-19T18:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
@@ -197,6 +308,59 @@ func Test_warcRecord_Merge(t *testing.T) {
 			want{
 				Response,
 				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6E9D6B234FEEBBF1AB618707217E577C3B83448A"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "257"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
+				&httpResponseBlock{},
+				true,
+			},
+			false,
+		},
+		{
+			"IdenticalPayloadDigest profile",
+			createRecord1(Revisit,
+				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://foo.com"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "238"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:BF9D96D3F3F230CE8E2C6A3E5E1D51A81016B55E"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: WarcProfile, Value: ProfileIdenticalPayloadDigestV1_1},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcRefersToTargetURI, Value: "http://example.com"},
+					&nameValue{Name: WarcRefersToDate, Value: "2016-09-19T18:03:53Z"},
+					&nameValue{Name: WarcTruncated, Value: "length"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\n"),
+			[]WarcRecord{createRecord1(Response,
+				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
+					&nameValue{Name: WarcDate, Value: "2016-09-19T18:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6E9D6B234FEEBBF1AB618707217E577C3B83448A"},
+					&nameValue{Name: ContentLength, Value: "236"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02fff\"\n"+
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content")},
+			want{
+				Response,
+				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://foo.com"},
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "response"},
@@ -223,6 +387,12 @@ func Test_warcRecord_Merge(t *testing.T) {
 					_ = r.Close()
 				}
 			}()
+
+			rr, err := tt.revisitRecord.RevisitRef()
+			assert.NoError(err)
+			revisitRef, err := tt.referencedRecord[0].CreateRevisitRef(rr.Profile)
+			assert.NoError(err)
+			assert.Equal(revisitRef, rr)
 
 			got, err := tt.revisitRecord.Merge(tt.referencedRecord...)
 			if tt.wantErr {
