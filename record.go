@@ -40,8 +40,15 @@ type WarcRecord interface {
 	Block() Block
 	String() string
 	io.Closer
+	// ToRevisitRecord takes RevisitRef referencing the record we want to make a revisit of and returns a revisit record.
 	ToRevisitRecord(ref *RevisitRef) (WarcRecord, error)
+	// RevisitRef extracts a RevisitRef current record if it is a revisit record.
 	RevisitRef() (*RevisitRef, error)
+	// CreateRevisitRef creates a RevisitRef which references the current record.
+	// The RevisitRef might be used by another records ToRevisitRecord to create a revisit record referencing this record.
+	CreateRevisitRef(profile string) (*RevisitRef, error)
+	// Merge merges this record with its referenced record(s)
+	// It is implemented only for revisit records, but this function will be enhanced to also support segmented records.
 	Merge(record ...WarcRecord) (WarcRecord, error)
 	ValidateDigest(validation *Validation) error
 }
@@ -191,7 +198,10 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 	case ProfileIdenticalPayloadDigestV1_0:
 		fallthrough
 	case ProfileIdenticalPayloadDigestV1_1:
-		if !wr.headers.Has(WarcPayloadDigest) {
+		if !h.Has(WarcPayloadDigest) && wr.recordType == Resource && h.Has(WarcBlockDigest) {
+			h.Set(WarcPayloadDigest, h.Get(WarcBlockDigest))
+		}
+		if !h.Has(WarcPayloadDigest) {
 			return nil, fmt.Errorf("payload digest is required for Identical Payload Digest Profile")
 		}
 	case ProfileServerNotModifiedV1_0:
@@ -218,7 +228,6 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 		return nil, err
 	}
 	h.Set(WarcBlockDigest, block.BlockDigest())
-	h.Set(WarcPayloadDigest, block.PayloadDigest())
 	h.Set(ContentLength, strconv.Itoa(len(block.headerBytes)))
 
 	revisit := &warcRecord{
@@ -241,6 +250,19 @@ func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
 		TargetRecordId: wr.headers.Get(WarcRefersTo),
 		TargetUri:      wr.headers.Get(WarcRefersToTargetURI),
 		TargetDate:     wr.headers.Get(WarcRefersToDate),
+	}, nil
+}
+
+func (wr *warcRecord) CreateRevisitRef(profile string) (*RevisitRef, error) {
+	if wr.recordType == Revisit {
+		return nil, fmt.Errorf("not allowed to reference a revisit record")
+	}
+
+	return &RevisitRef{
+		Profile:        profile,
+		TargetRecordId: wr.headers.Get(WarcRecordID),
+		TargetUri:      wr.headers.Get(WarcTargetURI),
+		TargetDate:     wr.headers.Get(WarcDate),
 	}, nil
 }
 
@@ -356,6 +378,9 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	switch v := wr.Block().(type) {
 	case *genericBlock:
 		blockDigest = v.blockDigest
+		if wr.recordType == Resource {
+			payloadDigest = blockDigest
+		}
 	case *httpRequestBlock:
 		blockDigest = v.blockDigest
 		payloadDigest = v.payloadDigest
@@ -370,7 +395,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 
 	if blockDigest != nil {
 		if blockDigest.hash == "" {
-			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
+			// Missing digest header is allowed, so skip validation. But if addMissingDigest option is set, a header will be added.
 			if wr.opts.addMissingDigest {
 				wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
 			}
@@ -381,6 +406,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 				case ErrWarn:
 					validation.addError(fmt.Errorf("block: %w", err))
 					if wr.opts.fixDigest {
+						// Digest validation failed. But if fixDigest option is set, the calculated digest will be set.
 						wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
 					}
 				case ErrFail:
@@ -398,7 +424,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 
 	if payloadDigest != nil {
 		if payloadDigest.hash == "" {
-			// Missing digest header is allowed, so skip validation. But if fixDigest option is set, a header will be added.
+			// Missing digest header is allowed, so skip validation. But if addMissingDigest option is set, a header will be added.
 			if wr.opts.addMissingDigest {
 				wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
 			}
@@ -408,6 +434,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 				case ErrIgnore:
 				case ErrWarn:
 					validation.addError(fmt.Errorf("payload: %w", err))
+					// Digest validation failed. But if fixDigest option is set, the calculated digest will be set.
 					if wr.opts.fixDigest {
 						wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
 					}

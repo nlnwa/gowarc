@@ -79,6 +79,7 @@ func newRevisitBlock(opts *warcRecordOptions, src Block) (*revisitBlock, error) 
 	case HttpResponseBlock:
 		block.headerBytes = v.HttpHeaderBytes()
 		block.payloadDigestString = v.PayloadDigest()
+	case *genericBlock:
 	default:
 		return nil, fmt.Errorf("making revisit of %T not supported", v)
 	}
