@@ -142,7 +142,7 @@ func resolveRecordType(wf *WarcFields, validation *Validation, opts *warcRecordO
 	typeFieldValLc := strings.ToLower(typeField)
 	rt = stringToRecordType(typeFieldValLc)
 	if rt == 0 {
-		switch opts.errUnknowRecordType {
+		switch opts.errUnknownRecordType {
 		case ErrIgnore:
 		case ErrWarn:
 			validation.addError(fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField))
