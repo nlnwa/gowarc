@@ -16,7 +16,10 @@
 
 package gowarc
 
-import "github.com/nlnwa/gowarc/internal/diskbuffer"
+import (
+	"github.com/google/uuid"
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
+)
 
 type warcRecordOptions struct {
 	warcVersion             *WarcVersion
@@ -25,6 +28,7 @@ type warcRecordOptions struct {
 	errUnknownRecordType    errorPolicy
 	skipParseBlock          bool
 	addMissingRecordId      bool
+	recordIdFunc            func() (string, error)
 	addMissingContentLength bool
 	addMissingDigest        bool
 	fixContentLength        bool
@@ -41,6 +45,10 @@ const (
 	ErrWarn   errorPolicy = 1 // Ignore given error, but submit a warning.
 	ErrFail   errorPolicy = 2 // Fail on given error.
 )
+
+var defaultIdGenerator = func() (string, error) {
+	return uuid.New().URN(), nil
+}
 
 // WarcRecordOption configures validation, marshaling and unmarshaling of WARC records.
 type WarcRecordOption interface {
@@ -71,6 +79,7 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		errUnknownRecordType:    ErrWarn,
 		skipParseBlock:          false,
 		addMissingRecordId:      true,
+		recordIdFunc:            defaultIdGenerator,
 		addMissingContentLength: true,
 		addMissingDigest:        true,
 		defaultDigestAlgorithm:  "sha1",
@@ -120,7 +129,7 @@ func WithSpecViolationPolicy(policy errorPolicy) WarcRecordOption {
 // defaults to ErrWarn
 func WithUnknownRecordTypePolicy(policy errorPolicy) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
-		o.errUnknowRecordType = policy
+		o.errUnknownRecordType = policy
 	})
 }
 
@@ -130,6 +139,18 @@ func WithUnknownRecordTypePolicy(policy errorPolicy) WarcRecordOption {
 func WithAddMissingRecordId(addMissingRecordId bool) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.addMissingRecordId = addMissingRecordId
+	})
+}
+
+// WithRecordIdFunc sets a function for generating WARC-Record-ID if AddMissingRecordId is true.
+//
+// Expected output is a valid URI without the surrounding '<' and '>' as described in the WARC spec
+// (https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#warc-record-id-mandatory)
+//
+// defaults to generating uuid
+func WithRecordIdFunc(recordIdFunc func() (string, error)) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.recordIdFunc = recordIdFunc
 	})
 }
 

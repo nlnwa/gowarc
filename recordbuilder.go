@@ -18,7 +18,6 @@ package gowarc
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"strconv"
@@ -108,7 +107,11 @@ func (rb *recordBuilder) SetRecordType(recordType RecordType) {
 
 func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
-		rb.headers.Set(WarcRecordID, "<"+uuid.New().URN()+">")
+		if id, err := rb.opts.recordIdFunc(); err != nil {
+			return nil, nil, err
+		} else {
+			rb.headers.Set(WarcRecordID, "<"+id+">")
+		}
 	}
 
 	wr := &warcRecord{
