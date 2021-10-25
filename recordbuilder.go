@@ -137,6 +137,11 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 }
 
 func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
+	size := strconv.FormatInt(rb.content.Size(), 10)
+	if rb.opts.addMissingContentLength && !wr.WarcHeader().Has(ContentLength) {
+		wr.headers.Set(ContentLength, size)
+	}
+
 	validation := &Validation{}
 	_, err := validateHeader(rb.headers, wr.version, validation, wr.opts)
 	if err != nil {
@@ -144,21 +149,16 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 	}
 
 	if rb.opts.errSpec > ErrIgnore {
-		size := strconv.FormatInt(rb.content.Size(), 10)
-		if wr.WarcHeader().Has(ContentLength) {
-			if size != wr.headers.Get(ContentLength) {
-				switch rb.opts.errSpec {
-				case ErrWarn:
-					validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
-					if rb.opts.fixContentLength {
-						wr.WarcHeader().Set(ContentLength, size)
-					}
-				case ErrFail:
-					return validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
+		if wr.WarcHeader().Has(ContentLength) && size != wr.headers.Get(ContentLength) {
+			switch rb.opts.errSpec {
+			case ErrWarn:
+				validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
+				if rb.opts.fixContentLength {
+					wr.WarcHeader().Set(ContentLength, size)
 				}
+			case ErrFail:
+				return validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
 			}
-		} else if rb.opts.addMissingContentLength {
-			wr.headers.Set(ContentLength, size)
 		}
 	}
 	return validation, err
