@@ -148,9 +148,33 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 	record.closer = func() error {
 		_, err := io.Copy(ioutil.Discard, content)
 
-		// Discarding 2 bytes which makes up the end of record marker (\r\n)
-		// TODO: validate that record ends with correct marker
-		_, _ = r.Discard(4)
+		// Discarding 4 bytes which makes up the end of record marker (\r\n\r\n)
+		b, e := r.Peek(4)
+		switch {
+		case string(b) == crlfcrlf:
+			_, _ = r.Discard(4)
+		case len(b) == 0:
+			e = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, b)
+		case len(b) == 1 && b[0] == lf:
+			e = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, b)
+			_, _ = r.Discard(1)
+		case len(b) == 2 && b[0] == lf && b[1] == lf:
+			e = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, b)
+			_, _ = r.Discard(2)
+		case len(b) < 4:
+			e = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, b)
+			_, _ = r.Discard(len(b))
+		case e == io.EOF:
+			_, _ = r.Discard(len(b))
+		}
+		if e != nil {
+			switch u.opts.errSpec {
+			case ErrFail:
+				err = e
+			case ErrWarn:
+				validation.addError(e)
+			}
+		}
 		if isGzip {
 			// Empty gzip reader to ensure gzip checksum is validated
 			b := make([]byte, 10)

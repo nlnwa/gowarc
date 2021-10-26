@@ -55,14 +55,15 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
 				"WARC-Type: warcinfo\r\n" +
 				"Content-Type: application/warc-fields\r\n" +
-				"Warc-Block-Digest: sha1:BBB3E40054DF0B7BA6DD470D2FA561722D9EDBAC\r\n" +
-				"Content-Length: 240\r\n" +
+				"Warc-Block-Digest: sha1:AF4D582B4FFC017D07A947D841E392A821F754F3\r\n" +
+				"Content-Length: 238\r\n" +
 				"\r\n" +
 				"software: Veidemann v1.0\r\n" +
 				"format: WARC File Format 1.1\r\n" +
 				"creator: temp-MJFXHZ4S\r\n" +
 				"isPartOf: Temporary%20Collection\r\n" +
-				"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n\r\n",
+				"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n" +
+				"\r\n\r\n",
 			want{
 				version:    V1_0,
 				recordType: Warcinfo,
@@ -72,15 +73,15 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
 					&nameValue{Name: ContentType, Value: "application/warc-fields"},
-					&nameValue{Name: WarcBlockDigest, Value: "sha1:BBB3E40054DF0B7BA6DD470D2FA561722D9EDBAC"},
-					&nameValue{Name: ContentLength, Value: "240"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:AF4D582B4FFC017D07A947D841E392A821F754F3"},
+					&nameValue{Name: ContentLength, Value: "238"},
 				},
 				blockType: &warcFieldsBlock{},
 				content: "software: Veidemann v1.0\r\n" +
 					"format: WARC File Format 1.1\r\n" +
 					"creator: temp-MJFXHZ4S\r\n" +
 					"isPartOf: Temporary%20Collection\r\n" +
-					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n\r\n",
+					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n",
 				validation: &Validation{},
 				cached:     true,
 			},
@@ -100,7 +101,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"\r\n" +
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 				"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
-				"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
+				"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Response,
@@ -138,7 +140,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 				"Referer: http://example.com/foo.html\n" +
 				"Connection: close\n" +
-				"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
+				"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Request,
@@ -177,7 +180,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"\r\n" +
 				"via: http://www.example.com/\r\n" +
 				"hopsFromSeed: P\r\n" +
-				"fetchTimeMs: 47\r\n",
+				"fetchTimeMs: 47\r\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Metadata,
@@ -216,7 +220,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"\r\n" +
 				"<html><head></head>\n" +
 				"<body></body>\n" +
-				"</html>\n",
+				"</html>\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Resource,
@@ -261,7 +266,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"Date: Tue, 06 Mar 2017 00:43:35 GMT\n" +
 				"Server: Apache/2.0.54 (Ubuntu) PHP/5.0.5-2ubuntu1.4 Connection: Keep-Alive\n" +
 				"Keep-Alive: timeout=15, max=100\n" +
-				"ETag: \"3e45-67e-2ed02ec0\"\n",
+				"ETag: \"3e45-67e-2ed02ec0\"\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Revisit,
@@ -303,7 +309,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"Warc-Block-Digest: sha1:581F7F1CA3D3EB023438808309678ED6D03E2895\r\n" +
 				"Content-Length: 10\r\n" +
 				"\r\n" +
-				"body text\n",
+				"body text\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Conversion,
@@ -341,7 +348,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"WARC-Payload-Digest: sha1:CCHXETFVJD2MUZY6ND6SS7ZENMWF7KQ2\r\n" +
 				"Content-Length: 22\r\n" +
 				"\r\n" +
-				"... last part of data\n",
+				"... last part of data\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				Continuation,
@@ -379,7 +387,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"Warc-Block-Digest: sha1:7FE70820E08A1AAC0EF224D9C66AB66831CC4AB1\r\n" +
 				"Content-Length: 8\r\n" +
 				"\r\n" +
-				"content\n",
+				"content\n" +
+				"\r\n\r\n",
 			want{
 				V1_0,
 				0,
@@ -401,6 +410,125 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			0,
 			false,
 		},
+		{
+			"metadata record missing end marker",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: metadata\r\n" +
+				"Content-Type: application/warc-fields\r\n" +
+				"Content-Length: 10\r\n" +
+				"\r\n" +
+				"foo: bar\r\n",
+			want{
+				V1_0,
+				Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: ContentLength, Value: "10"},
+				},
+				&warcFieldsBlock{},
+				"foo: bar\r\n",
+				&Validation{},
+				true,
+			},
+			0,
+			true,
+		},
+		{
+			"metadata record only newline end marker",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: metadata\r\n" +
+				"Content-Type: application/warc-fields\r\n" +
+				"Content-Length: 10\r\n" +
+				"\r\n" +
+				"foo: bar\r\n" +
+				"\n\n",
+			want{
+				V1_0,
+				Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: ContentLength, Value: "10"},
+				},
+				&warcFieldsBlock{},
+				"foo: bar\r\n",
+				&Validation{},
+				true,
+			},
+			0,
+			true,
+		},
+		{
+			"metadata record only one end marker",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: metadata\r\n" +
+				"Content-Type: application/warc-fields\r\n" +
+				"Content-Length: 10\r\n" +
+				"\r\n" +
+				"foo: bar\r\n" +
+				"\r\n",
+			want{
+				V1_0,
+				Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: ContentLength, Value: "10"},
+				},
+				&warcFieldsBlock{},
+				"foo: bar\r\n",
+				&Validation{},
+				true,
+			},
+			0,
+			true,
+		},
+		{
+			"metadata record only one newline end marker",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: metadata\r\n" +
+				"Content-Type: application/warc-fields\r\n" +
+				"Content-Length: 10\r\n" +
+				"\r\n" +
+				"foo: bar\r\n" +
+				"\n",
+			want{
+				V1_0,
+				Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: ContentLength, Value: "10"},
+				},
+				&warcFieldsBlock{},
+				"foo: bar\r\n",
+				&Validation{},
+				true,
+			},
+			0,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -409,20 +537,10 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 
 			u := NewUnmarshaler(tt.opts...)
 			data := bufio.NewReader(strings.NewReader(tt.input))
-			gotRecord, gotOffset, validation, err := u.Unmarshal(data)
-			defer func() {
-				err := gotRecord.Close()
-				if tt.wantErr {
-					require.Error(err)
-				} else {
-					require.NoError(err)
-				}
-			}()
+			gotRecord, gotOffset, validation, err1 := u.Unmarshal(data)
 
-			if tt.wantErr {
-				require.Error(err)
-			} else {
-				require.NoError(err)
+			if !tt.wantErr {
+				require.NoError(err1)
 			}
 			assert.True(validation.Valid(), validation.String())
 
@@ -442,12 +560,18 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			assert.Equal(tt.want.content, string(content), "Content")
 			assert.Equal(tt.wantOffset, gotOffset, "Offset")
 
-			err = gotRecord.ValidateDigest(validation)
-			if tt.wantErr {
-				require.Error(err)
-			} else {
-				require.NoError(err)
+			err2 := gotRecord.ValidateDigest(validation)
+			if !tt.wantErr {
+				require.NoError(err2)
 			}
+
+			err3 := gotRecord.Close()
+			if tt.wantErr {
+				require.Error(multiErr{err1, err2, err3})
+			} else {
+				require.NoError(err3)
+			}
+
 			assert.True(validation.Valid(), validation.String())
 		})
 	}
