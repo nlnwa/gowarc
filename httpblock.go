@@ -104,6 +104,11 @@ func (block *httpRequestBlock) BlockDigest() string {
 	return block.blockDigestString
 }
 
+func (block *httpRequestBlock) Size() int64 {
+	block.BlockDigest()
+	return block.blockDigest.count
+}
+
 func (block *httpRequestBlock) PayloadBytes() (io.Reader, error) {
 	if block.filterReader == nil {
 		block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
@@ -235,6 +240,11 @@ func (block *httpResponseBlock) BlockDigest() string {
 		block.payloadDigestString = block.payloadDigest.format()
 	}
 	return block.blockDigestString
+}
+
+func (block *httpResponseBlock) Size() int64 {
+	block.BlockDigest()
+	return block.blockDigest.count
 }
 
 func (block *httpResponseBlock) PayloadBytes() (io.Reader, error) {

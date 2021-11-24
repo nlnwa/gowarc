@@ -29,8 +29,23 @@ import (
 
 type digest struct {
 	hash.Hash
-	name string
-	hash string
+	name  string
+	hash  string
+	count int64
+}
+
+// Write (via the embedded io.Writer interface) adds more data to the running hash.
+// It never returns an error.
+func (d *digest) Write(p []byte) (n int, err error) {
+	d.count += int64(len(p))
+	return d.Hash.Write(p)
+}
+
+// Sum appends the current hash to b and returns the resulting slice.
+// It does not change the underlying hash state.
+func (d *digest) Sum(b []byte) []byte {
+	d.count += int64(len(b))
+	return d.Hash.Sum(b)
 }
 
 func (d *digest) format() string {
@@ -55,15 +70,15 @@ func newDigest(digestString string) (*digest, error) {
 	}
 	switch algorithm {
 	case "md5":
-		return &digest{md5.New(), algorithm, hash}, nil
+		return &digest{md5.New(), algorithm, hash, 0}, nil
 	case "sha1":
-		return &digest{sha1.New(), algorithm, hash}, nil
+		return &digest{sha1.New(), algorithm, hash, 0}, nil
 	case "sha256":
-		return &digest{sha256.New(), algorithm, hash}, nil
+		return &digest{sha256.New(), algorithm, hash, 0}, nil
 	case "sha512":
-		return &digest{sha512.New(), algorithm, hash}, nil
+		return &digest{sha512.New(), algorithm, hash, 0}, nil
 	case "":
-		return &digest{sha1.New(), "sha1", hash}, nil
+		return &digest{sha1.New(), "sha1", hash, 0}, nil
 	default:
 		return nil, fmt.Errorf("unsupported digest algorithm '%s'", algorithm)
 	}

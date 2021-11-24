@@ -54,6 +54,10 @@ func (block *revisitBlock) PayloadDigest() string {
 	return block.payloadDigestString
 }
 
+func (block *revisitBlock) Size() int64 {
+	return int64(len(block.headerBytes))
+}
+
 func (block *revisitBlock) Write(w io.Writer) (int64, error) {
 	p, err := block.RawBytes()
 	if err != nil {

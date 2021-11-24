@@ -17,7 +17,6 @@
 package gowarc
 
 import (
-	"fmt"
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"strconv"
@@ -151,19 +150,6 @@ func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
 		return validation, err
 	}
 
-	if rb.opts.errSpec > ErrIgnore {
-		if wr.WarcHeader().Has(ContentLength) && size != wr.headers.Get(ContentLength) {
-			switch rb.opts.errSpec {
-			case ErrWarn:
-				validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
-				if rb.opts.fixContentLength {
-					wr.WarcHeader().Set(ContentLength, size)
-				}
-			case ErrFail:
-				return validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
-			}
-		}
-	}
 	return validation, err
 }
 
