@@ -61,6 +61,10 @@ func (b *warcFieldsBlock) BlockDigest() string {
 	return b.blockDigest.format()
 }
 
+func (block *warcFieldsBlock) Size() int64 {
+	return int64(len(block.content))
+}
+
 func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 	bytesWritten, err = b.warcFields.Write(w)
 	if err != nil {

@@ -23,7 +23,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
-	"strconv"
 	"strings"
 	"testing"
 )
@@ -529,6 +528,41 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			0,
 			true,
 		},
+		{
+			"short response record",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: response\r\n" +
+				"Content-Type: application/http;msgtype=response\r\n" +
+				"Content-Length: 257\r\n" +
+				"\r\n" +
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+				"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
+				"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the " +
+				"\r\n\r\n",
+			want{
+				V1_0,
+				Response,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "response"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "257"},
+				},
+				&httpResponseBlock{},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the " +
+					"\r\n\r\n",
+				&Validation{},
+				false,
+			},
+			0,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -555,8 +589,6 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			content, err := ioutil.ReadAll(r)
 			assert.Nil(err)
 
-			contentLength, _ := strconv.Atoi(gotRecord.WarcHeader().Get(ContentLength))
-			assert.Equal(contentLength, len(content), "ContentLength")
 			assert.Equal(tt.want.content, string(content), "Content")
 			assert.Equal(tt.wantOffset, gotOffset, "Offset")
 

@@ -45,11 +45,25 @@ type WarcRecord interface {
 	// RevisitRef extracts a RevisitRef current record if it is a revisit record.
 	RevisitRef() (*RevisitRef, error)
 	// CreateRevisitRef creates a RevisitRef which references the current record.
+	//
 	// The RevisitRef might be used by another records ToRevisitRecord to create a revisit record referencing this record.
 	CreateRevisitRef(profile string) (*RevisitRef, error)
 	// Merge merges this record with its referenced record(s)
+	//
 	// It is implemented only for revisit records, but this function will be enhanced to also support segmented records.
 	Merge(record ...WarcRecord) (WarcRecord, error)
+	// ValidateDigest validates block and payload digests if present.
+	//
+	// If option FixDigest is set, an invalid or missing digest will be corrected in the header.
+	// Digest validation requires the whole content block to be read. As a side effect the Content-Length field is also validated
+	// and if option FixContentLength is set, a wrong content length will be corrected in the header.
+	//
+	// If the record is not cached, it might not be possible to read any content from this record after validation.
+	//
+	// The result is dependent on the SpecViolationPolicy option:
+	//   ErrIgnore: only fatal errors are returned.
+	//   ErrWarn: all errors found will be added to the Validation.
+	//   ErrFail: the first error is returned and no more validation is done.
 	ValidateDigest(validation *Validation) error
 }
 
@@ -369,10 +383,34 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 }
 
 // ValidateDigest validates block and payload digests if present.
+//
 // If option FixDigest is set, an invalid or missing digest will be corrected in the header.
+// Digest validation requires the whole content block to be read. As a side effect the Content-Length field is also validated
+// and if option FixContentLength is set, a wrong content length will be corrected in the header.
+//
 // If the record is not cached, it might not be possible to read any content from this record after validation.
+//
+// The result is dependent on the SpecViolationPolicy option:
+//   ErrIgnore: only fatal errors are returned.
+//   ErrWarn: all errors found will be added to the Validation.
+//   ErrFail: the first error is returned and no more validation is done.
 func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	wr.Block().BlockDigest()
+
+	size := strconv.FormatInt(wr.block.Size(), 10)
+	if wr.opts.errSpec > ErrIgnore {
+		if wr.WarcHeader().Has(ContentLength) && size != wr.headers.Get(ContentLength) {
+			switch wr.opts.errSpec {
+			case ErrWarn:
+				validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
+				if wr.opts.fixContentLength {
+					wr.WarcHeader().Set(ContentLength, size)
+				}
+			case ErrFail:
+				return fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
+			}
+		}
+	}
 
 	var blockDigest, payloadDigest *digest
 	switch v := wr.Block().(type) {

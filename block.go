@@ -34,6 +34,7 @@ type Block interface {
 	// RawBytes returns the bytes of the Block
 	RawBytes() (io.Reader, error)
 	BlockDigest() string
+	Size() int64
 	IsCached() bool
 	Cache() error
 }
@@ -115,6 +116,11 @@ func (block *genericBlock) BlockDigest() string {
 		block.blockDigestString = block.blockDigest.format()
 	}
 	return block.blockDigestString
+}
+
+func (block *genericBlock) Size() int64 {
+	block.BlockDigest()
+	return block.blockDigest.count
 }
 
 var errContentReAccessed = errors.New("gowarc.Block: tried to access content twice")

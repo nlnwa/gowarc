@@ -183,10 +183,11 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 				_, err = u.gz.Read(b)
 			}
 			if err != io.EOF {
-				panic(err)
+				_ = u.gz.Close()
+				return err
 			}
 			if err := u.gz.Close(); err != nil {
-				panic(err)
+				return err
 			}
 		}
 		return err
