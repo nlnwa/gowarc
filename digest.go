@@ -113,7 +113,7 @@ func (d *digest) format() string {
 }
 
 func (d *digest) validate() error {
-	computed := fmt.Sprintf("%s", d.encoding.encode(d))
+	computed := d.encoding.encode(d)
 	if d.hash != computed {
 		return fmt.Errorf("wrong digest: expected %s:%s, computed: %s:%s", d.name, d.hash, d.name, computed)
 	}
