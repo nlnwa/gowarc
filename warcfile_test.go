@@ -128,7 +128,8 @@ func TestWarcFileWriter_Write_warcinfo_uncompressed(t *testing.T) {
 		WithWarcInfoFunc(func(recordBuilder WarcRecordBuilder) error {
 			recordBuilder.AddWarcHeader(WarcRecordID, "<urn:uuid:4f271dba-fdfa-4915-ab7e-3e4e1fc0791b>")
 			return nil
-		}))
+		}),
+		WithRecordOptions(WithDefaultDigestEncoding(Base16)))
 	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
 
 	// Write two records sequentially
@@ -170,7 +171,8 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 		WithWarcInfoFunc(func(recordBuilder WarcRecordBuilder) error {
 			recordBuilder.AddWarcHeader(WarcRecordID, "<urn:uuid:4f271dba-fdfa-4915-ab7e-3e4e1fc0791b>")
 			return nil
-		}))
+		}),
+		WithRecordOptions(WithDefaultDigestEncoding(Base16)))
 	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
 
 	// Write two records sequentially

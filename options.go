@@ -34,6 +34,7 @@ type warcRecordOptions struct {
 	fixContentLength        bool
 	fixDigest               bool
 	defaultDigestAlgorithm  string
+	defaultDigestEncoding   digestEncoding
 	bufferOptions           []diskbuffer.Option
 }
 
@@ -83,6 +84,7 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		addMissingContentLength: true,
 		addMissingDigest:        true,
 		defaultDigestAlgorithm:  "sha1",
+		defaultDigestEncoding:   Base32,
 		fixContentLength:        true,
 		fixDigest:               true,
 	}
@@ -182,6 +184,17 @@ func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
 func WithDefaultDigestAlgorithm(defaultDigestAlgorithm string) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.defaultDigestAlgorithm = defaultDigestAlgorithm
+	})
+}
+
+// WithDefaultDigestEncoding sets which encoding to use for digest generation.
+//
+// Valid values: Base16, Base32 and Base64.
+//
+// defaults to Base32
+func WithDefaultDigestEncoding(defaultDigestEncoding digestEncoding) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.defaultDigestEncoding = defaultDigestEncoding
 	})
 }
 
