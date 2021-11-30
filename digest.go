@@ -54,7 +54,7 @@ const (
 )
 
 func detectEncoding(algorithm, digest string, defaultEncoding digestEncoding) digestEncoding {
-	var algorithmLenght int
+	var algorithmLength int
 	switch algorithm {
 	case "md5":
 		if len(digest) == 32 {
@@ -66,20 +66,20 @@ func detectEncoding(algorithm, digest string, defaultEncoding digestEncoding) di
 				return Base16
 			}
 		}
-		algorithmLenght = md5.Size
+		algorithmLength = md5.Size
 	case "sha1":
-		algorithmLenght = sha1.Size
+		algorithmLength = sha1.Size
 	case "sha256":
-		algorithmLenght = sha256.Size
+		algorithmLength = sha256.Size
 	case "sha512":
-		algorithmLenght = sha512.Size
+		algorithmLength = sha512.Size
 	}
 	switch len(digest) {
-	case algorithmLenght * 2:
+	case algorithmLength * 2:
 		return Base16
-	case base32.StdEncoding.EncodedLen(algorithmLenght):
+	case base32.StdEncoding.EncodedLen(algorithmLength):
 		return Base32
-	case base64.StdEncoding.EncodedLen(algorithmLenght):
+	case base64.StdEncoding.EncodedLen(algorithmLength):
 		return Base64
 	}
 	return defaultEncoding
