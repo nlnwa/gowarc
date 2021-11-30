@@ -21,17 +21,76 @@ import (
 	"crypto/sha1"
 	"crypto/sha256"
 	"crypto/sha512"
+	"encoding/base32"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"hash"
 	"io"
 	"strings"
 )
 
+type digestEncoding uint8
+
+func (d digestEncoding) encode(digest *digest) string {
+	dig := digest.Sum(nil)
+	switch d {
+	case Base16:
+		return strings.ToUpper(hex.EncodeToString(dig))
+	case Base32:
+		return base32.StdEncoding.EncodeToString(dig)
+	case Base64:
+		return base64.StdEncoding.EncodeToString(dig)
+	default:
+		return string(dig)
+	}
+}
+
+const (
+	unknown digestEncoding = 0
+	Base16  digestEncoding = 1
+	Base32  digestEncoding = 2
+	Base64  digestEncoding = 3
+)
+
+func detectEncoding(algorithm, digest string, defaultEncoding digestEncoding) digestEncoding {
+	var algorithmLenght int
+	switch algorithm {
+	case "md5":
+		if len(digest) == 32 {
+			// Special handling for md5 where encoded length are the same for base16 and base32.
+			// Distinction can be done on base32 padding
+			if strings.HasSuffix(digest, "=") {
+				return Base32
+			} else {
+				return Base16
+			}
+		}
+		algorithmLenght = md5.Size
+	case "sha1":
+		algorithmLenght = sha1.Size
+	case "sha256":
+		algorithmLenght = sha256.Size
+	case "sha512":
+		algorithmLenght = sha512.Size
+	}
+	switch len(digest) {
+	case algorithmLenght * 2:
+		return Base16
+	case base32.StdEncoding.EncodedLen(algorithmLenght):
+		return Base32
+	case base64.StdEncoding.EncodedLen(algorithmLenght):
+		return Base64
+	}
+	return defaultEncoding
+}
+
 type digest struct {
 	hash.Hash
-	name  string
-	hash  string
-	count int64
+	name     string
+	hash     string
+	count    int64
+	encoding digestEncoding
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
@@ -49,36 +108,41 @@ func (d *digest) Sum(b []byte) []byte {
 }
 
 func (d *digest) format() string {
-	return fmt.Sprintf("%s:%X", d.name, d.Sum(nil))
+	return fmt.Sprintf("%s:%s", d.name, d.encoding.encode(d))
+	//return fmt.Sprintf("%s:%X", d.name, d.Sum(nil))
 }
 
 func (d *digest) validate() error {
-	computed := fmt.Sprintf("%X", d.Sum(nil))
+	computed := fmt.Sprintf("%s", d.encoding.encode(d))
 	if d.hash != computed {
 		return fmt.Errorf("wrong digest: expected %s:%s, computed: %s:%s", d.name, d.hash, d.name, computed)
 	}
 	return nil
 }
 
-func newDigest(digestString string) (*digest, error) {
+func newDigest(digestString string, defaultEncoding digestEncoding) (*digest, error) {
 	t := strings.SplitN(digestString, ":", 2)
 	algorithm := t[0]
 	algorithm = strings.ToLower(algorithm)
+	if algorithm == "" {
+		algorithm = "sha1"
+	}
 	var hash string
 	if len(t) > 1 {
-		hash = strings.ToUpper(t[1])
+		hash = t[1]
 	}
+	encoding := detectEncoding(algorithm, hash, defaultEncoding)
 	switch algorithm {
 	case "md5":
-		return &digest{md5.New(), algorithm, hash, 0}, nil
+		return &digest{md5.New(), algorithm, hash, 0, encoding}, nil
 	case "sha1":
-		return &digest{sha1.New(), algorithm, hash, 0}, nil
+		return &digest{sha1.New(), algorithm, hash, 0, encoding}, nil
 	case "sha256":
-		return &digest{sha256.New(), algorithm, hash, 0}, nil
+		return &digest{sha256.New(), algorithm, hash, 0, encoding}, nil
 	case "sha512":
-		return &digest{sha512.New(), algorithm, hash, 0}, nil
+		return &digest{sha512.New(), algorithm, hash, 0, encoding}, nil
 	case "":
-		return &digest{sha1.New(), "sha1", hash, 0}, nil
+		return &digest{sha1.New(), "sha1", hash, 0, encoding}, nil
 	default:
 		return nil, fmt.Errorf("unsupported digest algorithm '%s'", algorithm)
 	}
@@ -86,9 +150,9 @@ func newDigest(digestString string) (*digest, error) {
 
 func newDigestFromField(wr *warcRecord, warcDigestField string) (d *digest, err error) {
 	if wr.WarcHeader().Has(warcDigestField) {
-		d, err = newDigest(wr.WarcHeader().Get(warcDigestField))
+		d, err = newDigest(wr.WarcHeader().Get(warcDigestField), wr.opts.defaultDigestEncoding)
 	} else {
-		d, err = newDigest(wr.opts.defaultDigestAlgorithm)
+		d, err = newDigest(wr.opts.defaultDigestAlgorithm, wr.opts.defaultDigestEncoding)
 	}
 	return
 }

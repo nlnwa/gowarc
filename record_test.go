@@ -419,7 +419,8 @@ func Test_warcRecord_Merge(t *testing.T) {
 
 func createRecord1(recordType RecordType, headers *WarcFields, data string) WarcRecord {
 	rb := NewRecordBuilder(recordType, WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail),
-		WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false), WithAddMissingDigest(false))
+		WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false), WithAddMissingDigest(false),
+		WithDefaultDigestEncoding(Base16))
 	for _, nv := range *headers {
 		rb.AddWarcHeader(nv.Name, nv.Value)
 	}

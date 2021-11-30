@@ -88,7 +88,7 @@ func newRevisitBlock(opts *warcRecordOptions, src Block) (*revisitBlock, error) 
 		return nil, fmt.Errorf("making revisit of %T not supported", v)
 	}
 
-	blockDigest, _ := newDigest(block.opts.defaultDigestAlgorithm)
+	blockDigest, _ := newDigest(block.opts.defaultDigestAlgorithm, block.opts.defaultDigestEncoding)
 	if _, err := blockDigest.Write(block.headerBytes); err != nil {
 		return nil, err
 	}
