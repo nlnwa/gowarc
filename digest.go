@@ -109,7 +109,6 @@ func (d *digest) Sum(b []byte) []byte {
 
 func (d *digest) format() string {
 	return fmt.Sprintf("%s:%s", d.name, d.encoding.encode(d))
-	//return fmt.Sprintf("%s:%X", d.name, d.Sum(nil))
 }
 
 func (d *digest) validate() error {
