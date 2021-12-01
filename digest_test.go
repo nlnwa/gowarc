@@ -100,6 +100,9 @@ func Test_digest_validate(t *testing.T) {
 		{"sha512 with base32 digest", "Some content", "sha512:WIGZO5YY5VT7FP3WEDXC3GBP3BIMJCB6ZDIEQRAP463KQ3HWGIX5PEOEPMGHI2O353Z6GOIDFYNLYS6OXZPPYECLYGNBC6766RDYMBI=", true},
 		{"sha512 with base64 digest", "Some content", "sha512:sg2XdxjtZ/K/diDuLZgv2FDEiD7I0EhED+e2qGz2Mi/XkcR7DHRp2+7z4zkDLhq8S86+XvwQS8GaEXv+9EeGBQ==", true},
 		{"sha512 with wrong digest", "Some content", "sha512:123", false},
+		{"lovercase base16 encoding", "Some content", "sha1:9f1a6ecf74e9f9b1ae52e8eb581d420e63e8453a", true},
+		{"lovercase base32 encoding", "Some content", "sha1:t4ng5t3u5h43dlss5dvvqhkcbzr6qrj2", true},
+		{"lovercase base64 encoding", "Some content", "sha1:nxpuz3tp+bguuujrwb1cdmporto=", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
