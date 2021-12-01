@@ -85,6 +85,14 @@ func detectEncoding(algorithm, digest string, defaultEncoding digestEncoding) di
 	return defaultEncoding
 }
 
+// digest is a utility for parsing, creation and validation of WARC block and payload digests.
+//
+// Typical usage is to create a digest from a WARC record's WARC-Block-Digest or WARC-Payload-Digest fields.
+// Then write the content to the digest which implements io.Writer. When all is written, call validate to check if the
+// submitted digest value equals the computed value. For this usage create the digest with newDigestFromField.
+//
+// For new records a digest can be calculated by creating a new digest with newDigest with the preferred algorithm as
+// parameter. Then write the content to digest and call format to get a string suitable for WARC digest-fields.
 type digest struct {
 	hash.Hash
 	name     string
@@ -107,10 +115,13 @@ func (d *digest) Sum(b []byte) []byte {
 	return d.Hash.Sum(b)
 }
 
+// format creates a string in the format expected in WARC-Block-Digest and WARC-Payload-Digest fields.
 func (d *digest) format() string {
 	return fmt.Sprintf("%s:%s", d.name, d.encoding.encode(d))
 }
 
+// validate compares the computed digest-value against the digest-string submitted as part of the instantiation of the
+// digest.
 func (d *digest) validate() error {
 	computed := d.encoding.encode(d)
 	if d.hash != computed {
@@ -119,18 +130,29 @@ func (d *digest) validate() error {
 	return nil
 }
 
+// newDigest creates a new digest from the value of a WARC digest-field or from scratch.
+//
+// digestString has the format: <algorithm>[:[<digestValue>]] where algorithm is one of md5, sha1, sha256, or sha512.
+//
+// The encoding is deduced from the length of the digestValue. In the case where only the algorithm is submitted
+// or the length of the digestValue is of wrong length for the supported encodings, the value of defaultEncoding is used.
 func newDigest(digestString string, defaultEncoding digestEncoding) (*digest, error) {
 	t := strings.SplitN(digestString, ":", 2)
 	algorithm := t[0]
 	algorithm = strings.ToLower(algorithm)
 	if algorithm == "" {
-		algorithm = "sha1"
+		return nil, fmt.Errorf("missing algorithm")
 	}
 	var hash string
 	if len(t) > 1 {
 		hash = t[1]
 	}
 	encoding := detectEncoding(algorithm, hash, defaultEncoding)
+	if encoding < Base64 {
+		// base16 and base32 encodings are case insensitive.
+		hash = strings.ToUpper(hash)
+	}
+
 	switch algorithm {
 	case "md5":
 		return &digest{md5.New(), algorithm, hash, 0, encoding}, nil
@@ -147,6 +169,10 @@ func newDigest(digestString string, defaultEncoding digestEncoding) (*digest, er
 	}
 }
 
+// newDigestFromField takes a warcRecord and a digest-field name and creates a new digest from it.
+//
+// If the digest-field is missing from the warcRecord a digest is created with the default algorithm and encoding set
+// in the warcRecord's options
 func newDigestFromField(wr *warcRecord, warcDigestField string) (d *digest, err error) {
 	if wr.WarcHeader().Has(warcDigestField) {
 		d, err = newDigest(wr.WarcHeader().Get(warcDigestField), wr.opts.defaultDigestEncoding)
