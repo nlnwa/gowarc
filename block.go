@@ -76,15 +76,13 @@ func (block *genericBlock) Cache() error {
 	}
 
 	buf := diskbuffer.New(block.opts.bufferOptions...)
-	if _, err := buf.ReadFrom(r); err != nil {
-		return err
-	}
+	_, err = buf.ReadFrom(r)
 	if c, ok := block.rawBytes.(io.Closer); ok {
 		_ = c.Close()
 	}
 	block.blockDigestString = block.blockDigest.format()
 	block.rawBytes = buf
-	return nil
+	return err
 }
 
 func (block *genericBlock) RawBytes() (io.Reader, error) {

@@ -51,7 +51,7 @@ func Test_genericBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			block := newGenericBlock(&warcRecordOptions{}, tt.data, d)
 
-			validateBlockDigestTest(t, tt, block, digest)
+			validateBlockDigestTest(t, block, digest)
 		})
 	}
 }
@@ -64,14 +64,22 @@ func Test_genericBlock_Cache(t *testing.T) {
 		{
 			"strings.Reader",
 			strings.NewReader(content),
+			false,
 		},
 		{
 			"diskbuffer.Buffer",
 			func() io.Reader { d := diskbuffer.New(); _, _ = d.WriteString(content); return d }(),
+			false,
 		},
 		{
 			"iotest.HalfReader",
 			iotest.HalfReader(strings.NewReader(content)),
+			false,
+		},
+		{
+			"ReplaceErrReader",
+			ReplaceErrReader(strings.NewReader(content), io.ErrUnexpectedEOF),
+			true,
 		},
 	}
 	for _, tt := range tests {
@@ -80,7 +88,7 @@ func Test_genericBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			block := newGenericBlock(&warcRecordOptions{}, tt.data, d)
 
-			validateCacheTest(t, tt, block, content, digest)
+			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
 	}
 }
@@ -177,7 +185,7 @@ func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
-			validateBlockDigestTest(t, tt, block, digest)
+			validateBlockDigestTest(t, block, digest)
 		})
 	}
 }
@@ -190,14 +198,22 @@ func Test_warcfieldsBlock_Cache(t *testing.T) {
 		{
 			"strings.Reader",
 			strings.NewReader(content),
+			false,
 		},
 		{
 			"diskbuffer.Buffer",
 			func() io.Reader { d := diskbuffer.New(); _, _ = d.WriteString(content); return d }(),
+			false,
 		},
 		{
 			"iotest.HalfReader",
 			iotest.HalfReader(strings.NewReader(content)),
+			false,
+		},
+		{
+			"ReplaceErrReader",
+			ReplaceErrReader(strings.NewReader(content), io.ErrUnexpectedEOF),
+			true,
 		},
 	}
 	for _, tt := range tests {
@@ -208,9 +224,13 @@ func Test_warcfieldsBlock_Cache(t *testing.T) {
 			o := defaultWarcRecordOptions()
 			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
 			require.NoError(t, err)
-			require.True(t, validation.Valid(), validation)
+			if tt.wantCacheErr {
+				require.False(t, validation.Valid(), validation)
+			} else {
+				require.True(t, validation.Valid(), validation)
+			}
 
-			validateCacheTest(t, tt, block, content, digest)
+			validateCacheTest(t, block, content, digest, false)
 		})
 	}
 }
@@ -320,8 +340,8 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
-			validateBlockDigestTest(t, tt, block, digest)
-			validatePayloadDigestTest(t, tt, block, payloadDigest)
+			validateBlockDigestTest(t, block, digest)
+			validatePayloadDigestTest(t, block, payloadDigest)
 		})
 	}
 }
@@ -339,14 +359,22 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 		{
 			"strings.Reader",
 			strings.NewReader(content),
+			false,
 		},
 		{
 			"diskbuffer.Buffer",
 			func() io.Reader { d := diskbuffer.New(); _, _ = d.WriteString(content); return d }(),
+			false,
 		},
 		{
 			"iotest.HalfReader",
 			iotest.HalfReader(strings.NewReader(content)),
+			false,
+		},
+		{
+			"ReplaceErrReader",
+			ReplaceErrReader(strings.NewReader(content), io.ErrUnexpectedEOF),
+			true,
 		},
 	}
 	for _, tt := range tests {
@@ -358,7 +386,7 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
-			validateCacheTest(t, tt, block, content, digest)
+			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
 	}
 }
@@ -473,8 +501,8 @@ func Test_httpResponseBlock_BlockDigest(t *testing.T) {
 			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
-			validateBlockDigestTest(t, tt, block, digest)
-			validatePayloadDigestTest(t, tt, block, payloadDigest)
+			validateBlockDigestTest(t, block, digest)
+			validatePayloadDigestTest(t, block, payloadDigest)
 		})
 	}
 }
@@ -489,14 +517,22 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 		{
 			"strings.Reader",
 			strings.NewReader(content),
+			false,
 		},
 		{
 			"diskbuffer.Buffer",
 			func() io.Reader { d := diskbuffer.New(); _, _ = d.WriteString(content); return d }(),
+			false,
 		},
 		{
 			"iotest.HalfReader",
 			iotest.HalfReader(strings.NewReader(content)),
+			false,
+		},
+		{
+			"ReplaceErrReader",
+			ReplaceErrReader(strings.NewReader(content), io.ErrUnexpectedEOF),
+			true,
 		},
 	}
 	for _, tt := range tests {
@@ -508,7 +544,7 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
 
-			validateCacheTest(t, tt, block, content, digest)
+			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
 	}
 }
@@ -588,13 +624,18 @@ func Test_httpResponseBlock_RawBytes(t *testing.T) {
 }
 
 type cacheTest struct {
-	name string
-	data io.Reader
+	name         string
+	data         io.Reader
+	wantCacheErr bool
 }
 
-func validateCacheTest(t *testing.T, tt cacheTest, block Block, expectedContent string, expectedDigest string) {
+func validateCacheTest(t *testing.T, block Block, expectedContent string, expectedDigest string, wantCacheErr bool) {
 	err := block.Cache()
-	assert.NoError(t, err)
+	if wantCacheErr {
+		assert.Error(t, err)
+	} else {
+		assert.NoError(t, err)
+	}
 	assert.True(t, block.IsCached())
 
 	// Reading content twice should be ok
@@ -619,7 +660,7 @@ type blockDigestTest struct {
 	data io.Reader
 }
 
-func validateBlockDigestTest(t *testing.T, tt blockDigestTest, block Block, expectedDigest string) {
+func validateBlockDigestTest(t *testing.T, block Block, expectedDigest string) {
 	got := block.BlockDigest()
 	assert.Equal(t, expectedDigest, got)
 
@@ -638,7 +679,7 @@ func validateBlockDigestTest(t *testing.T, tt blockDigestTest, block Block, expe
 	}
 }
 
-func validatePayloadDigestTest(t *testing.T, tt blockDigestTest, block Block, expectedDigest string) {
+func validatePayloadDigestTest(t *testing.T, block Block, expectedDigest string) {
 	if payloadBlock, ok := block.(PayloadBlock); ok {
 		got := payloadBlock.PayloadDigest()
 		assert.Equal(t, expectedDigest, got)
@@ -702,4 +743,22 @@ func validateRawBytesTest(t *testing.T, tt rawBytesTest, block Block, expectedCo
 	// Call to BlockDigest after call to RawBytes should be ok
 	gotDigest := block.BlockDigest()
 	assert.Equal(t, expectedDigest, gotDigest)
+}
+
+// ReplaceErrReader returns an io.Reader that returns err instead of io.EOF.
+func ReplaceErrReader(r io.Reader, err error) io.Reader {
+	return &replaceErrReader{r: r, err: err}
+}
+
+type replaceErrReader struct {
+	r   io.Reader
+	err error
+}
+
+func (r *replaceErrReader) Read(p []byte) (int, error) {
+	i, e := r.r.Read(p)
+	if e == io.EOF {
+		e = r.err
+	}
+	return i, e
 }

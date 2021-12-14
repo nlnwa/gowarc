@@ -20,7 +20,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"io/ioutil"
 	"sync"
 )
 
@@ -81,9 +80,14 @@ func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
 func newWarcFieldsBlock(rb io.Reader, d *digest, validation *Validation, options *warcRecordOptions) (WarcFieldsBlock, error) {
 	wfb := &warcFieldsBlock{blockDigest: d}
 	var err error
-	wfb.content, err = ioutil.ReadAll(rb)
-	if err != nil {
-		return nil, err
+	wfb.content, err = io.ReadAll(rb)
+	if err != nil && options.errSyntax > ErrIgnore {
+		switch options.errSyntax {
+		case ErrWarn:
+			validation.addError(err)
+		case ErrFail:
+			return wfb, err
+		}
 	}
 	p := &warcfieldsParser{options}
 	wfb.warcFields, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), validation, &position{})

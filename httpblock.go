@@ -72,16 +72,14 @@ func (block *httpRequestBlock) Cache() error {
 	}
 
 	buf := diskbuffer.New(block.opts.bufferOptions...)
-	if _, err := buf.ReadFrom(r); err != nil {
-		return err
-	}
+	_, err = buf.ReadFrom(r)
 	if c, ok := block.payload.(io.Closer); ok {
 		_ = c.Close()
 	}
 	block.blockDigestString = block.blockDigest.format()
 	block.payloadDigestString = block.payloadDigest.format()
 	block.payload = buf
-	return nil
+	return err
 }
 
 func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
@@ -210,16 +208,14 @@ func (block *httpResponseBlock) Cache() error {
 	}
 
 	buf := diskbuffer.New(block.opts.bufferOptions...)
-	if _, err := buf.ReadFrom(r); err != nil {
-		return err
-	}
+	_, err = buf.ReadFrom(r)
 	if c, ok := block.payload.(io.Closer); ok {
 		_ = c.Close()
 	}
 	block.blockDigestString = block.blockDigest.format()
 	block.payloadDigestString = block.payloadDigest.format()
 	block.payload = buf
-	return nil
+	return err
 }
 
 func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
