@@ -24,7 +24,6 @@ import (
 	"github.com/nlnwa/gowarc/internal/countingreader"
 	"io"
 	"io/ioutil"
-	"strconv"
 )
 
 type Unmarshaler interface {
@@ -142,7 +141,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		closer:     nil,
 	}
 
-	length, _ := strconv.ParseInt(record.headers.Get(ContentLength), 10, 64)
+	length, _ := record.headers.GetInt64(ContentLength)
 
 	content := countingreader.NewLimited(r, length)
 	record.closer = func() error {

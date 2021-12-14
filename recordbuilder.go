@@ -19,7 +19,6 @@ package gowarc
 import (
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
-	"strconv"
 	"time"
 )
 
@@ -70,17 +69,17 @@ func (rb *recordBuilder) AddWarcHeader(name string, value string) {
 
 // AddWarcHeaderInt adds a new WARC header field with the given name and an int value to the record
 func (rb *recordBuilder) AddWarcHeaderInt(name string, value int) {
-	rb.headers.Add(name, strconv.Itoa(value))
+	rb.headers.AddInt(name, value)
 }
 
 // AddWarcHeaderInt64 adds a new WARC header field with the given name and an int64 value to the record
 func (rb *recordBuilder) AddWarcHeaderInt64(name string, value int64) {
-	rb.headers.Add(name, strconv.FormatInt(value, 10))
+	rb.headers.AddInt64(name, value)
 }
 
 // AddWarcHeaderTime adds a new WARC header field with the given name and a time.Time value to the record
 func (rb *recordBuilder) AddWarcHeaderTime(name string, value time.Time) {
-	rb.headers.Add(name, value.UTC().Format(time.RFC3339))
+	rb.headers.AddTime(name, value)
 }
 
 // Close releases resources used by the WarcRecordBuilder
@@ -109,7 +108,7 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 		if id, err := rb.opts.recordIdFunc(); err != nil {
 			return nil, nil, err
 		} else {
-			rb.headers.Set(WarcRecordID, "<"+id+">")
+			rb.headers.SetId(WarcRecordID, id)
 		}
 	}
 
@@ -139,9 +138,9 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 }
 
 func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
-	size := strconv.FormatInt(rb.content.Size(), 10)
+	size := rb.content.Size()
 	if rb.opts.addMissingContentLength && !wr.WarcHeader().Has(ContentLength) {
-		wr.headers.Set(ContentLength, size)
+		wr.headers.SetInt64(ContentLength, size)
 	}
 
 	validation := &Validation{}
