@@ -95,7 +95,7 @@ func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation
 				}
 			}
 		}
-		contentLength, _ := strconv.ParseInt(wf.Get(ContentLength), 10, 64)
+		contentLength, _ := wf.GetInt64(ContentLength)
 		if rt != Continuation && contentLength > 0 && !wf.Has(ContentType) {
 			switch opts.errSpec {
 			case ErrWarn:

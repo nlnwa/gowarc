@@ -35,5 +35,5 @@ func Example_basic() {
 	if wr, v, err := builder.Build(); err == nil {
 		fmt.Println(wr, v)
 	}
-	// Output: WARC record: version: WARC/1.1, type: response, id: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>
+	// Output: WARC record: version: WARC/1.1, type: response, id: urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008
 }

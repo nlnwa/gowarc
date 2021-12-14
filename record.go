@@ -21,6 +21,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -38,6 +39,9 @@ type WarcRecord interface {
 	Type() RecordType
 	WarcHeader() *WarcFields
 	Block() Block
+	RecordId() string
+	ContentLength() (int64, error)
+	Date() (time.Time, error)
 	String() string
 	io.Closer
 	// ToRevisitRecord takes RevisitRef referencing the record we want to make a revisit of and returns a revisit record.
@@ -192,8 +196,20 @@ func (wr *warcRecord) Block() Block {
 	return wr.block
 }
 
+func (wr *warcRecord) RecordId() string {
+	return wr.headers.GetId(WarcRecordID)
+}
+
+func (wr *warcRecord) ContentLength() (int64, error) {
+	return wr.headers.GetInt64(ContentLength)
+}
+
+func (wr *warcRecord) Date() (time.Time, error) {
+	return wr.headers.GetTime(WarcDate)
+}
+
 func (wr *warcRecord) String() string {
-	return fmt.Sprintf("WARC record: version: %s, type: %s, id: %s", wr.version, wr.Type(), wr.WarcHeader().Get(WarcRecordID))
+	return fmt.Sprintf("WARC record: version: %s, type: %s, id: %s", wr.version, wr.Type(), wr.WarcHeader().GetId(WarcRecordID))
 }
 
 func (wr *warcRecord) Close() error {
@@ -227,7 +243,7 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 	h.Set(WarcType, Revisit.String())
 	h.Set(WarcProfile, ref.Profile)
 	if ref.TargetRecordId != "" {
-		h.Set(WarcRefersTo, ref.TargetRecordId)
+		h.SetId(WarcRefersTo, ref.TargetRecordId)
 	}
 	if ref.TargetUri != "" {
 		h.Set(WarcRefersToTargetURI, ref.TargetUri)
@@ -242,7 +258,7 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 		return nil, err
 	}
 	h.Set(WarcBlockDigest, block.BlockDigest())
-	h.Set(ContentLength, strconv.Itoa(len(block.headerBytes)))
+	h.SetInt(ContentLength, len(block.headerBytes))
 
 	revisit := &warcRecord{
 		opts:       wr.opts,
@@ -261,7 +277,7 @@ func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
 
 	return &RevisitRef{
 		Profile:        wr.headers.Get(WarcProfile),
-		TargetRecordId: wr.headers.Get(WarcRefersTo),
+		TargetRecordId: wr.headers.GetId(WarcRefersTo),
 		TargetUri:      wr.headers.Get(WarcRefersToTargetURI),
 		TargetDate:     wr.headers.Get(WarcRefersToDate),
 	}, nil
@@ -274,7 +290,7 @@ func (wr *warcRecord) CreateRevisitRef(profile string) (*RevisitRef, error) {
 
 	return &RevisitRef{
 		Profile:        profile,
-		TargetRecordId: wr.headers.Get(WarcRecordID),
+		TargetRecordId: wr.headers.GetId(WarcRecordID),
 		TargetUri:      wr.headers.Get(WarcTargetURI),
 		TargetDate:     wr.headers.Get(WarcDate),
 	}, nil
@@ -309,21 +325,21 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	}
 	switch v := record[0].Block().(type) {
 	case *httpRequestBlock:
-		refLen, err := strconv.ParseInt(record[0].WarcHeader().Get(ContentLength), 10, 64)
+		refLen, err := record[0].WarcHeader().GetInt64(ContentLength)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse %s", ContentLength)
 		}
 		size := int64(len(b.headerBytes)) + refLen - int64(len(v.httpHeaderBytes))
-		wr.headers.Set(ContentLength, strconv.FormatInt(size, 10))
+		wr.headers.SetInt64(ContentLength, size)
 		v.httpHeaderBytes = b.headerBytes
 		wr.block = v
 	case *httpResponseBlock:
-		refLen, err := strconv.ParseInt(record[0].WarcHeader().Get(ContentLength), 10, 64)
+		refLen, err := record[0].WarcHeader().GetInt64(ContentLength)
 		if err != nil {
 			return nil, fmt.Errorf("could not parse %s", ContentLength)
 		}
 		size := int64(len(b.headerBytes)) + refLen - int64(len(v.httpHeaderBytes))
-		wr.headers.Set(ContentLength, strconv.FormatInt(size, 10))
+		wr.headers.SetInt64(ContentLength, size)
 		v.httpHeaderBytes = b.headerBytes
 		wr.block = v
 	default:

@@ -227,7 +227,7 @@ func (w *WarcFileWriter) createWriteJob(record ...WarcRecord) (*job, <-chan []Wr
 				if k == k2 {
 					continue
 				}
-				wr.WarcHeader().Add(WarcConcurrentTo, wr2.WarcHeader().Get(WarcRecordID))
+				wr.WarcHeader().AddId(WarcConcurrentTo, wr2.WarcHeader().GetId(WarcRecordID))
 			}
 		}
 	}
@@ -384,7 +384,7 @@ func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, 
 		writer = w.gz
 	}
 	if w.currentWarcInfoId != "" {
-		record.WarcHeader().Set(WarcWarcinfoID, w.currentWarcInfoId)
+		record.WarcHeader().SetId(WarcWarcinfoID, w.currentWarcInfoId)
 	}
 	nextRec, size, err := w.opts.marshaler.Marshal(writer, record, maxRecordSize)
 	if err != nil {
@@ -417,7 +417,7 @@ func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, err
 	if err != nil {
 		return 0, err
 	}
-	w.currentWarcInfoId = warcinfo.WarcHeader().Get(WarcRecordID)
+	w.currentWarcInfoId = warcinfo.WarcHeader().GetId(WarcRecordID)
 	if w.opts.flush {
 		// sync file to reduce possibility of half written records in case of crash
 		if err := w.currentFile.Sync(); err != nil {
