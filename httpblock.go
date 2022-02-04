@@ -19,12 +19,12 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"io/ioutil"
 	"net/http"
-	"sync"
 )
 
 type HttpRequestBlock interface {
@@ -42,6 +42,8 @@ type HttpResponseBlock interface {
 	HttpHeaderBytes() []byte
 }
 
+var missingEndOfHeaders = errors.New("missing line separator at end of http headers")
+
 type httpRequestBlock struct {
 	opts                *warcRecordOptions
 	httpRequestLine     string
@@ -53,7 +55,6 @@ type httpRequestBlock struct {
 	filterReader        *digestFilterReader
 	blockDigestString   string
 	payloadDigestString string
-	parseHeaderOnce     sync.Once
 }
 
 func (block *httpRequestBlock) IsCached() bool {
@@ -137,29 +138,21 @@ func (block *httpRequestBlock) HttpHeaderBytes() []byte {
 }
 
 func (block *httpRequestBlock) HttpRequestLine() string {
-	if err := block.parseHeaders(); err != nil {
-		panic(err)
-	}
 	return block.httpRequestLine
 }
 
 func (block *httpRequestBlock) HttpHeader() *http.Header {
-	if err := block.parseHeaders(); err != nil {
-		panic(err)
-	}
 	return block.httpHeader
 }
 
-func (block *httpRequestBlock) parseHeaders() (err error) {
-	block.parseHeaderOnce.Do(func() {
-		request, e := http.ReadRequest(bufio.NewReader(bytes.NewReader(block.httpHeaderBytes)))
-		if e != nil {
-			err = e
-			return
-		}
-		block.httpRequestLine = request.RequestURI
-		block.httpHeader = &request.Header
-	})
+func (block *httpRequestBlock) parseHeaders(headerBytes []byte) (err error) {
+	request, e := http.ReadRequest(bufio.NewReader(bytes.NewReader(headerBytes)))
+	if e != nil {
+		err = e
+		return
+	}
+	block.httpRequestLine = request.RequestURI
+	block.httpHeader = &request.Header
 	return
 }
 
@@ -189,7 +182,6 @@ type httpResponseBlock struct {
 	filterReader        *digestFilterReader
 	blockDigestString   string
 	payloadDigestString string
-	parseHeaderOnce     sync.Once
 }
 
 func (block *httpResponseBlock) IsCached() bool {
@@ -273,37 +265,26 @@ func (block *httpResponseBlock) HttpHeaderBytes() []byte {
 }
 
 func (block *httpResponseBlock) HttpStatusLine() string {
-	if err := block.parseHeaders(); err != nil {
-		panic(err)
-	}
 	return block.httpStatusLine
 }
 
 func (block *httpResponseBlock) HttpStatusCode() int {
-	if err := block.parseHeaders(); err != nil {
-		panic(err)
-	}
 	return block.httpStatusCode
 }
 
 func (block *httpResponseBlock) HttpHeader() *http.Header {
-	if err := block.parseHeaders(); err != nil {
-		panic(err)
-	}
 	return block.httpHeader
 }
 
-func (block *httpResponseBlock) parseHeaders() (err error) {
-	block.parseHeaderOnce.Do(func() {
-		response, e := http.ReadResponse(bufio.NewReader(bytes.NewReader(block.httpHeaderBytes)), nil)
-		if e != nil {
-			err = e
-			return
-		}
-		block.httpStatusLine = response.Status
-		block.httpStatusCode = response.StatusCode
-		block.httpHeader = &response.Header
-	})
+func (block *httpResponseBlock) parseHeaders(headerBytes []byte) (err error) {
+	response, e := http.ReadResponse(bufio.NewReader(bytes.NewReader(headerBytes)), nil)
+	if e != nil {
+		err = e
+		return
+	}
+	block.httpStatusLine = response.Status
+	block.httpStatusCode = response.StatusCode
+	block.httpHeader = &response.Header
 	return
 }
 
@@ -322,19 +303,25 @@ func (block *httpResponseBlock) Write(w io.Writer) (int64, error) {
 }
 
 // headerBytes reads the http-headers into a byte array.
-func headerBytes(r buffer) []byte {
+func headerBytes(r buffer) ([]byte, error) {
+	sepFound := false
 	result := bytes.Buffer{}
 	for {
 		line, err := r.ReadBytes('\n')
+		result.Write(line)
 		if err != nil {
 			break
 		}
-		result.Write(line)
 		if len(line) < 3 {
+			sepFound = true
 			break
 		}
 	}
-	return result.Bytes()
+	var err error
+	if !sepFound {
+		err = missingEndOfHeaders
+	}
+	return result.Bytes(), err
 }
 
 type buffer interface {
@@ -343,7 +330,7 @@ type buffer interface {
 	Peek(n int) ([]byte, error)
 }
 
-func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDigest *digest) (PayloadBlock, error) {
+func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDigest *digest, validation *Validation) (PayloadBlock, error) {
 	var rb buffer
 	if v, ok := r.(diskbuffer.Buffer); ok {
 		rb = v
@@ -356,7 +343,16 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 		return nil, fmt.Errorf("not a http block: %w", err)
 	}
 
-	hb := headerBytes(rb)
+	hb, herr := headerBytes(rb)
+	if herr != nil {
+		switch opts.errSyntax {
+		case ErrWarn:
+			validation.addError(herr)
+		case ErrFail:
+			return nil, herr
+		}
+	}
+
 	if _, err := blockDigest.Write(hb); err != nil {
 		return nil, err
 	}
@@ -376,7 +372,18 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 			blockDigest:     blockDigest,
 			payloadDigest:   payloadDigest,
 		}
-		return resp, nil
+
+		if herr == missingEndOfHeaders {
+			hb = append(hb, '\r', '\n')
+		}
+		if err := resp.parseHeaders(hb); err != nil && opts.errSyntax > ErrIgnore {
+			if opts.errSyntax == ErrWarn {
+				validation.addError(err)
+			} else {
+				return resp, err
+			}
+		}
+		return resp, err
 	} else {
 		resp := &httpRequestBlock{
 			opts:            opts,
@@ -385,6 +392,17 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 			blockDigest:     blockDigest,
 			payloadDigest:   payloadDigest,
 		}
-		return resp, nil
+
+		if herr == missingEndOfHeaders {
+			hb = append(hb, '\r', '\n')
+		}
+		if err := resp.parseHeaders(hb); err != nil && opts.errSyntax > ErrIgnore {
+			if opts.errSyntax == ErrWarn {
+				validation.addError(err)
+			} else {
+				return resp, err
+			}
+		}
+		return resp, err
 	}
 }

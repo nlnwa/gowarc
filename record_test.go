@@ -20,6 +20,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io/ioutil"
+	"net/http"
 	"testing"
 )
 
@@ -260,11 +261,11 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 
 func Test_warcRecord_Merge(t *testing.T) {
 	type want struct {
-		recordType RecordType
-		headers    *WarcFields
-		data       string
-		blockType  interface{}
-		cached     bool
+		recordType  RecordType
+		headers     *WarcFields
+		data        string
+		httpHeaders *http.Header
+		cached      bool
 	}
 	tests := []struct {
 		name             string
@@ -320,7 +321,15 @@ func Test_warcRecord_Merge(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
-				&httpResponseBlock{},
+				&http.Header{
+					"Date":           []string{"Tue, 19 Sep 2016 17:18:40 GMT"},
+					"Server":         []string{"Apache/2.0.54 (Ubuntu)"},
+					"Last-Modified":  []string{"Mon, 16 Jun 2013 22:28:51 GMT"},
+					"Etag":           []string{"\"3e45-67e-2ed02ec0\""},
+					"Accept-Ranges":  []string{"bytes"},
+					"Content-Length": []string{"19"},
+					"Content-Type":   []string{"text/plain"},
+				},
 				true,
 			},
 			false,
@@ -372,7 +381,76 @@ func Test_warcRecord_Merge(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
-				&httpResponseBlock{},
+				&http.Header{
+					"Date":           []string{"Tue, 19 Sep 2016 17:18:40 GMT"},
+					"Server":         []string{"Apache/2.0.54 (Ubuntu)"},
+					"Last-Modified":  []string{"Mon, 16 Jun 2013 22:28:51 GMT"},
+					"Etag":           []string{"\"3e45-67e-2ed02ec0\""},
+					"Accept-Ranges":  []string{"bytes"},
+					"Content-Length": []string{"19"},
+					"Content-Type":   []string{"text/plain"},
+				},
+				true,
+			},
+			false,
+		},
+		{
+			"Missing empty line - IdenticalPayloadDigest profile",
+			createRecord1(Revisit,
+				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://foo.com"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "237"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:D1EA0889024BD99516D23CA2AD5E30E850977C84"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: WarcProfile, Value: ProfileIdenticalPayloadDigestV1_1},
+					&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcRefersToTargetURI, Value: "http://example.com"},
+					&nameValue{Name: WarcRefersToDate, Value: "2016-09-19T18:03:53Z"},
+					&nameValue{Name: WarcTruncated, Value: "length"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n"),
+			[]WarcRecord{createRecord1(Response,
+				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
+					&nameValue{Name: WarcDate, Value: "2016-09-19T18:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6E9D6B234FEEBBF1AB618707217E577C3B83448A"},
+					&nameValue{Name: ContentLength, Value: "236"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02fff\"\n"+
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content")},
+			want{
+				Response,
+				&WarcFields{
+					&nameValue{Name: WarcTargetURI, Value: "http://foo.com"},
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:6E9D6B234FEEBBF1AB618707217E577C3B83448A"},
+					&nameValue{Name: WarcPayloadDigest, Value: "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "256"},
+				},
+				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
+					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
+					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\r\nThis is the content",
+				&http.Header{
+					"Date":           []string{"Tue, 19 Sep 2016 17:18:40 GMT"},
+					"Server":         []string{"Apache/2.0.54 (Ubuntu)"},
+					"Last-Modified":  []string{"Mon, 16 Jun 2013 22:28:51 GMT"},
+					"Etag":           []string{"\"3e45-67e-2ed02ec0\""},
+					"Accept-Ranges":  []string{"bytes"},
+					"Content-Length": []string{"19"},
+					//"Connection":     []string{"close"},
+					"Content-Type": []string{"text/plain"},
+				},
 				true,
 			},
 			false,
@@ -405,7 +483,10 @@ func Test_warcRecord_Merge(t *testing.T) {
 
 			assert.Equal(tt.want.recordType.String(), got.Type().String())
 			assert.ElementsMatch([]*nameValue(*tt.want.headers), []*nameValue(*got.WarcHeader()))
-			assert.IsType(tt.want.blockType, got.Block())
+			assert.IsType(&httpResponseBlock{}, got.Block())
+			respBlock := got.Block().(*httpResponseBlock)
+			assert.Equal(tt.want.httpHeaders, respBlock.httpHeader)
+
 			r, err := got.Block().RawBytes()
 			assert.Nil(err)
 			b, err := ioutil.ReadAll(r)
@@ -418,7 +499,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 }
 
 func createRecord1(recordType RecordType, headers *WarcFields, data string) WarcRecord {
-	rb := NewRecordBuilder(recordType, WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail),
+	rb := NewRecordBuilder(recordType, WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrWarn),
 		WithUnknownRecordTypePolicy(ErrIgnore), WithFixDigest(false), WithAddMissingDigest(false),
 		WithDefaultDigestEncoding(Base16))
 	for _, nv := range *headers {

@@ -323,6 +323,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	if !ok {
 		return nil, fmt.Errorf("the revisit record's has wrong block type. Creation of record must be done with SkipParseBlock set to false")
 	}
+
 	switch v := record[0].Block().(type) {
 	case *httpRequestBlock:
 		refLen, err := record[0].WarcHeader().GetInt64(ContentLength)
@@ -333,6 +334,15 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 		wr.headers.SetInt64(ContentLength, size)
 		v.httpHeaderBytes = b.headerBytes
 		wr.block = v
+		if err := v.parseHeaders(v.httpHeaderBytes); err != nil {
+			if wr.opts.errSyntax > ErrWarn {
+				return wr, err
+			}
+			v.httpHeaderBytes = append(v.httpHeaderBytes, cr, lf)
+			if err := v.parseHeaders(v.httpHeaderBytes); err != nil {
+				return wr, err
+			}
+		}
 	case *httpResponseBlock:
 		refLen, err := record[0].WarcHeader().GetInt64(ContentLength)
 		if err != nil {
@@ -342,6 +352,15 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 		wr.headers.SetInt64(ContentLength, size)
 		v.httpHeaderBytes = b.headerBytes
 		wr.block = v
+		if err := v.parseHeaders(v.httpHeaderBytes); err != nil {
+			if wr.opts.errSyntax > ErrWarn {
+				return wr, err
+			}
+			v.httpHeaderBytes = append(v.httpHeaderBytes, cr, lf)
+			if err := v.parseHeaders(v.httpHeaderBytes); err != nil {
+				return wr, err
+			}
+		}
 	default:
 		return nil, fmt.Errorf("merging of revisits is only implemented for http requests and responses")
 	}
@@ -368,29 +387,17 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		contentType := strings.ToLower(wr.headers.Get(ContentType))
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 			if strings.HasPrefix(contentType, ApplicationHttp) {
-				httpBlock, err := newHttpBlock(wr.opts, reader, blockDigest, payloadDigest)
-				if err != nil {
-					return err
-				}
-				wr.block = httpBlock
-				return nil
+				wr.block, err = newHttpBlock(wr.opts, reader, blockDigest, payloadDigest, validation)
+				return
 			}
 		}
 		if wr.recordType == Revisit {
-			revisitBlock, err := parseRevisitBlock(wr.opts, reader, blockDigest, wr.headers.Get(WarcPayloadDigest))
-			if err != nil {
-				return err
-			}
-			wr.block = revisitBlock
-			return nil
+			wr.block, err = parseRevisitBlock(wr.opts, reader, blockDigest, wr.headers.Get(WarcPayloadDigest))
+			return
 		}
 		if strings.HasPrefix(contentType, ApplicationWarcFields) {
-			warcFieldsBlock, err := newWarcFieldsBlock(reader, blockDigest, validation, wr.opts)
-			if err != nil {
-				return err
-			}
-			wr.block = warcFieldsBlock
-			return nil
+			wr.block, err = newWarcFieldsBlock(reader, blockDigest, validation, wr.opts)
+			return
 		}
 	}
 
