@@ -131,15 +131,15 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
 				"WARC-Type: request\r\n" +
 				"Content-Type: application/http;msgtype=request\r\n" +
-				"Warc-Block-Digest: sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B\r\n" +
-				"Content-Length: 262\r\n" +
+				"Warc-Block-Digest: sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932\r\n" +
+				"Content-Length: 263\r\n" +
 				"\r\n" +
 				"GET / HTTP/1.0\n" +
 				"Host: example.com\n" +
 				"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 				"Referer: http://example.com/foo.html\n" +
 				"Connection: close\n" +
-				"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n" +
+				"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n" +
 				"\r\n\r\n",
 			want{
 				V1_0,
@@ -149,8 +149,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 					&nameValue{Name: WarcType, Value: "request"},
 					&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
-					&nameValue{Name: WarcBlockDigest, Value: "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"},
-					&nameValue{Name: ContentLength, Value: "262"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"},
+					&nameValue{Name: ContentLength, Value: "263"},
 				},
 				&httpRequestBlock{},
 				"GET / HTTP/1.0\n" +
@@ -158,7 +158,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
-					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
+					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n",
 				&Validation{},
 				false,
 			},
@@ -563,6 +563,102 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			0,
 			true,
 		},
+		{
+			"request record missing end of http header marker - warn",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrWarn), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.1\r\n" +
+				"WARC-Type: request\r\n" +
+				"WARC-Target-URI: http://www.archive.org/images/logoc.jpg\r\n" +
+				"WARC-Warcinfo-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+				"WARC-Date: 2016-09-19T17:20:24Z\r\n" +
+				"Content-Length: 240\r\n" +
+				"WARC-Record-ID: <urn:uuid:4885803b-eebd-4b27-a090-144450c11594>\r\n" +
+				"Content-Type: application/http;msgtype=request\r\n" +
+				"WARC-Concurrent-To: <urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>\r\n" +
+				"\r\n" +
+				"GET /images/logoc.jpg HTTP/1.0\r\n" +
+				"User-Agent: Mozilla/5.0 (compatible; heritrix/1.10.0)\r\n" +
+				"From: stack@example.org\r\n" +
+				"Connection: close\r\n" +
+				"Referer: http://www.archive.org/\r\n" +
+				"Host: www.archive.org\r\n" +
+				"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n" +
+				"\r\n\r\n",
+			want{
+				V1_1,
+				Request,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2016-09-19T17:20:24Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:4885803b-eebd-4b27-a090-144450c11594>"},
+					&nameValue{Name: WarcType, Value: "request"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
+					&nameValue{Name: ContentLength, Value: "240"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.archive.org/images/logoc.jpg"},
+					&nameValue{Name: WarcWarcinfoID, Value: "<urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>"},
+					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
+				},
+				&httpRequestBlock{},
+				"GET /images/logoc.jpg HTTP/1.0\r\n" +
+					"User-Agent: Mozilla/5.0 (compatible; heritrix/1.10.0)\r\n" +
+					"From: stack@example.org\r\n" +
+					"Connection: close\r\n" +
+					"Referer: http://www.archive.org/\r\n" +
+					"Host: www.archive.org\r\n" +
+					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n",
+				&Validation{missingEndOfHeaders},
+				false,
+			},
+			0,
+			false,
+		},
+		{
+			"request record missing end of http header marker - fail",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.1\r\n" +
+				"WARC-Type: request\r\n" +
+				"WARC-Target-URI: http://www.archive.org/images/logoc.jpg\r\n" +
+				"WARC-Warcinfo-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+				"WARC-Date: 2016-09-19T17:20:24Z\r\n" +
+				"Content-Length: 240\r\n" +
+				"WARC-Record-ID: <urn:uuid:4885803b-eebd-4b27-a090-144450c11594>\r\n" +
+				"Content-Type: application/http;msgtype=request\r\n" +
+				"WARC-Concurrent-To: <urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>\r\n" +
+				"\r\n" +
+				"GET /images/logoc.jpg HTTP/1.0\r\n" +
+				"User-Agent: Mozilla/5.0 (compatible; heritrix/1.10.0)\r\n" +
+				"From: stack@example.org\r\n" +
+				"Connection: close\r\n" +
+				"Referer: http://www.archive.org/\r\n" +
+				"Host: www.archive.org\r\n" +
+				"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n" +
+				"\r\n\r\n",
+			want{
+				V1_1,
+				Request,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2016-09-19T17:20:24Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:4885803b-eebd-4b27-a090-144450c11594>"},
+					&nameValue{Name: WarcType, Value: "request"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
+					&nameValue{Name: ContentLength, Value: "240"},
+					&nameValue{Name: WarcTargetURI, Value: "http://www.archive.org/images/logoc.jpg"},
+					&nameValue{Name: WarcWarcinfoID, Value: "<urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>"},
+					&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:92283950-ef2f-4d72-b224-f54c6ec90bb0>"},
+				},
+				&httpRequestBlock{},
+				"GET /images/logoc.jpg HTTP/1.0\r\n" +
+					"User-Agent: Mozilla/5.0 (compatible; heritrix/1.10.0)\r\n" +
+					"From: stack@example.org\r\n" +
+					"Connection: close\r\n" +
+					"Referer: http://www.archive.org/\r\n" +
+					"Host: www.archive.org\r\n" +
+					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n\r\n",
+				&Validation{},
+				false,
+			},
+			0,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -573,10 +669,13 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			data := bufio.NewReader(strings.NewReader(tt.input))
 			gotRecord, gotOffset, validation, err1 := u.Unmarshal(data)
 
+			if err1 != nil && tt.wantErr {
+				return
+			}
+
 			if !tt.wantErr {
 				require.NoError(err1)
 			}
-			assert.True(validation.Valid(), validation.String())
 
 			assert.Equal(tt.want.version, gotRecord.Version(), "Record version")
 			assert.Equal(tt.want.recordType, gotRecord.Type(), "Record type")
@@ -604,7 +703,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				require.NoError(err3)
 			}
 
-			assert.True(validation.Valid(), validation.String())
+			assert.Equal(tt.want.validation, validation)
 		})
 	}
 }

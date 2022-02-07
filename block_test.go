@@ -313,8 +313,8 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 		"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
-		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n"
-	digest := "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"
+		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
+	digest := "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"
 	payloadDigest := "sha1:DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"
 
 	tests := []blockDigestTest{
@@ -337,8 +337,10 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			validateBlockDigestTest(t, block, digest)
 			validatePayloadDigestTest(t, block, payloadDigest)
@@ -352,8 +354,8 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 		"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
-		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n"
-	digest := "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"
+		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
+	digest := "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"
 
 	tests := []cacheTest{
 		{
@@ -383,8 +385,10 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
@@ -397,7 +401,7 @@ func Test_httpRequestBlock_IsCached(t *testing.T) {
 		"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
-		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n"
+		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
 
 	tests := []isCachedTest{
 		{
@@ -422,8 +426,10 @@ func Test_httpRequestBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			got := block.IsCached()
 			assert.Equal(t, tt.want, got)
@@ -437,8 +443,8 @@ func Test_httpRequestBlock_RawBytes(t *testing.T) {
 		"Accept-Language: en-US,en;q=0.8,ru;q=0.6\n" +
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
-		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n"
-	digest := "sha1:F45C9D37F9F7E5F822C86444F51D6CB252B7B33B"
+		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
+	digest := "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"
 
 	tests := []rawBytesTest{
 		{
@@ -463,8 +469,10 @@ func Test_httpRequestBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			validateRawBytesTest(t, tt, block, content, digest)
 		})
@@ -498,8 +506,10 @@ func Test_httpResponseBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			validateBlockDigestTest(t, block, digest)
 			validatePayloadDigestTest(t, block, payloadDigest)
@@ -541,8 +551,10 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
@@ -577,8 +589,10 @@ func Test_httpResponseBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			got := block.IsCached()
 			assert.Equal(t, tt.want, got)
@@ -615,8 +629,10 @@ func Test_httpResponseBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest)
+			val := &Validation{}
+			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
+			require.True(t, val.Valid(), val.String())
 
 			validateRawBytesTest(t, tt, block, content, digest)
 		})
