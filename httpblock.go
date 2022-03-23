@@ -21,10 +21,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
-	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
 )
 
 type HttpRequestBlock interface {
@@ -338,7 +339,7 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 		rb = bufio.NewReader(r)
 	}
 
-	b, err := rb.Peek(4)
+	_, err := rb.Peek(4)
 	if err != nil {
 		return nil, fmt.Errorf("not a http block: %w", err)
 	}
@@ -364,7 +365,7 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 		payload = rb
 	}
 
-	if bytes.HasPrefix(b, []byte("HTTP")) {
+	if bytes.HasPrefix(hb, []byte("HTTP")) {
 		resp := &httpResponseBlock{
 			opts:            opts,
 			httpHeaderBytes: hb,
