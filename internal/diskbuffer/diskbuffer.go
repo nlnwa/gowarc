@@ -249,7 +249,7 @@ func (b *buffer) Read(p []byte) (n int, err error) {
 	return n, err
 }
 
-// Peek returns the next n bytes without advancing the reader. The bytes stop being valid at the next read call.
+// Peek returns the next n bytes without advancing the reader.
 // If Peek returns fewer than n bytes, it also returns an error explaining why the read is short.
 // The error is ErrBufferFull if n is larger than b's buffer size.
 //
