@@ -33,7 +33,6 @@ type Unmarshaler interface {
 type unmarshaler struct {
 	opts             *warcRecordOptions
 	warcFieldsParser *warcfieldsParser
-	LastOffset       int64
 	gz               *gzip.Reader // Holds gzip reader for enabling reuse
 }
 
@@ -58,7 +57,6 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		return nil, offset, validation, err
 	}
 	// Search for start of new record
-	expectedRecordStartOffset := offset
 	for !(magic[0] == 0x1f && magic[1] == 0x8b) && !bytes.Equal(magic, []byte("WARC/")) {
 		if u.opts.errSyntax >= ErrFail {
 			return nil, offset, validation, newSyntaxError("expected start of record", &position{})
@@ -72,10 +70,10 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 			return nil, offset, validation, err
 		}
 	}
-	if u.opts.errSyntax >= ErrWarn && expectedRecordStartOffset != offset {
+	if u.opts.errSyntax >= ErrWarn && offset != 0 {
 		validation.addError(newSyntaxError(
-			fmt.Sprintf("expected start of record at offset: %d, but record was found at offset: %d",
-				expectedRecordStartOffset, offset), &position{}))
+			fmt.Sprintf("record was found %d bytes after expected offset",
+				offset), &position{}))
 	}
 
 	if magic[0] == 0x1f && magic[1] == 0x8b {

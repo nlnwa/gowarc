@@ -516,7 +516,7 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 //
 // WarcRecord will always be nil if error is returned.
 //
-// When at end of file only io.EOF is returned.
+// When at end of file, returned offset is equal to length of file and err is io.EOF.
 func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 	var validation *Validation
 	if wf.currentRecord != nil {
@@ -525,10 +525,6 @@ func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 		}
 	}
 	wf.offset = wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
-	fs, _ := wf.file.Stat()
-	if fs.Size() <= wf.offset {
-		wf.offset = 0
-	}
 
 	var err error
 	var recordOffset int64
