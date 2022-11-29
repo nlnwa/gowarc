@@ -659,6 +659,37 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			0,
 			true,
 		},
+		{
+			"truncated record",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			"WARC/1.0\r\n" +
+				"WARC-Type: revisit\r\n" +
+				"WARC-Target-URI: https://www.google.com:443/\r\n" +
+				"WARC-Profile: http://netpreserve.org/warc/1.1/server-not-modified\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"Content-Length: 0\r\n" +
+				"Content-Type: application/http;msgtype=response\r\n" +
+				"WARC-Date: 2022-11-11T00:01:40Z\r\n",
+			want{
+				V1_0,
+				Revisit,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2022-11-11T00:01:40Z"},
+					&nameValue{Name: WarcProfile, Value: "http://netpreserve.org/warc/1.1/server-not-modified"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcTargetURI, Value: "https://www.google.com:443/"},
+					&nameValue{Name: WarcType, Value: "revisit"},
+					&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
+					&nameValue{Name: ContentLength, Value: "0"},
+				},
+				&revisitBlock{},
+				"",
+				&Validation{},
+				true,
+			},
+			0,
+			true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
