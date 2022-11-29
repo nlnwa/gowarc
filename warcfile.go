@@ -23,7 +23,7 @@ import (
 	"github.com/nlnwa/gowarc/internal"
 	"github.com/nlnwa/gowarc/internal/countingreader"
 	"github.com/nlnwa/gowarc/internal/timestamp"
-	"github.com/prometheus/tsdb/fileutil"
+	"github.com/prometheus/prometheus/tsdb/fileutil"
 	"io"
 	"log"
 	"os"
