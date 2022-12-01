@@ -73,6 +73,7 @@ func newFuncWarcRecordOption(f func(*warcRecordOptions)) *funcWarcRecordOption {
 }
 
 func defaultWarcRecordOptions() warcRecordOptions {
+	uuid.EnableRandPool()
 	return warcRecordOptions{
 		warcVersion:             V1_1,
 		errSyntax:               ErrWarn,

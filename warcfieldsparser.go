@@ -99,9 +99,10 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 		line, nc, err := p.readLine(r, pos.incrLineNumber())
 		if err != nil {
 			if err == endOfHeaders {
-				err = nil
 				eoh = true
-				if len(line) > 0 && p.Options.errSyntax > ErrIgnore {
+				if len(line) == 0 {
+					return &wf, nil
+				} else {
 					switch p.Options.errSyntax {
 					case ErrIgnore:
 					case ErrWarn:
@@ -110,12 +111,14 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 						return nil, newSyntaxError("missing newline", pos)
 					}
 				}
-			}
-			if len(line) == 0 {
-				return nil, err
-			}
-			if !eoh {
-				validation.addError(err)
+			} else {
+				switch p.Options.errSyntax {
+				case ErrIgnore:
+				case ErrWarn:
+					validation.addError(err)
+				case ErrFail:
+					return nil, err
+				}
 			}
 		}
 
