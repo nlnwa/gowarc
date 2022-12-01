@@ -39,13 +39,19 @@ type Block interface {
 	Cache() error
 }
 
-// PayloadBlock is a Block with a well defined payload.
+// PayloadBlock is a Block with a well-defined payload.
 //
 // Ref: https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#warc-record-payload
 type PayloadBlock interface {
 	Block
 	PayloadBytes() (io.Reader, error)
 	PayloadDigest() string
+}
+
+// ProtocolHeaderBlock is a Block with a well-defined protocol header e.g. http response
+type ProtocolHeaderBlock interface {
+	// ProtocolHeaderBytes returns the raw bytes from the protocol's header.
+	ProtocolHeaderBytes() []byte
 }
 
 type genericBlock struct {

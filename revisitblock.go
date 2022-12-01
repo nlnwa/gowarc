@@ -42,6 +42,11 @@ func (block *revisitBlock) RawBytes() (io.Reader, error) {
 	return bytes.NewReader(block.headerBytes), nil
 }
 
+// ProtocolHeaderBytes implements ProtocolHeaderBlock
+func (block *revisitBlock) ProtocolHeaderBytes() []byte {
+	return block.headerBytes
+}
+
 func (block *revisitBlock) PayloadBytes() (io.Reader, error) {
 	return &bytes.Buffer{}, nil
 }
@@ -78,10 +83,10 @@ func newRevisitBlock(opts *warcRecordOptions, src Block) (*revisitBlock, error) 
 
 	switch v := src.(type) {
 	case HttpRequestBlock:
-		block.headerBytes = v.HttpHeaderBytes()
+		block.headerBytes = v.ProtocolHeaderBytes()
 		block.payloadDigestString = v.PayloadDigest()
 	case HttpResponseBlock:
-		block.headerBytes = v.HttpHeaderBytes()
+		block.headerBytes = v.ProtocolHeaderBytes()
 		block.payloadDigestString = v.PayloadDigest()
 	case *genericBlock:
 	default:
