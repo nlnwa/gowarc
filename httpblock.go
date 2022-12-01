@@ -30,17 +30,17 @@ import (
 
 type HttpRequestBlock interface {
 	PayloadBlock
+	ProtocolHeaderBlock
 	HttpRequestLine() string
 	HttpHeader() *http.Header
-	HttpHeaderBytes() []byte
 }
 
 type HttpResponseBlock interface {
 	PayloadBlock
+	ProtocolHeaderBlock
 	HttpStatusLine() string
 	HttpStatusCode() int
 	HttpHeader() *http.Header
-	HttpHeaderBytes() []byte
 }
 
 var missingEndOfHeaders = errors.New("missing line separator at end of http headers")
@@ -134,7 +134,8 @@ func (block *httpRequestBlock) PayloadDigest() string {
 	return block.payloadDigestString
 }
 
-func (block *httpRequestBlock) HttpHeaderBytes() []byte {
+// ProtocolHeaderBytes implements ProtocolHeaderBlock
+func (block *httpRequestBlock) ProtocolHeaderBytes() []byte {
 	return block.httpHeaderBytes
 }
 
@@ -261,7 +262,8 @@ func (block *httpResponseBlock) PayloadDigest() string {
 	return block.payloadDigestString
 }
 
-func (block *httpResponseBlock) HttpHeaderBytes() []byte {
+// ProtocolHeaderBytes implements ProtocolHeaderBlock
+func (block *httpResponseBlock) ProtocolHeaderBytes() []byte {
 	return block.httpHeaderBytes
 }
 
