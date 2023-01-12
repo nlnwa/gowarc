@@ -419,7 +419,9 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 //   ErrFail: the first error is returned and no more validation is done.
 func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	if wr.opts.errSpec > ErrIgnore {
-		wr.Block().Cache()
+		if err := wr.Block().Cache(); err != nil {
+			return err
+		}
 		wr.Block().BlockDigest()
 
 		size := strconv.FormatInt(wr.block.Size(), 10)
