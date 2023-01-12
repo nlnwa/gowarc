@@ -191,6 +191,10 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 	}
 
 	err = record.parseBlock(bufio.NewReader(content), validation)
+	if err != nil {
+		return record, offset, validation, err
+	}
+	err = record.ValidateDigest(validation)
 
 	return record, offset, validation, err
 }

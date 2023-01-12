@@ -33,6 +33,7 @@ type warcRecordOptions struct {
 	addMissingDigest        bool
 	fixContentLength        bool
 	fixDigest               bool
+	fixSyntaxErrors         bool
 	defaultDigestAlgorithm  string
 	defaultDigestEncoding   digestEncoding
 	bufferOptions           []diskbuffer.Option
@@ -88,6 +89,7 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		defaultDigestEncoding:   Base32,
 		fixContentLength:        true,
 		fixDigest:               true,
+		fixSyntaxErrors:         true,
 	}
 }
 
@@ -218,6 +220,17 @@ func WithFixContentLength(fixContentLength bool) WarcRecordOption {
 func WithFixDigest(fixDigest bool) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.fixDigest = fixDigest
+	})
+}
+
+// WithFixSyntaxErrors sets if an attempt to fix syntax errors should be done when those are detected.
+//
+// This will not have any impact if SyntaxErrorPolicy is ErrIgnore
+//
+// defaults to true
+func WithFixSyntaxErrors(fixSyntaxErrors bool) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.fixSyntaxErrors = fixSyntaxErrors
 	})
 }
 
