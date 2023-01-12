@@ -387,7 +387,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 		contentType := strings.ToLower(wr.headers.Get(ContentType))
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 			if strings.HasPrefix(contentType, ApplicationHttp) {
-				wr.block, err = newHttpBlock(wr.opts, reader, blockDigest, payloadDigest, validation)
+				wr.block, err = newHttpBlock(wr.opts, wr.headers, reader, blockDigest, payloadDigest, validation)
 				return
 			}
 		}
@@ -418,10 +418,13 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 //   ErrWarn: all errors found will be added to the Validation.
 //   ErrFail: the first error is returned and no more validation is done.
 func (wr *warcRecord) ValidateDigest(validation *Validation) error {
-	wr.Block().BlockDigest()
-
-	size := strconv.FormatInt(wr.block.Size(), 10)
 	if wr.opts.errSpec > ErrIgnore {
+		if err := wr.Block().Cache(); err != nil {
+			return err
+		}
+		wr.Block().BlockDigest()
+
+		size := strconv.FormatInt(wr.block.Size(), 10)
 		if wr.WarcHeader().Has(ContentLength) && size != wr.headers.Get(ContentLength) {
 			switch wr.opts.errSpec {
 			case ErrWarn:
@@ -460,7 +463,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 			if wr.opts.addMissingDigest {
 				wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
 			}
-		} else {
+		} else if wr.opts.errSpec > ErrIgnore {
 			if err := blockDigest.validate(); err != nil {
 				switch wr.opts.errSpec {
 				case ErrIgnore:
@@ -489,7 +492,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 			if wr.opts.addMissingDigest {
 				wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
 			}
-		} else {
+		} else if wr.opts.errSpec > ErrIgnore {
 			if err := payloadDigest.validate(); err != nil {
 				switch wr.opts.errSpec {
 				case ErrIgnore:

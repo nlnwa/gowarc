@@ -333,7 +333,7 @@ type buffer interface {
 	Peek(n int) ([]byte, error)
 }
 
-func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDigest *digest, validation *Validation) (PayloadBlock, error) {
+func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDigest, payloadDigest *digest, validation *Validation) (PayloadBlock, error) {
 	var rb buffer
 	if v, ok := r.(diskbuffer.Buffer); ok {
 		rb = v
@@ -356,6 +356,13 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 		}
 	}
 
+	if herr == missingEndOfHeaders && opts.fixSyntaxErrors {
+		// Fix header and update content-length field
+		hb = append(hb, '\r', '\n')
+		l, _ := wf.GetInt64(ContentLength)
+		wf.SetInt64(ContentLength, l+2)
+	}
+
 	if _, err := blockDigest.Write(hb); err != nil {
 		return nil, err
 	}
@@ -376,7 +383,8 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 			payloadDigest:   payloadDigest,
 		}
 
-		if herr == missingEndOfHeaders {
+		if herr == missingEndOfHeaders && !opts.fixSyntaxErrors {
+			// We have to fix the header for parsing even if we don't fix the record
 			hb = append(hb, '\r', '\n')
 		}
 		if err := resp.parseHeaders(hb); err != nil && opts.errSyntax > ErrIgnore {
@@ -396,7 +404,8 @@ func newHttpBlock(opts *warcRecordOptions, r io.Reader, blockDigest, payloadDige
 			payloadDigest:   payloadDigest,
 		}
 
-		if herr == missingEndOfHeaders {
+		if herr == missingEndOfHeaders && !opts.fixSyntaxErrors {
+			// We have to fix the header for parsing even if we don't fix the record
 			hb = append(hb, '\r', '\n')
 		}
 		if err := resp.parseHeaders(hb); err != nil && opts.errSyntax > ErrIgnore {

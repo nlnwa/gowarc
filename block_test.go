@@ -338,7 +338,7 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -386,7 +386,7 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -427,7 +427,7 @@ func Test_httpRequestBlock_IsCached(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -470,7 +470,7 @@ func Test_httpRequestBlock_RawBytes(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -507,7 +507,7 @@ func Test_httpResponseBlock_BlockDigest(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -552,7 +552,7 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -590,7 +590,7 @@ func Test_httpResponseBlock_IsCached(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 
@@ -630,7 +630,7 @@ func Test_httpResponseBlock_RawBytes(t *testing.T) {
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
 			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, tt.data, blockDigest, pDigest, val)
+			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
 			require.NoError(t, err)
 			require.True(t, val.Valid(), val.String())
 

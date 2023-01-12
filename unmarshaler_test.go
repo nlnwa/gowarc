@@ -89,7 +89,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		},
 		{
 			"valid response record",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -118,14 +118,14 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
 				&Validation{},
-				false,
+				true,
 			},
 			0,
 			false,
 		},
 		{
 			"valid request record",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -160,7 +160,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n",
 				&Validation{},
-				false,
+				true,
 			},
 			0,
 			false,
@@ -240,7 +240,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"<body></body>\n" +
 					"</html>\n",
 				&Validation{},
-				false,
+				true,
 			},
 			0,
 			false,
@@ -326,7 +326,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&genericBlock{},
 				"body text\n",
 				&Validation{},
-				false,
+				true,
 			},
 			0,
 			false,
@@ -368,7 +368,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&genericBlock{},
 				"... last part of data\n",
 				&Validation{},
-				false,
+				true,
 			},
 			0,
 			false,
@@ -404,14 +404,14 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&genericBlock{},
 				"content\n",
 				&Validation{},
-				false,
+				true,
 			},
 			0,
 			false,
 		},
 		{
 			"metadata record missing end marker",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -440,7 +440,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		},
 		{
 			"metadata record only newline end marker",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -470,7 +470,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		},
 		{
 			"metadata record only one end marker",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -500,7 +500,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		},
 		{
 			"metadata record only one newline end marker",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
 				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
@@ -565,7 +565,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		},
 		{
 			"request record missing end of http header marker - warn",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrWarn), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrWarn), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false), WithFixSyntaxErrors(false)},
 			"WARC/1.1\r\n" +
 				"WARC-Type: request\r\n" +
 				"WARC-Target-URI: http://www.archive.org/images/logoc.jpg\r\n" +
@@ -606,7 +606,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Host: www.archive.org\r\n" +
 					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n",
 				&Validation{missingEndOfHeaders},
-				false,
+				true,
 			},
 			0,
 			false,
@@ -661,7 +661,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		},
 		{
 			"truncated record",
-			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore), WithAddMissingDigest(false)},
 			"WARC/1.0\r\n" +
 				"WARC-Type: revisit\r\n" +
 				"WARC-Target-URI: https://www.google.com:443/\r\n" +
