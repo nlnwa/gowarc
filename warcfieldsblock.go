@@ -35,37 +35,40 @@ type warcFieldsBlock struct {
 	digestOnce  sync.Once
 }
 
-func (b *warcFieldsBlock) IsCached() bool {
+func (block *warcFieldsBlock) IsCached() bool {
 	return true
 }
 
-func (b *warcFieldsBlock) Cache() error {
+func (block *warcFieldsBlock) Cache() error {
+	return nil
+}
+func (block *warcFieldsBlock) Close() error {
 	return nil
 }
 
-func (b *warcFieldsBlock) WarcFields() *WarcFields {
-	return b.warcFields
+func (block *warcFieldsBlock) WarcFields() *WarcFields {
+	return block.warcFields
 }
 
-func (b *warcFieldsBlock) RawBytes() (io.Reader, error) {
-	return bytes.NewReader(b.content), nil
+func (block *warcFieldsBlock) RawBytes() (io.Reader, error) {
+	return bytes.NewReader(block.content), nil
 }
 
-func (b *warcFieldsBlock) BlockDigest() string {
-	b.digestOnce.Do(func() {
-		if _, err := b.blockDigest.Write(b.content); err != nil {
+func (block *warcFieldsBlock) BlockDigest() string {
+	block.digestOnce.Do(func() {
+		if _, err := block.blockDigest.Write(block.content); err != nil {
 			panic(err)
 		}
 	})
-	return b.blockDigest.format()
+	return block.blockDigest.format()
 }
 
 func (block *warcFieldsBlock) Size() int64 {
 	return int64(len(block.content))
 }
 
-func (b *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	bytesWritten, err = b.warcFields.Write(w)
+func (block *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
+	bytesWritten, err = block.warcFields.Write(w)
 	if err != nil {
 		return
 	}

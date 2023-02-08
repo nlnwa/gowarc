@@ -84,6 +84,13 @@ func (block *httpRequestBlock) Cache() error {
 	return err
 }
 
+func (block *httpRequestBlock) Close() error {
+	if c, ok := block.payload.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
+}
+
 func (block *httpRequestBlock) RawBytes() (io.Reader, error) {
 	r, err := block.PayloadBytes()
 	if err != nil {
@@ -210,6 +217,13 @@ func (block *httpResponseBlock) Cache() error {
 	block.payloadDigestString = block.payloadDigest.format()
 	block.payload = buf
 	return err
+}
+
+func (block *httpResponseBlock) Close() error {
+	if c, ok := block.payload.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
 }
 
 func (block *httpResponseBlock) RawBytes() (io.Reader, error) {
