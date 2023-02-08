@@ -37,6 +37,7 @@ type Block interface {
 	Size() int64
 	IsCached() bool
 	Cache() error
+	io.Closer
 }
 
 // PayloadBlock is a Block with a well-defined payload.
@@ -89,6 +90,13 @@ func (block *genericBlock) Cache() error {
 	block.blockDigestString = block.blockDigest.format()
 	block.rawBytes = buf
 	return err
+}
+
+func (block *genericBlock) Close() error {
+	if c, ok := block.rawBytes.(io.Closer); ok {
+		return c.Close()
+	}
+	return nil
 }
 
 func (block *genericBlock) RawBytes() (io.Reader, error) {

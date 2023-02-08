@@ -143,6 +143,10 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 
 	content := countingreader.NewLimited(r, length)
 	record.closer = func() error {
+		defer func() {
+			_ = record.block.Close()
+		}()
+
 		_, err := io.Copy(ioutil.Discard, content)
 
 		// Discarding 4 bytes which makes up the end of record marker (\r\n\r\n)

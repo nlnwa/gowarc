@@ -38,6 +38,10 @@ func (block *revisitBlock) Cache() error {
 	return nil
 }
 
+func (block *revisitBlock) Close() error {
+	return nil
+}
+
 func (block *revisitBlock) RawBytes() (io.Reader, error) {
 	return bytes.NewReader(block.headerBytes), nil
 }
