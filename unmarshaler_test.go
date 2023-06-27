@@ -22,7 +22,7 @@ import (
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 )
@@ -117,6 +117,49 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
+				&Validation{},
+				true,
+			},
+			0,
+			false,
+		},
+		{
+			"valid dns response record",
+			[]WarcRecordOption{WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrWarn),
+				WithAddMissingDigest(true),
+				WithFixSyntaxErrors(false),
+				WithFixDigest(false),
+				WithAddMissingContentLength(false),
+				WithAddMissingRecordId(false),
+				WithFixContentLength(false)},
+			"WARC/1.0\r\n" +
+				"WARC-Type: response\r\n" +
+				"WARC-Target-URI: dns:ergoterapeutene.org\r\n" +
+				"WARC-Date: 2019-11-13T23:23:34Z\r\n" +
+				"WARC-IP-Address: 127.0.0.1\r\n" +
+				"WARC-Record-ID: <urn:uuid:ac971c52-f8da-434c-809b-e401d915d945>\r\n" +
+				"Content-Type: text/dns\r\n" +
+				"Content-Length: 60\r\n" +
+				"\r\n" +
+				"20191113232334\n" +
+				"ergoterapeutene.org.\t300\tIN\tA\t195.159.29.211\n" +
+				"\r\n\r\n",
+			want{
+				V1_0,
+				Response,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2019-11-13T23:23:34Z"},
+					&nameValue{Name: WarcTargetURI, Value: "dns:ergoterapeutene.org"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:ac971c52-f8da-434c-809b-e401d915d945>"},
+					&nameValue{Name: WarcIPAddress, Value: "127.0.0.1"},
+					&nameValue{Name: WarcType, Value: "response"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:4C44B5E46JR5DGLKCD7W3IIL2YQNPCZ6"},
+					&nameValue{Name: ContentType, Value: "text/dns"},
+					&nameValue{Name: ContentLength, Value: "60"},
+				},
+				&genericBlock{},
+				"20191113232334\n" +
+					"ergoterapeutene.org.\t300\tIN\tA\t195.159.29.211\n",
 				&Validation{},
 				true,
 			},
@@ -529,6 +572,50 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			true,
 		},
 		{
+			"metadata record missing carriage return in warc-fields block",
+			[]WarcRecordOption{
+				WithSpecViolationPolicy(ErrWarn),
+				WithSyntaxErrorPolicy(ErrWarn),
+				WithAddMissingDigest(false),
+				WithFixSyntaxErrors(false),
+				WithFixDigest(false),
+				WithAddMissingContentLength(false),
+				WithAddMissingRecordId(false),
+				WithFixContentLength(false),
+			},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: metadata\r\n" +
+				"Content-Type: application/warc-fields\r\n" +
+				"Content-Length: 18\r\n" +
+				"\r\n" +
+				"foo: bar\n" +
+				"food:bar\n" +
+				"\r\n" +
+				"\r\n",
+			want{
+				V1_0,
+				Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: ContentLength, Value: "18"},
+				},
+				&warcFieldsBlock{},
+				"foo: bar\nfood:bar\n",
+				&Validation{
+					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
+					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
+				},
+				true,
+			},
+			0,
+			false,
+		},
+		{
 			"short response record",
 			[]WarcRecordOption{WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail), WithUnknownRecordTypePolicy(ErrIgnore)},
 			"WARC/1.0\r\n" +
@@ -716,7 +803,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			assert.ElementsMatch(*tt.want.headers, *gotRecord.(*warcRecord).headers)
 			r, err := gotRecord.Block().RawBytes()
 			assert.Nil(err)
-			content, err := ioutil.ReadAll(r)
+			content, err := io.ReadAll(r)
 			assert.Nil(err)
 
 			assert.Equal(tt.want.content, string(content), "Content")
@@ -734,7 +821,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				require.NoError(err3)
 			}
 
-			assert.Equal(tt.want.validation, validation)
+			assert.Equal(tt.want.validation, validation, "%s", validation.String())
 		})
 	}
 }

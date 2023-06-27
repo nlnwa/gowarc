@@ -55,15 +55,28 @@ func newSyntaxError(msg string, pos *position) *SyntaxError {
 }
 
 func newWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxError {
-	return &SyntaxError{msg: msg, line: pos.lineNumber, wrapped: wrapped}
+	e := &SyntaxError{msg: msg, wrapped: wrapped}
+	if pos == nil && wrapped != nil && wrapped.(*SyntaxError).line > 0 {
+		e.line = wrapped.(*SyntaxError).line
+	} else {
+		e.line = pos.lineNumber
+	}
+	return e
 }
 
 func (e *SyntaxError) Error() string {
+	s := "gowarc: " + e.msg
 	if e.line > 0 {
-		return fmt.Sprintf("gowarc: %s at line %d", e.msg, e.line)
-	} else {
-		return fmt.Sprintf("gowarc: %s", e.msg)
+		s += fmt.Sprintf(" at line %d", e.line)
 	}
+	if e.wrapped != nil {
+		if v, ok := e.wrapped.(*SyntaxError); ok {
+			s += ": " + v.msg
+		} else {
+			s += ": " + e.wrapped.Error()
+		}
+	}
+	return s
 }
 
 func (e *SyntaxError) Unwrap() error {
