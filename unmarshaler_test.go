@@ -19,6 +19,7 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"fmt"
 	"github.com/klauspost/compress/gzip"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -589,6 +590,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"WARC-Type: metadata\r\n" +
 				"Content-Type: application/warc-fields\r\n" +
 				"Content-Length: 18\r\n" +
+				"WARC-Block-Digest: sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY\r\n" +
 				"\r\n" +
 				"foo: bar\n" +
 				"food:bar\n" +
@@ -603,12 +605,62 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					&nameValue{Name: WarcType, Value: "metadata"},
 					&nameValue{Name: ContentType, Value: "application/warc-fields"},
 					&nameValue{Name: ContentLength, Value: "18"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY"},
 				},
 				&warcFieldsBlock{},
 				"foo: bar\nfood:bar\n",
 				&Validation{
 					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
 					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
+				},
+				true,
+			},
+			0,
+			false,
+		},
+		{
+			"metadata record missing carriage return in warc-fields block with fix syntax errors",
+			[]WarcRecordOption{
+				WithSpecViolationPolicy(ErrWarn),
+				WithSyntaxErrorPolicy(ErrWarn),
+				WithAddMissingDigest(true),
+				WithFixSyntaxErrors(true),
+				WithFixDigest(true),
+				WithAddMissingContentLength(false),
+				WithAddMissingRecordId(false),
+				WithFixContentLength(true),
+				WithFixWarcFieldsBlockErrors(true),
+			},
+			"WARC/1.0\r\n" +
+				"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+				"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+				"WARC-Type: metadata\r\n" +
+				"Content-Type: application/warc-fields\r\n" +
+				"Content-Length: 18\r\n" +
+				"WARC-Block-Digest: sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY\r\n" +
+				"\r\n" +
+				"foo: bar\n" +
+				"food:bar\n" +
+				"\r\n" +
+				"\r\n",
+			want{
+				V1_0,
+				Metadata,
+				&WarcFields{
+					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+					&nameValue{Name: WarcType, Value: "metadata"},
+					&nameValue{Name: ContentType, Value: "application/warc-fields"},
+					&nameValue{Name: ContentLength, Value: "21"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO"},
+				},
+				&warcFieldsBlock{},
+				"Foo: bar\r\nFood: bar\r\n",
+				&Validation{
+					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
+					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
+					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
+					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
 				},
 				true,
 			},
@@ -821,7 +873,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				require.NoError(err3)
 			}
 
-			assert.Equal(tt.want.validation, validation, "%s", validation.String())
+			assert.Equal(tt.want.validation, validation, "Want:\n %s\nGot:\n %s", tt.want.validation, validation.String())
 		})
 	}
 }

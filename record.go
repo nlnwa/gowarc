@@ -396,7 +396,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 			return
 		}
 		if strings.HasPrefix(contentType, ApplicationWarcFields) {
-			wr.block, err = newWarcFieldsBlock(reader, blockDigest, validation, wr.opts)
+			wr.block, err = newWarcFieldsBlock(wr.opts, wr.headers, reader, blockDigest, validation)
 			return
 		}
 	}
@@ -414,9 +414,10 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 // If the record is not cached, it might not be possible to read any content from this record after validation.
 //
 // The result is dependent on the SpecViolationPolicy option:
-//   ErrIgnore: only fatal errors are returned.
-//   ErrWarn: all errors found will be added to the Validation.
-//   ErrFail: the first error is returned and no more validation is done.
+//
+//	ErrIgnore: only fatal errors are returned.
+//	ErrWarn: all errors found will be added to the Validation.
+//	ErrFail: the first error is returned and no more validation is done.
 func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	if wr.opts.errSpec > ErrIgnore {
 		if err := wr.Block().Cache(); err != nil {
@@ -471,6 +472,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 					validation.addError(fmt.Errorf("block: %w", err))
 					if wr.opts.fixDigest {
 						// Digest validation failed. But if fixDigest option is set, the calculated digest will be set.
+						blockDigest.updateDigest()
 						wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
 					}
 				case ErrFail:
@@ -500,6 +502,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 					validation.addError(fmt.Errorf("payload: %w", err))
 					// Digest validation failed. But if fixDigest option is set, the calculated digest will be set.
 					if wr.opts.fixDigest {
+						payloadDigest.updateDigest()
 						wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
 					}
 				case ErrFail:

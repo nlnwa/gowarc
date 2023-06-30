@@ -180,7 +180,7 @@ func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
@@ -221,7 +221,7 @@ func Test_warcfieldsBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			if tt.wantCacheErr {
 				require.False(t, validation.Valid(), validation)
@@ -260,7 +260,7 @@ func Test_warcfieldsBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
@@ -297,7 +297,7 @@ func Test_warcfieldsBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
