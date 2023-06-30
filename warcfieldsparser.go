@@ -63,27 +63,26 @@ func (p *warcfieldsParser) parseLine(line []byte, nv WarcFields, pos *position) 
 // parser even though err was not nil.
 // nextChar returns the first character a new call to readLine would process.
 func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte, nextChar byte, err error) {
-	l, e := r.ReadBytes('\n')
-	if e != nil {
-		if e == io.EOF {
-			e = endOfHeaders
+	line, err = r.ReadBytes('\n')
+	if err != nil {
+		if err == io.EOF {
+			err = endOfHeaders
 		}
-		return l, nextChar, e
+		line = bytes.Trim(line, sphtcrlf)
+		return
 	}
-	if p.Options.errSyntax > ErrIgnore && l[len(l)-2] != '\r' {
+	if p.Options.errSyntax > ErrIgnore && (len(line) < 2 || line[len(line)-2] != '\r') {
 		err = newSyntaxError("missing carriage return", pos)
 		if p.Options.errSyntax == ErrFail {
-			return nil, nextChar, err
+			line = bytes.Trim(line, sphtcrlf)
+			return
 		}
 	}
-	line = bytes.Trim(l, sphtcrlf)
+	line = bytes.Trim(line, sphtcrlf)
 
 	n, e := r.Peek(1)
 	if e == io.EOF {
-		return line, 0, nil
-	}
-	if e != nil {
-		err = e
+		nextChar = 0
 		return
 	}
 

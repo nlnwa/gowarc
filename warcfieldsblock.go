@@ -93,7 +93,11 @@ func newWarcFieldsBlock(rb io.Reader, d *digest, validation *Validation, options
 		}
 	}
 	p := &warcfieldsParser{options}
-	wfb.warcFields, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), validation, &position{})
+	blockValidation := Validation{}
+	wfb.warcFields, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), &blockValidation, &position{})
+	for _, e := range blockValidation {
+		validation.addError(newWrappedSyntaxError("error in warc fields block", nil, e))
+	}
 
 	return wfb, err
 }

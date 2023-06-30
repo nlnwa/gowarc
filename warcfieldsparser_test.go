@@ -302,7 +302,7 @@ func TestParseWarcFields(t *testing.T) {
 				assert.NoError(err)
 			}
 			assert.Equal(tt.want, got)
-			assert.Equal(tt.wantValidation, validation)
+			assert.Equal(tt.wantValidation, validation, "%s", validation.String())
 		})
 	}
 }
