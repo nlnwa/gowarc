@@ -23,7 +23,6 @@ import (
 	"github.com/klauspost/compress/gzip"
 	"github.com/nlnwa/gowarc/internal/countingreader"
 	"io"
-	"io/ioutil"
 )
 
 type Unmarshaler interface {
@@ -147,7 +146,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 			_ = record.block.Close()
 		}()
 
-		_, err := io.Copy(ioutil.Discard, content)
+		_, err := io.Copy(io.Discard, content)
 
 		// Discarding 4 bytes which makes up the end of record marker (\r\n\r\n)
 		b, e := r.Peek(4)

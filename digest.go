@@ -130,6 +130,11 @@ func (d *digest) validate() error {
 	return nil
 }
 
+// updateDigest updates the digest-string to the computed value.
+func (d *digest) updateDigest() {
+	d.hash = d.encoding.encode(d)
+}
+
 // newDigest creates a new digest from the value of a WARC digest-field or from scratch.
 //
 // digestString has the format: <algorithm>[:[<digestValue>]] where algorithm is one of md5, sha1, sha256, or sha512.

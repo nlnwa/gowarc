@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"io"
-	"io/ioutil"
 	"strings"
 	"testing"
 	"testing/iotest"
@@ -181,7 +180,7 @@ func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
@@ -222,7 +221,7 @@ func Test_warcfieldsBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			if tt.wantCacheErr {
 				require.False(t, validation.Valid(), validation)
@@ -261,7 +260,7 @@ func Test_warcfieldsBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
@@ -298,7 +297,7 @@ func Test_warcfieldsBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			validation := &Validation{}
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(tt.data, d, validation, &o)
+			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
 			require.NoError(t, err)
 			require.True(t, validation.Valid(), validation)
 
@@ -657,12 +656,12 @@ func validateCacheTest(t *testing.T, block Block, expectedContent string, expect
 	// Reading content twice should be ok
 	got, err := block.RawBytes()
 	require.NoError(t, err)
-	content, err := ioutil.ReadAll(got)
+	content, err := io.ReadAll(got)
 	require.NoError(t, err)
 	assert.Equal(t, expectedContent, string(content))
 	got, err = block.RawBytes()
 	require.NoError(t, err)
-	content, err = ioutil.ReadAll(got)
+	content, err = io.ReadAll(got)
 	require.NoError(t, err)
 	assert.Equal(t, expectedContent, string(content))
 
@@ -738,7 +737,7 @@ func validateRawBytesTest(t *testing.T, tt rawBytesTest, block Block, expectedCo
 		require.NoError(t, err)
 	}
 
-	content, err := ioutil.ReadAll(got)
+	content, err := io.ReadAll(got)
 	require.NoError(t, err)
 	assert.Equal(t, expectedContent, string(content))
 
@@ -747,7 +746,7 @@ func validateRawBytesTest(t *testing.T, tt rawBytesTest, block Block, expectedCo
 		got, err := block.RawBytes()
 		require.NoError(t, err)
 
-		content, err := ioutil.ReadAll(got)
+		content, err := io.ReadAll(got)
 		require.NoError(t, err)
 		assert.Equal(t, expectedContent, string(content))
 	} else {
