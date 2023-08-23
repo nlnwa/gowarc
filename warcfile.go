@@ -18,6 +18,7 @@ package gowarc
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/klauspost/compress/gzip"
 	"github.com/nlnwa/gowarc/internal"
@@ -476,6 +477,14 @@ var inputBufPool = sync.Pool{
 }
 
 func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) (*WarcFileReader, error) {
+	info, err := os.Stat(filename)
+	if err != nil {
+		return nil, err
+	}
+	if info.IsDir() {
+		return nil, errors.New("is directory")
+	}
+
 	file, err := os.Open(filename) // For read access.
 	if err != nil {
 		return nil, err
