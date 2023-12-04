@@ -25,10 +25,23 @@ import (
 	"io"
 )
 
+// Unmarshaler is the interface implemented by types that can unmarshal a WARC record. A new instance of Unmarshaler is created by calling [NewUnmarshaler].
+// NewUnmarshaler accepts a number of options that can be used to control the unmarshalling process. See [WarcRecordOption] for details.
+//
+// Unmarshal parses the WARC record from the given reader and returns:
+//   - The parsed WARC record, if successfully unmarshaled. If there is an error during unmarshalling, this value is nil.
+//   - The offset value indicating the number of characters that have been discarded until the start of a new record is found.
+//   - A pointer to a [Validation] object that stores any errors or warnings encountered during the parsing process.
+//     The validation object is only populated if the error specification is set to ErrWarn or ErrFail.
+//   - The standard error object in Go. If no error occurred during the parsing, this object is nil. Otherwise, it contains details about the encountered error.
+//
+// If the reader contains multiple records, Unmarshal parses the first record and returns.
+// If the reader contains no records, Unmarshal returns an io.EOF error.
 type Unmarshaler interface {
 	Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation, error)
 }
 
+// unmarshaler implements the Unmarshaler interface.
 type unmarshaler struct {
 	opts             *warcRecordOptions
 	warcFieldsParser *warcfieldsParser
@@ -45,6 +58,7 @@ func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
 	return u
 }
 
+// Unmarshal implements the Unmarshal method in the Unmarshaler interface.
 func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation, error) {
 	var r *bufio.Reader
 	var offset int64
