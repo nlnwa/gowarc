@@ -47,13 +47,13 @@ type WarcFileNameGenerator interface {
 // (https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/#annex-c-informative-warc-file-size-and-name-recommendations).
 // The pattern is like golangs fmt package (https://pkg.go.dev/fmt), but allows for named fields in curly braces.
 // The available predefined names are:
-//   * prefix   - content of the Prefix field
-//   * ext      - content of the Extension field
-//   * ts       - current time as 14-digit GMT Time-stamp
-//   * serial   - atomically increased serial number for every generated file name. Initial value is 0 if Serial field is not set
-//   * ip       - primary IP address of the node
-//   * host     - host name of the node
-//   * hostOrIp - host name of the node, falling back to IP address if host name could not be resolved
+//   - prefix   - content of the Prefix field
+//   - ext      - content of the Extension field
+//   - ts       - current time as 14-digit GMT Time-stamp
+//   - serial   - atomically increased serial number for every generated file name. Initial value is 0 if Serial field is not set
+//   - ip       - primary IP address of the node
+//   - host     - host name of the node
+//   - hostOrIp - host name of the node, falling back to IP address if host name could not be resolved
 type PatternNameGenerator struct {
 	Directory string // Directory to store warcfiles. Defaults to the empty string
 	Prefix    string // Prefix available to be used in pattern. Defaults to the empty string
@@ -460,6 +460,8 @@ func (w *singleWarcFileWriter) close() error {
 	return nil
 }
 
+// WarcFileReader is used to read WARC files.
+// Use [NewWarcFileReader] to create a new instance.
 type WarcFileReader struct {
 	file           *os.File
 	initialOffset  int64
@@ -476,6 +478,9 @@ var inputBufPool = sync.Pool{
 	},
 }
 
+// NewWarcFileReader creates a new [WarcFileReader] from the supplied filename.
+// If offset is > 0, the reader will start reading from that offset.
+// The WarcFileReader can be configured with options. See [WarcRecordOption].
 func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) (*WarcFileReader, error) {
 	info, err := os.Stat(filename)
 	if err != nil {
@@ -509,23 +514,25 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 }
 
 // Next reads the next WarcRecord from the WarcFileReader.
+// The method also provides the offset at which the record is found within the file.
 //
-// Returned values depends on the errorPolicy options set on WarcFileReader:
+// The validation and error values that Next produces depend on the errorPolicy options that have been set on the WarcFileReader:
 //
-// If set to ErrIgnore for all errors, a WarcRecord and its offset is returned without any validation. Error is only returned
-// if the file is to bad to be able to parse anything meaningful.
+//   - [ErrIgnore]: This setting ignores all errors. A WarcRecord and its offset are returned without any validation.
+//     An error is only returned if the file is so badly formatted that nothing meaningful can be parsed.
 //
-// If set to ErrWarn for all errors, the same as with ErrIgnore is returned, but record is validated and all validation
-// errors are collected in a Validation object which can be examined.
+//   - [ErrWarn]: Similar to ErrIgnore, this setting returns a WarcRecord and its offset.
+//     However, the record is validated and all validation errors are collected in a Validation object which can then be examined.
 //
-// If set to ErrFail for all errors, an error is returned in case of validation error and WarcRecord is nil.
+//   - [ErrFail]: If this is set, the method will return an error in the case of a validation error, and WarcRecord is nil.
 //
-// If different errorPolicies are set for WithSyntaxErrorPolicy, WithSpecViolationPolicy and WithUnknownRecordTypePolicy,
-// then a mix of the above return values are possible.
+//   - Mixed Policies: It's possible to set different error policies for different types of errors with the following options:
+//     [WithSyntaxErrorPolicy], [WithSpecViolationPolicy] and [WithUnknownRecordTypePolicy].
+//     The return values of Next would be a mix of the aforementioned scenarios based on the policies set.
 //
 // WarcRecord will always be nil if error is returned.
 //
-// When at end of file, returned offset is equal to length of file and err is io.EOF.
+// When at end of file, returned offset is equal to length of file and err is [io.EOF].
 func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 	var validation *Validation
 	if wf.currentRecord != nil {

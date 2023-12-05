@@ -36,7 +36,7 @@ import (
 //   - The standard error object in Go. If no error occurred during the parsing, this object is nil. Otherwise, it contains details about the encountered error.
 //
 // If the reader contains multiple records, Unmarshal parses the first record and returns.
-// If the reader contains no records, Unmarshal returns an io.EOF error.
+// If the reader contains no records, Unmarshal returns an [io.EOF] error.
 type Unmarshaler interface {
 	Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation, error)
 }
