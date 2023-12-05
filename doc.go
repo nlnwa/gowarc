@@ -15,18 +15,31 @@
  */
 
 /*
-Package gowarc allows parsing, creating and validating WARC-records.
-Reading, writing and validating WARC-files is also supported.
+Package gowarc allows parsing, creating and validating WARC-files.
 
-WARC
+# WARC
 
 The WARC format offers a standard way to structure, manage and store billions of resources collected from the web and elsewhere.
 It is used to build applications for harvesting, managing, accessing, mining and exchanging content.
 
 To learn more about the WARC standard, read the specification at https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.1/
 
-Creating a WARC record
+# Create WARC records
 
-To create a WARC record.
+The [WarcRecordBuilder] is used to create WARC records. It is initialized with [NewRecordBuilder]. The RecordBuilder will by default
+generate a record id and calculate the Content-Length and WARC-Block-Digest.
+
+The [WarcFileWriter] is used to write WARC files. It is initialized with [NewWarcFileWriter].
+
+# Parse WARC records
+
+The [Unmarshaler] is used to parse single WARC records. It is initialized with [NewUnmarshaler].
+
+The [WarcFileReader] is used to read WARC files. It is initialized with [NewWarcFileReader].
+
+# Validation and repair
+
+Validation can be done both when creating and parsing WARC records. What is validated and how validation errors are handled can be controlled
+by setting the appropriate options when creating the [WarcRecordBuilder], [Unmarshaler] or [WarcFileReader].
 */
 package gowarc
