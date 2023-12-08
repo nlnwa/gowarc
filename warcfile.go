@@ -524,15 +524,13 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 //   - [ErrWarn]: Similar to ErrIgnore, this setting returns a WarcRecord and its offset.
 //     However, the record is validated and all validation errors are collected in a Validation object which can then be examined.
 //
-//   - [ErrFail]: If this is set, the method will return an error in the case of a validation error, and WarcRecord is nil.
+//   - [ErrFail]: If this is set, the method will return an error in the case of a validation error, and WarcRecord might be nil.
 //
 //   - Mixed Policies: It's possible to set different error policies for different types of errors with the following options:
 //     [WithSyntaxErrorPolicy], [WithSpecViolationPolicy] and [WithUnknownRecordTypePolicy].
 //     The return values of Next would be a mix of the aforementioned scenarios based on the policies set.
 //
-// WarcRecord will always be nil if error is returned.
-//
-// When at end of file, returned offset is equal to length of file and err is [io.EOF].
+// When at end of file, returned offset is equal to length of file, WarcRecord is nil and err is [io.EOF].
 func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 	var validation *Validation
 	if wf.currentRecord != nil {

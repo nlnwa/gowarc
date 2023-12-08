@@ -29,7 +29,7 @@ import (
 // NewUnmarshaler accepts a number of options that can be used to control the unmarshalling process. See [WarcRecordOption] for details.
 //
 // Unmarshal parses the WARC record from the given reader and returns:
-//   - The parsed WARC record, if successfully unmarshaled. If there is an error during unmarshalling, this value is nil.
+//   - The parsed WARC record. If an error occurred during the parsing, the returned WARC record might be nil.
 //   - The offset value indicating the number of characters that have been discarded until the start of a new record is found.
 //   - A pointer to a [Validation] object that stores any errors or warnings encountered during the parsing process.
 //     The validation object is only populated if the error specification is set to ErrWarn or ErrFail.
