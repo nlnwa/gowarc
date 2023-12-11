@@ -1,12 +1,11 @@
 ![Lint](https://github.com/nlnwa/gowarc/workflows/golangci-lint/badge.svg)
-![GoReleaser](https://github.com/nlnwa/gowarc/workflows/goreleaser/badge.svg)
+[![Release](https://img.shields.io/github/release/nlnwa/gowarc.svg)](https://github.com/nlnwa/gowarc/releases/latest)
+[![License](https://img.shields.io/github/license/nlnwa/gowarc)](/LICENSE)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/nlnwa/gowarc)](https://pkg.go.dev/github.com/nlnwa/gowarc)
-
-> This project is currently in alpha. Expect API changes and enhanced documentation to come.
 
 # gowarc
 
-A library for creating, parsing and evaluating WARC-records, written in go.
+A library for creating, parsing and evaluating WARC-files, written in go.
 
 ### What is WARC?
 
@@ -25,6 +24,8 @@ $ go get github.com/nlnwa/gowarc
 ```
 
 #### Create a new WARC record
+
+To get you started, here is a simple example of how to create a new WARC record.
 
 ```go
 package main
@@ -54,16 +55,11 @@ func main() {
 }
 ```
 
-#### Expected output
-
-```
-WARC record: version: WARC/1.1, type: response, id: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>
-```
-
 ### godoc
 
 For complete documentation and examples consult the godoc online at: https://pkg.go.dev/github.com/nlnwa/gowarc
 
-## Command line
 
-https://github.com/nlnwa/warchaeology is a command line tool that use gowarc.
+## Command line tools
+
+[warchaeology](https://github.com/nlnwa/warchaeology) is a command line tool based on gowarc.

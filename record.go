@@ -34,28 +34,52 @@ const (
 	crlfcrlf = "\r\n\r\n" // Carriage return, Newline, Carriage return, Newline
 )
 
+// WarcRecord is the interface implemented by types that can represent a WARC record.
+// A new instance of WarcRecord is created by a [WarcRecordBuilder].
 type WarcRecord interface {
+	// Version returns the WARC version of the record.
 	Version() *WarcVersion
+
+	// Type returns the WARC record type.
 	Type() RecordType
+
+	// WarcHeader returns the WARC header fields.
 	WarcHeader() *WarcFields
+
+	// Block returns the content block of the record.
 	Block() Block
+
+	// RecordId returns the WARC-Record-ID header field.
 	RecordId() string
+
+	// ContentLength returns the Content-Length header field.
 	ContentLength() (int64, error)
+
+	// Date returns the WARC-Date header field.
 	Date() (time.Time, error)
+
+	// String returns a string representation of the record.
 	String() string
+
+	// Closer closes the record and releases any resources associated with it.
 	io.Closer
+
 	// ToRevisitRecord takes RevisitRef referencing the record we want to make a revisit of and returns a revisit record.
 	ToRevisitRecord(ref *RevisitRef) (WarcRecord, error)
-	// RevisitRef extracts a RevisitRef current record if it is a revisit record.
+
+	// RevisitRef extracts a RevisitRef from the current record if it is a revisit record.
 	RevisitRef() (*RevisitRef, error)
+
 	// CreateRevisitRef creates a RevisitRef which references the current record.
 	//
-	// The RevisitRef might be used by another records ToRevisitRecord to create a revisit record referencing this record.
+	// The RevisitRef might be used by another record's ToRevisitRecord to create a revisit record referencing this record.
 	CreateRevisitRef(profile string) (*RevisitRef, error)
+
 	// Merge merges this record with its referenced record(s)
 	//
 	// It is implemented only for revisit records, but this function will be enhanced to also support segmented records.
 	Merge(record ...WarcRecord) (WarcRecord, error)
+
 	// ValidateDigest validates block and payload digests if present.
 	//
 	// If option FixDigest is set, an invalid or missing digest will be corrected in the header.
@@ -71,6 +95,10 @@ type WarcRecord interface {
 	ValidateDigest(validation *Validation) error
 }
 
+// WarcVersion represents a WARC specification version.
+//
+// For record creation, only WARC 1.0 and 1.1 are supported which are represented by the constants [V1_0] and [V1_1].
+// During parsing of a record, the WarcVersion will take on the version value found in the record itself.
 type WarcVersion struct {
 	id    uint8
 	txt   string
@@ -78,6 +106,7 @@ type WarcVersion struct {
 	minor uint8
 }
 
+// String returns a string representation of the WARC version in the format used by WARC files i.e. 'WARC/1.0' or 'WARC/1.1'.
 func (v *WarcVersion) String() string {
 	return "WARC/" + v.txt
 }
@@ -96,8 +125,10 @@ var (
 	V1_1 = &WarcVersion{id: 2, txt: "1.1", major: 1, minor: 1} // WARC 1.1
 )
 
+// RecordType represents the type of a WARC record.
 type RecordType uint16
 
+// String returns a string representation of the record type.
 func (rt RecordType) String() string {
 	switch rt {
 	case 1:
