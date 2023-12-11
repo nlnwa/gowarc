@@ -95,6 +95,10 @@ type WarcRecord interface {
 	ValidateDigest(validation *Validation) error
 }
 
+// WarcVersion represents a WARC specification version.
+//
+// For record creation, only WARC 1.0 and 1.1 are supported which are represented by the constants [V1_0] and [V1_1].
+// During parsing of a record, the WarcVersion will take on the version value found in the record itself.
 type WarcVersion struct {
 	id    uint8
 	txt   string
@@ -102,6 +106,7 @@ type WarcVersion struct {
 	minor uint8
 }
 
+// String returns a string representation of the WARC version in the format used by WARC files i.e. 'WARC/1.0' or 'WARC/1.1'.
 func (v *WarcVersion) String() string {
 	return "WARC/" + v.txt
 }
@@ -120,8 +125,10 @@ var (
 	V1_1 = &WarcVersion{id: 2, txt: "1.1", major: 1, minor: 1} // WARC 1.1
 )
 
+// RecordType represents the type of a WARC record.
 type RecordType uint16
 
+// String returns a string representation of the record type.
 func (rt RecordType) String() string {
 	switch rt {
 	case 1:
