@@ -51,7 +51,7 @@ func ExampleUnmarshaler() {
 		"WARC-Filename: temp-20170306040353.warc.gz\r\n" +
 		"WARC-Type: warcinfo\r\n" +
 		"Content-Type: application/warc-fields\r\n" +
-		"Warc-Block-Digest: sha1:AF4D582B4FFC017D07A947D841E392A821F754F3\r\n" +
+		"Warc-Block-Digest: sha1:af4d582b4ffc017d07a947d841e392a821f754f3\r\n" +
 		"Content-Length: 34\r\n" +
 		"\r\n" +
 		"format: WARC File Format 1.1\r\n" +
@@ -68,7 +68,7 @@ func ExampleUnmarshaler() {
 	// Output: Offset: 2, WARC record: version: WARC/1.1, type: warcinfo, id: urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008
 	// gowarc: Validation errors:
 	//   1: gowarc: record was found 2 bytes after expected offset
-	//   2: block: wrong digest: expected sha1:AF4D582B4FFC017D07A947D841E392A821F754F3, computed: sha1:8A936F9FD60D664CF95B1FFB40F1C4093E65BB40
+	//   2: block: wrong digest: expected sha1:af4d582b4ffc017d07a947d841e392a821f754f3, computed: sha1:8a936f9fd60d664cf95b1ffb40f1c4093e65bb40
 }
 
 func ExampleNewWarcFileWriter() {
