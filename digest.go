@@ -17,6 +17,7 @@
 package gowarc
 
 import (
+	"bytes"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -36,13 +37,26 @@ func (d digestEncoding) encode(digest *digest) string {
 	dig := digest.Sum(nil)
 	switch d {
 	case Base16:
-		return strings.ToUpper(hex.EncodeToString(dig))
+		return strings.ToLower(hex.EncodeToString(dig))
 	case Base32:
 		return base32.StdEncoding.EncodeToString(dig)
 	case Base64:
 		return base64.StdEncoding.EncodeToString(dig)
 	default:
 		return string(dig)
+	}
+}
+
+func (d digestEncoding) decode(s string) ([]byte, error) {
+	switch d {
+	case Base16:
+		return hex.DecodeString(s)
+	case Base32:
+		return base32.StdEncoding.DecodeString(s)
+	case Base64:
+		return base64.StdEncoding.DecodeString(s)
+	default:
+		return []byte(s), nil
 	}
 }
 
@@ -85,6 +99,22 @@ func detectEncoding(algorithm, digest string, defaultEncoding digestEncoding) di
 	return defaultEncoding
 }
 
+// normalizeAlgorithmName normalizes the algorithm name to the format used in WARC digest-fields.
+func normalizeAlgorithmName(algorithm string) string {
+	algorithm = strings.ToLower(algorithm)
+
+	switch algorithm {
+	case "sha-1":
+		return "sha1"
+	case "sha-256":
+		return "sha256"
+	case "sha-512":
+		return "sha512"
+	default:
+		return algorithm
+	}
+}
+
 // digest is a utility for parsing, creation and validation of WARC block and payload digests.
 //
 // Typical usage is to create a digest from a WARC record's WARC-Block-Digest or WARC-Payload-Digest fields.
@@ -124,7 +154,11 @@ func (d *digest) format() string {
 // digest.
 func (d *digest) validate() error {
 	computed := d.encoding.encode(d)
-	if d.hash != computed {
+	dig, err := d.encoding.decode(d.hash)
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(dig, d.Sum(nil)) {
 		return fmt.Errorf("wrong digest: expected %s:%s, computed: %s:%s", d.name, d.hash, d.name, computed)
 	}
 	return nil
@@ -144,17 +178,16 @@ func (d *digest) updateDigest() {
 func newDigest(digestString string, defaultEncoding digestEncoding) (*digest, error) {
 	t := strings.SplitN(digestString, ":", 2)
 	algorithm := t[0]
-	algorithm = strings.ToLower(algorithm)
-	if algorithm == "" {
-		return nil, fmt.Errorf("missing algorithm")
-	}
+	algorithm = normalizeAlgorithmName(algorithm)
 	var hash string
 	if len(t) > 1 {
 		hash = t[1]
 	}
 	encoding := detectEncoding(algorithm, hash, defaultEncoding)
-	if encoding < Base64 {
-		// base16 and base32 encodings are case insensitive.
+	switch encoding {
+	case Base16:
+		hash = strings.ToLower(hash)
+	case Base32:
 		hash = strings.ToUpper(hash)
 	}
 

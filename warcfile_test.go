@@ -176,7 +176,7 @@ func TestWarcFileWriter_Write_warcinfo_compressed(t *testing.T) {
 	defer func() { assert.NoError(os.RemoveAll(testdir)) }()
 
 	// Write two records sequentially
-	compressedWarcinfoSize := int64(254)
+	compressedWarcinfoSize := int64(252)
 	res := w.Write(createTestRecord())
 	assert.NoError(res[0].Err)
 	assert.Equalf(uncompressedRecordWithWarcInfoIdSize, res[0].BytesWritten, "Expected size from writer %d, but was %d", uncompressedRecordWithWarcInfoIdSize, res[0].BytesWritten)

@@ -28,7 +28,7 @@ import (
 
 func Test_genericBlock_BlockDigest(t *testing.T) {
 	content := "foo"
-	digest := "sha1:0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33"
+	digest := "sha1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"
 
 	tests := []blockDigestTest{
 		{
@@ -57,7 +57,7 @@ func Test_genericBlock_BlockDigest(t *testing.T) {
 
 func Test_genericBlock_Cache(t *testing.T) {
 	content := "foo"
-	digest := "sha1:0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33"
+	digest := "sha1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"
 
 	tests := []cacheTest{
 		{
@@ -126,7 +126,7 @@ func Test_genericBlock_IsCached(t *testing.T) {
 
 func Test_genericBlock_RawBytes(t *testing.T) {
 	content := "foo"
-	digest := "sha1:0BEEC7B5EA3F0FDBC95D0DD47F3C5BC275DA8A33"
+	digest := "sha1:0beec7b5ea3f0fdbc95d0dd47f3c5bc275da8a33"
 
 	tests := []rawBytesTest{
 		{
@@ -158,7 +158,7 @@ func Test_genericBlock_RawBytes(t *testing.T) {
 
 func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 	content := "foo: bar\r\ncontent-type:bb\r\n"
-	digest := "sha1:A1D43D400C5985BEE035C4E5A2E08F3D57989596"
+	digest := "sha1:a1d43d400c5985bee035c4e5a2e08f3d57989596"
 
 	tests := []blockDigestTest{
 		{
@@ -191,7 +191,7 @@ func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 
 func Test_warcfieldsBlock_Cache(t *testing.T) {
 	content := "foo: bar\r\ncontent-type:bb\r\n"
-	digest := "sha1:A1D43D400C5985BEE035C4E5A2E08F3D57989596"
+	digest := "sha1:a1d43d400c5985bee035c4e5a2e08f3d57989596"
 
 	tests := []cacheTest{
 		{
@@ -272,7 +272,7 @@ func Test_warcfieldsBlock_IsCached(t *testing.T) {
 
 func Test_warcfieldsBlock_RawBytes(t *testing.T) {
 	content := "foo: bar\r\ncontent-type:bb\r\n"
-	digest := "sha1:A1D43D400C5985BEE035C4E5A2E08F3D57989596"
+	digest := "sha1:a1d43d400c5985bee035c4e5a2e08f3d57989596"
 
 	tests := []rawBytesTest{
 		{
@@ -313,8 +313,8 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
 		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
-	digest := "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"
-	payloadDigest := "sha1:DA39A3EE5E6B4B0D3255BFEF95601890AFD80709"
+	digest := "sha1:a3781ff1fc3fb52318f623e22c85d63d74c12932"
+	payloadDigest := "sha1:da39a3ee5e6b4b0d3255bfef95601890afd80709"
 
 	tests := []blockDigestTest{
 		{
@@ -354,7 +354,7 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
 		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
-	digest := "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"
+	digest := "sha1:a3781ff1fc3fb52318f623e22c85d63d74c12932"
 
 	tests := []cacheTest{
 		{
@@ -443,7 +443,7 @@ func Test_httpRequestBlock_RawBytes(t *testing.T) {
 		"Referer: http://example.com/foo.html\n" +
 		"Connection: close\n" +
 		"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n"
-	digest := "sha1:A3781FF1FC3FB52318F623E22C85D63D74C12932"
+	digest := "sha1:a3781ff1fc3fb52318f623e22c85d63d74c12932"
 
 	tests := []rawBytesTest{
 		{
@@ -482,8 +482,8 @@ func Test_httpResponseBlock_BlockDigest(t *testing.T) {
 	content := "HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"
-	digest := "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"
-	payloadDigest := "sha1:C37FFB221569C553A2476C22C7DAD429F3492977"
+	digest := "sha1:b285747ad7cc57aa74bce2e30b453c8d1cb71ba4"
+	payloadDigest := "sha1:c37ffb221569c553a2476c22c7dad429f3492977"
 
 	tests := []blockDigestTest{
 		{
@@ -520,7 +520,7 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 	content := "HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"
-	digest := "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"
+	digest := "sha1:b285747ad7cc57aa74bce2e30b453c8d1cb71ba4"
 
 	tests := []cacheTest{
 		{
@@ -603,7 +603,7 @@ func Test_httpResponseBlock_RawBytes(t *testing.T) {
 	content := "HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content"
-	digest := "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4"
+	digest := "sha1:b285747ad7cc57aa74bce2e30b453c8d1cb71ba4"
 
 	tests := []rawBytesTest{
 		{
