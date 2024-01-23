@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/nlnwa/gowarc/internal/diskbuffer"
@@ -104,7 +103,7 @@ func (block *httpRequestBlock) BlockDigest() string {
 		if block.filterReader == nil {
 			block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
 		}
-		_, _ = io.Copy(ioutil.Discard, block.filterReader)
+		_, _ = io.Copy(io.Discard, block.filterReader)
 		block.blockDigestString = block.blockDigest.format()
 		block.payloadDigestString = block.payloadDigest.format()
 	}
@@ -239,7 +238,7 @@ func (block *httpResponseBlock) BlockDigest() string {
 		if block.filterReader == nil {
 			block.filterReader = newDigestFilterReader(block.payload, block.blockDigest, block.payloadDigest)
 		}
-		_, _ = io.Copy(ioutil.Discard, block.filterReader)
+		_, _ = io.Copy(io.Discard, block.filterReader)
 		block.blockDigestString = block.blockDigest.format()
 		block.payloadDigestString = block.payloadDigest.format()
 	}
