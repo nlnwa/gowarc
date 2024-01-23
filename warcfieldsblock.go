@@ -80,7 +80,7 @@ func (block *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error)
 	return
 }
 
-func newWarcFieldsBlock(options *warcRecordOptions, wf *WarcFields, rb io.Reader, d *digest, validation *Validation) (WarcFieldsBlock, error) {
+func newWarcFieldsBlock(options *warcRecordOptions, _ *WarcFields, rb io.Reader, d *digest, validation *Validation) (WarcFieldsBlock, error) {
 	wfb := &warcFieldsBlock{blockDigest: d}
 	var err error
 	wfb.content, err = io.ReadAll(rb)
