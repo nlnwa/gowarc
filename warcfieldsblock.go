@@ -95,16 +95,26 @@ func newWarcFieldsBlock(options *warcRecordOptions, wf *WarcFields, rb io.Reader
 	p := &warcfieldsParser{options}
 	blockValidation := Validation{}
 	wfb.warcFields, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), &blockValidation, &position{})
-	for _, e := range blockValidation {
-		validation.addError(newWrappedSyntaxError("error in warc fields block", nil, e))
-	}
+	if options.errBlock > ErrIgnore && !blockValidation.Valid() {
+		switch options.errBlock {
+		case ErrWarn:
+			for _, e := range blockValidation {
+				validation.addError(newWrappedSyntaxError("error in warc fields block", nil, e))
+			}
+		case ErrFail:
+			if !blockValidation.Valid() {
+				err = newWrappedSyntaxError("error in warc fields block", nil, blockValidation[0])
+				return wfb, err
+			}
+		}
 
-	if !blockValidation.Valid() && options.fixWarcFieldsBlockErrors {
-		// Write corrected warc fields block to content buffer
-		b := bytes.Buffer{}
-		_, err = wfb.WarcFields().Write(&b)
-		if err == nil {
-			wfb.content = b.Bytes()
+		if options.fixWarcFieldsBlockErrors {
+			// Write corrected warc fields block to content buffer
+			b := bytes.Buffer{}
+			_, err = wfb.WarcFields().Write(&b)
+			if err == nil {
+				wfb.content = b.Bytes()
+			}
 		}
 	}
 

@@ -401,8 +401,9 @@ func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDig
 			// We have to fix the header for parsing even if we don't fix the record
 			hb = append(hb, '\r', '\n')
 		}
-		if err := resp.parseHeaders(hb); err != nil && opts.errSyntax > ErrIgnore {
-			if opts.errSyntax == ErrWarn {
+		if err := resp.parseHeaders(hb); err != nil && opts.errBlock > ErrIgnore {
+			err = fmt.Errorf("error in http response block: %w", err)
+			if opts.errBlock == ErrWarn {
 				validation.addError(err)
 			} else {
 				return resp, err
@@ -422,8 +423,9 @@ func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDig
 			// We have to fix the header for parsing even if we don't fix the record
 			hb = append(hb, '\r', '\n')
 		}
-		if err := resp.parseHeaders(hb); err != nil && opts.errSyntax > ErrIgnore {
-			if opts.errSyntax == ErrWarn {
+		if err := resp.parseHeaders(hb); err != nil && opts.errBlock > ErrIgnore {
+			err = fmt.Errorf("error in http request block: %w", err)
+			if opts.errBlock == ErrWarn {
 				validation.addError(err)
 			} else {
 				return resp, err

@@ -577,6 +577,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			[]WarcRecordOption{
 				WithSpecViolationPolicy(ErrWarn),
 				WithSyntaxErrorPolicy(ErrWarn),
+				WithBlockErrorPolicy(ErrWarn),
 				WithAddMissingDigest(false),
 				WithFixSyntaxErrors(false),
 				WithFixDigest(false),
@@ -623,6 +624,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			[]WarcRecordOption{
 				WithSpecViolationPolicy(ErrWarn),
 				WithSyntaxErrorPolicy(ErrWarn),
+				WithBlockErrorPolicy(ErrWarn),
 				WithAddMissingDigest(true),
 				WithFixSyntaxErrors(true),
 				WithFixDigest(true),
