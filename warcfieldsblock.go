@@ -107,14 +107,14 @@ func newWarcFieldsBlock(options *warcRecordOptions, _ *WarcFields, rb io.Reader,
 				return wfb, err
 			}
 		}
+	}
 
-		if options.fixWarcFieldsBlockErrors {
-			// Write corrected warc fields block to content buffer
-			b := bytes.Buffer{}
-			_, err = wfb.WarcFields().Write(&b)
-			if err == nil {
-				wfb.content = b.Bytes()
-			}
+	if options.fixWarcFieldsBlockErrors && !blockValidation.Valid() {
+		// Write corrected warc fields block to content buffer
+		b := bytes.Buffer{}
+		_, err = wfb.WarcFields().Write(&b)
+		if err == nil {
+			wfb.content = b.Bytes()
 		}
 	}
 
