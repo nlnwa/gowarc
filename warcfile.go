@@ -470,7 +470,7 @@ func (w *singleWarcFileWriter) close() error {
 // WarcFileReader is used to read WARC files.
 // Use [NewWarcFileReader] to create a new instance.
 type WarcFileReader struct {
-	file           *os.File
+	file           io.Reader
 	initialOffset  int64
 	offset         int64
 	warcReader     Unmarshaler
@@ -502,18 +502,29 @@ func NewWarcFileReader(filename string, offset int64, opts ...WarcRecordOption) 
 		return nil, err
 	}
 
-	wf := &WarcFileReader{
-		file:       file,
-		offset:     offset,
-		warcReader: NewUnmarshaler(opts...),
-	}
-	_, err = file.Seek(offset, 0)
-	if err != nil {
-		return nil, err
+	return NewWarcFileReaderFromStream(file, offset, opts...)
+}
+
+// NewWarcFileReaderFromStream creates a new [WarcFileReader] from the supplied io.Reader.
+// The WarcFileReader can be configured with options. See [WarcRecordOption].
+//
+// It is the responsibility of the caller to close the io.Reader.
+func NewWarcFileReaderFromStream(r io.Reader, offset int64, opts ...WarcRecordOption) (*WarcFileReader, error) {
+	if s, ok := r.(io.Seeker); ok {
+		_, err := s.Seek(offset, 0)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	wf.countingReader = countingreader.New(file)
-	wf.initialOffset = offset
+	wf := &WarcFileReader{
+		file:           r,
+		initialOffset:  offset,
+		offset:         offset,
+		warcReader:     NewUnmarshaler(opts...),
+		countingReader: countingreader.New(r),
+	}
+
 	buf := inputBufPool.Get().(*bufio.Reader)
 	buf.Reset(wf.countingReader)
 	wf.bufferedReader = buf
@@ -556,7 +567,12 @@ func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
 // Close closes the WarcFileReader.
 func (wf *WarcFileReader) Close() error {
 	inputBufPool.Put(wf.bufferedReader)
-	return wf.file.Close()
+	if wf.file != nil {
+		if c, ok := wf.file.(io.Closer); ok {
+			return c.Close()
+		}
+	}
+	return nil
 }
 
 // Options for Warc file writer
