@@ -368,6 +368,11 @@ func (w *singleWarcFileWriter) createFile() error {
 	if path != "" && !strings.HasSuffix(path, "/") {
 		path += "/"
 	}
+
+	if w.opts.beforeFileCreationHook != nil {
+		_ = w.opts.beforeFileCreationHook(path + fileName)
+	}
+
 	path += fileName + w.opts.openFileSuffix
 
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0666)
@@ -460,8 +465,13 @@ func (w *singleWarcFileWriter) close() error {
 		if err := f.Close(); err != nil {
 			return fmt.Errorf("failed to close file: %s: %w", f.Name(), err)
 		}
-		if err := fileutil.Rename(f.Name(), strings.TrimSuffix(f.Name(), w.opts.openFileSuffix)); err != nil {
+		finalFileName := strings.TrimSuffix(f.Name(), w.opts.openFileSuffix)
+		if err := fileutil.Rename(f.Name(), finalFileName); err != nil {
 			return fmt.Errorf("failed to rename file: %s: %w", f.Name(), err)
+		}
+
+		if w.opts.afterFileCreationHook != nil {
+			_ = w.opts.afterFileCreationHook(finalFileName, w.currentFileSize, w.currentWarcInfoId)
 		}
 	}
 	return nil
@@ -590,6 +600,8 @@ type warcFileWriterOptions struct {
 	warcInfoFunc             func(recordBuilder WarcRecordBuilder) error
 	addConcurrentHeader      bool
 	flush                    bool
+	beforeFileCreationHook   func(fileName string) error
+	afterFileCreationHook    func(fileName string, size int64, warcInfoId string) error
 	recordOptions            []WarcRecordOption
 }
 
@@ -724,7 +736,7 @@ func WithMarshaler(marshaler Marshaler) WarcFileWriterOption {
 	})
 }
 
-// WithMaxConcurrentWriters sets the maximum number of Warc files that can be written to simultaneously.
+// WithMaxConcurrentWriters sets the maximum number of Warc files that can be written simultaneously.
 //
 // defaults to one
 func WithMaxConcurrentWriters(count int) WarcFileWriterOption {
@@ -737,7 +749,7 @@ func WithMaxConcurrentWriters(count int) WarcFileWriterOption {
 //
 // This value is used to decide if a record will fit into a Warcfile's MaxFileSize when using compression
 // since it's not possible to know this before the record is written. If the value is far from the actual size reduction,
-// a under- or overfilled file might be the result.
+// an under- or overfilled file might be the result.
 //
 // defaults to .5 (half the uncompressed size)
 func WithExpectedCompressionRatio(ratio float64) WarcFileWriterOption {
@@ -779,5 +791,23 @@ func WithAddWarcConcurrentToHeader(addConcurrentHeader bool) WarcFileWriterOptio
 func WithRecordOptions(opts ...WarcRecordOption) WarcFileWriterOption {
 	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
 		o.recordOptions = opts
+	})
+}
+
+// WithBeforeFileCreationHook sets a function to be called before a new file is created.
+//
+// The function receives the file name of the new file.
+func WithBeforeFileCreationHook(f func(fileName string) error) WarcFileWriterOption {
+	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
+		o.beforeFileCreationHook = f
+	})
+}
+
+// WithAfterFileCreationHook sets a function to be called after a new file is created.
+//
+// The function receives the file name of the new file, the size of the file and the WARC-Warcinfo-ID.
+func WithAfterFileCreationHook(f func(fileName string, size int64, warcInfoId string) error) WarcFileWriterOption {
+	return newFuncWarcFileOption(func(o *warcFileWriterOptions) {
+		o.afterFileCreationHook = f
 	})
 }
