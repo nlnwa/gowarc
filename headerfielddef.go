@@ -50,6 +50,9 @@ const (
 	WarcTruncated             = "WARC-Truncated"
 	WarcType                  = "WARC-Type"
 	WarcWarcinfoID            = "WARC-Warcinfo-ID"
+	WarcPageID                = "WARC-Page-ID"       // Browsertrix extension field
+	WarcResourceType          = "WARC-Resource-Type" // Browsertrix extension field
+	WarcJSONMetadata          = "WARC-JSON-Metadata" // Browsertrix extension field
 )
 
 // validateHeader validates a WarcFields object as a WARC-record header
@@ -231,6 +234,15 @@ var fieldDefs = []fieldDef{
 	{WarcWarcinfoID, pWarcId, false,
 		Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
 		V1_0.id | V1_1.id},
+	{WarcPageID, pString, false,
+		Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
+		0}, // Browsertrix extension field
+	{WarcResourceType, pString, false,
+		Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
+		0}, // Browsertrix extension field
+	{WarcJSONMetadata, pString, false,
+		Response | Resource | Request | Metadata | Revisit | Conversion | Continuation,
+		0}, // Browsertrix extension field
 }
 
 // Map lower case header name to field definition
