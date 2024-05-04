@@ -152,3 +152,33 @@ func TestValidateHeader(t *testing.T) {
 		})
 	}
 }
+
+func TestNormalizeName(t *testing.T) {
+	type test struct {
+		name string
+		want string
+	}
+	var tests []test
+
+	// Add all known headers as test cases
+	for fieldName, def := range lcHdrNameToDef {
+		tests = append(tests, test{fieldName, def.name})
+	}
+
+	tests = append(tests,
+		test{
+			// Test that unknown headers are normalized to title case
+			name: "WARC-SOME-UNKNOWN-HEADER",
+			want: "Warc-Some-Unknown-Header",
+		},
+	)
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := normalizeName(tt.name)
+			if got != tt.want {
+				t.Errorf("normalizeName() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
