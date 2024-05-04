@@ -17,34 +17,21 @@
 package gowarc
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 )
 
 func TestValidateHeader(t *testing.T) {
-	type args struct {
-		header *WarcFields
-		opts   *warcRecordOptions
-	}
 	tests := []struct {
-		name    string
-		args    args
-		want    *WarcFields
-		wantErr bool
+		name              string
+		header            *WarcFields
+		opts              *warcRecordOptions
+		wantErr           error
+		wantValidationErr error
 	}{
 		{
-			"1",
-			args{
-				header: &WarcFields{
-					&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
-					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
-					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
-					&nameValue{Name: WarcType, Value: "warcinfo"},
-					&nameValue{Name: ContentType, Value: "application/warc-fields"},
-					&nameValue{Name: ContentLength, Value: "249"},
-				},
-				opts: newOptions(),
-			},
+			"Valid warcinfo header",
 			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
@@ -53,47 +40,115 @@ func TestValidateHeader(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			false,
+			newOptions(),
+			nil,
+			nil,
 		},
+
 		{
-			"2",
-			args{
-				header: &WarcFields{
-					&nameValue{Name: WarcDate, Value: "2017-13-06T04:03:53Z"},
-					&nameValue{Name: WarcRecordID, Value: "urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008"},
-					&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
-					&nameValue{Name: WarcType, Value: "warcinfoo"},
-					&nameValue{Name: ContentType, Value: "application/warc-fields"},
-					&nameValue{Name: ContentLength, Value: "249"},
-				},
-				opts: newOptions(),
-			},
+			"Missing required field: Warc-Type",
 			&WarcFields{
 				&nameValue{Name: WarcDate, Value: "2017-13-06T04:03:53Z"},
-				&nameValue{Name: WarcRecordID, Value: "urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008"},
+				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
 				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
-				&nameValue{Name: WarcType, Value: "warcinfoo"},
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			false,
+			newOptions(WithSpecViolationPolicy(ErrFail)),
+			fmt.Errorf("missing required field %s", WarcType),
+			nil,
+		},
+		{
+			"Month out of range",
+			&WarcFields{
+				&nameValue{Name: WarcDate, Value: "2017-13-06T04:03:53Z"},
+				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&nameValue{Name: WarcType, Value: "resource"},
+				&nameValue{Name: ContentLength, Value: "249"},
+			},
+			newOptions(WithSpecViolationPolicy(ErrFail)),
+			errors.New("gowarc: parsing time \"2017-13-06T04:03:53Z\": month out of range at header WARC-Date"),
+			nil,
+		},
+		{
+			"Missing required field: Content-Type",
+			&WarcFields{
+				&nameValue{Name: WarcDate, Value: "2017-12-06T04:03:53Z"},
+				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&nameValue{Name: WarcType, Value: "resource"},
+				&nameValue{Name: ContentLength, Value: "249"},
+			},
+			newOptions(WithSpecViolationPolicy(ErrFail)),
+			newHeaderFieldErrorf("", "missing required field: %s", ContentType),
+			nil,
+		},
+		{
+			"Illegal field 'Warc-Filename' in resource record",
+			&WarcFields{
+				&nameValue{Name: WarcDate, Value: "2017-12-06T04:03:53Z"},
+				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+				&nameValue{Name: WarcFilename, Value: "temp-20170306040353.warc.gz"},
+				&nameValue{Name: WarcType, Value: "resource"},
+				&nameValue{Name: ContentLength, Value: "249"},
+				&nameValue{Name: ContentType, Value: "application/http; msgtype=response"},
+			},
+			newOptions(),
+			nil,
+			errors.New("gowarc: illegal field 'WARC-Filename' in record type 'resource' at header WARC-Filename"),
+		},
+		{
+			"Browsertrix extension fields",
+			&WarcFields{
+				&nameValue{Name: WarcDate, Value: "2024-03-17T16:26:51.802Z"},
+				&nameValue{Name: WarcRecordID, Value: "<urn:uuid:d3aae465-714f-4aa8-8f1b-23e75b09af42>"},
+				&nameValue{Name: WarcType, Value: "response"},
+				&nameValue{Name: ContentType, Value: "application/http; msgtype=response"},
+				&nameValue{Name: ContentLength, Value: "249"},
+				&nameValue{Name: WarcTargetURI, Value: "http://www.example.com/"},
+				&nameValue{Name: WarcPayloadDigest, Value: "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+				&nameValue{Name: WarcPageID, Value: "53b8df8a-3b50-42bc-8c01-747e94fcd2bc"},
+				&nameValue{Name: WarcResourceType, Value: "document"},
+				&nameValue{Name: WarcJSONMetadata, Value: "{\"ipType\":\"Public\",\"cert\":{\"issuer\":\"GeoTrust RSA CA 2018\",\"ctc\":\"1\"}}"},
+			},
+			newOptions(WithSpecViolationPolicy(ErrFail)),
+			nil,
+			nil,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			validation := &Validation{}
-			rt, err := validateHeader(tt.args.header, V1_1, validation, tt.args.opts)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("ParseWarcHeader() error = %v, wantErr %v", err, tt.wantErr)
+			rt, err := validateHeader(tt.header, V1_1, validation, tt.opts)
+			if err != nil && tt.wantErr == nil {
+				t.Errorf("validateHeader() unexpected error = %v", err)
 				return
 			}
-			fmt.Printf("Validation %v %v\n", rt, validation)
-			// TODO: Fix test
-			//if true {
-			//	if !reflect.DeepEqual(got, tt.want) {
-			//		t.Errorf("ParseWarcHeader() got:\n %v\nwant:\n %v", got, tt.want)
-			//	}
-			//}
+			if err == nil && tt.wantErr != nil {
+				t.Errorf("validateHeader() expected error = %v, got nil", tt.wantErr)
+				return
+			}
+			if err != nil && tt.wantErr != nil && err.Error() != tt.wantErr.Error() {
+				t.Errorf("validateHeader() error = %v, want %v", err.Error(), tt.wantErr.Error())
+				return
+			}
+			if rt != stringToRecordType(tt.header.Get(WarcType)) {
+				t.Errorf("validateHeader() rt = %v, want %v", rt, tt.header.Get(WarcType))
+			}
+			if tt.wantValidationErr == nil && len(*validation) > 0 {
+				t.Errorf("validateHeader() unexpected validation error = %v", validation)
+				return
+			}
+			if tt.wantValidationErr != nil {
+				if len(*validation) != 1 {
+					t.Errorf("validateHeader() want single validation error = %v, got %v", tt.wantValidationErr, *validation)
+					return
+				}
+				err := (*validation)[0]
+				if err.Error() != tt.wantValidationErr.Error() {
+					t.Errorf("validateHeader() got validation error = %v, want error %v", err.Error(), tt.wantValidationErr.Error())
+				}
+			}
 		})
 	}
 }
