@@ -483,11 +483,9 @@ func (w *singleWarcFileWriter) close() error {
 type WarcFileReader struct {
 	file           io.Reader
 	initialOffset  int64
-	offset         int64
 	warcReader     Unmarshaler
 	countingReader *countingreader.Reader
 	bufferedReader *bufio.Reader
-	currentRecord  WarcRecord
 }
 
 var inputBufPool = sync.Pool{
@@ -531,7 +529,6 @@ func NewWarcFileReaderFromStream(r io.Reader, offset int64, opts ...WarcRecordOp
 	wf := &WarcFileReader{
 		file:           r,
 		initialOffset:  offset,
-		offset:         offset,
 		warcReader:     NewUnmarshaler(opts...),
 		countingReader: countingreader.New(r),
 	}
@@ -561,18 +558,11 @@ func NewWarcFileReaderFromStream(r io.Reader, offset int64, opts ...WarcRecordOp
 //
 // When at end of file, returned offset is equal to length of file, WarcRecord is nil and err is [io.EOF].
 func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
-	var validation *Validation
-	if wf.currentRecord != nil {
-		if err := wf.currentRecord.Close(); err != nil {
-			return nil, wf.offset, validation, err
-		}
-	}
-	wf.offset = wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
+	offset := wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
 
-	var err error
-	var recordOffset int64
-	wf.currentRecord, recordOffset, validation, err = wf.warcReader.Unmarshal(wf.bufferedReader)
-	return wf.currentRecord, wf.offset + recordOffset, validation, err
+	record, recordOffset, validation, err := wf.warcReader.Unmarshal(wf.bufferedReader)
+
+	return record, offset + recordOffset, validation, err
 }
 
 // Close closes the WarcFileReader.
