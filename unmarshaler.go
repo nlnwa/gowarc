@@ -20,9 +20,10 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"io"
+
 	"github.com/klauspost/compress/gzip"
 	"github.com/nlnwa/gowarc/internal/countingreader"
-	"io"
 )
 
 // Unmarshaler is the interface implemented by types that can unmarshal a WARC record. A new instance of Unmarshaler is created by calling [NewUnmarshaler].

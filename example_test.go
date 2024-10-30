@@ -20,8 +20,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/nlnwa/gowarc"
 	"io"
+
+	"github.com/nlnwa/gowarc"
 )
 
 func ExampleNewRecordBuilder() {

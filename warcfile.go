@@ -20,11 +20,6 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/klauspost/compress/gzip"
-	"github.com/nlnwa/gowarc/internal"
-	"github.com/nlnwa/gowarc/internal/countingreader"
-	"github.com/nlnwa/gowarc/internal/timestamp"
-	"github.com/prometheus/prometheus/tsdb/fileutil"
 	"io"
 	"log"
 	"os"
@@ -33,6 +28,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/klauspost/compress/gzip"
+	"github.com/nlnwa/gowarc/internal"
+	"github.com/nlnwa/gowarc/internal/countingreader"
+	"github.com/nlnwa/gowarc/internal/timestamp"
+	"github.com/prometheus/prometheus/tsdb/fileutil"
 )
 
 // WarcFileNameGenerator is the interface that wraps the NewWarcfileName function.
