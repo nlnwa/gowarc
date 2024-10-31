@@ -17,13 +17,14 @@
 package gowarc
 
 import (
-	"github.com/nlnwa/gowarc/internal/diskbuffer"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"strings"
 	"testing"
 	"testing/iotest"
+
+	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_genericBlock_BlockDigest(t *testing.T) {

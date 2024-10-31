@@ -17,9 +17,10 @@
 package gowarc
 
 import (
-	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
 	"time"
+
+	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
 )
 
 type WarcRecordBuilder interface {

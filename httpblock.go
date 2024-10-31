@@ -24,7 +24,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/nlnwa/gowarc/internal/diskbuffer"
+	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
 )
 
 type HttpRequestBlock interface {
