@@ -153,68 +153,72 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		closer:     nil,
 	}
 
-	length, _ := record.headers.GetInt64(ContentLength)
-
-	content := countingreader.NewLimited(r, length)
 	record.closer = func() error {
-		defer func() {
-			_ = record.block.Close()
-		}()
-
-		_, err := io.Copy(io.Discard, content)
-
-		// Discarding 4 bytes which makes up the end of record marker (\r\n\r\n)
-		b, e := r.Peek(4)
-		switch {
-		case string(b) == crlfcrlf:
-			_, _ = r.Discard(4)
-		case len(b) == 0:
-			e = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, b)
-		case len(b) == 1 && b[0] == lf:
-			e = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, b)
-			_, _ = r.Discard(1)
-		case len(b) == 2 && b[0] == lf && b[1] == lf:
-			e = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, b)
-			_, _ = r.Discard(2)
-		case len(b) < 4:
-			e = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, b)
-			_, _ = r.Discard(len(b))
-		case e == io.EOF:
-			_, _ = r.Discard(len(b))
+		if record.block != nil {
+			return record.block.Close()
 		}
-		if e != nil {
-			switch u.opts.errSpec {
-			case ErrFail:
-				err = e
-			case ErrWarn:
-				validation.addError(e)
-			}
-		}
-		if isGzip {
-			// Empty gzip reader to ensure gzip checksum is validated
-			b := make([]byte, 10)
-			var err error
-			for err == nil {
-				_, err = u.gz.Read(b)
-			}
-			if err != io.EOF {
-				_ = u.gz.Close()
-				return err
-			}
-			if err := u.gz.Close(); err != nil {
-				return err
-			}
-		}
-		return err
+		return nil
 	}
+
+	length, _ := record.headers.GetInt64(ContentLength)
+	content := countingreader.NewLimited(r, length)
 
 	err = record.parseBlock(bufio.NewReader(content), validation)
 	if err != nil {
 		return record, offset, validation, err
 	}
-	err = record.ValidateDigest(validation)
 
-	return record, offset, validation, err
+	err = record.ValidateDigest(validation)
+	if err != nil {
+		return record, offset, validation, err
+	}
+
+	// Discard any remaining bytes in block not read by parseBlock
+	_, err = io.Copy(io.Discard, content)
+	if err != nil {
+		return record, offset, validation, err
+	}
+
+	// Validate end of record marker
+	buf, err := r.Peek(4)
+	if string(buf) == crlfcrlf {
+		_, _ = r.Discard(4)
+	} else if len(buf) == 0 {
+		err = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+	} else if len(buf) == 1 && buf[0] == lf {
+		err = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		_, _ = r.Discard(1)
+	} else if len(buf) == 2 && buf[0] == lf && buf[1] == lf {
+		err = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		_, _ = r.Discard(2)
+	} else if len(buf) < 4 {
+		err = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		_, _ = r.Discard(len(buf))
+	} else if err == io.EOF {
+		err = fmt.Errorf("unexpected end of record. Expected %q, was %q", crlfcrlf, buf)
+		_, _ = r.Discard(len(buf))
+	}
+	if err != nil {
+		switch u.opts.errSpec {
+		case ErrFail:
+			return record, offset, validation, err
+		case ErrWarn:
+			validation.addError(err)
+		}
+	}
+	if isGzip {
+		// Empty gzip reader to ensure gzip checksum is validated
+		_, err = io.Copy(io.Discard, u.gz)
+		if err != io.EOF {
+			_ = u.gz.Close()
+			return record, offset, validation, err
+		}
+		if err := u.gz.Close(); err != nil {
+			return record, offset, validation, err
+		}
+	}
+
+	return record, offset, validation, nil
 }
 
 func (u *unmarshaler) resolveRecordVersion(s string, validation *Validation) (*WarcVersion, error) {
