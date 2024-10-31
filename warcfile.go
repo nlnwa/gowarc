@@ -30,9 +30,9 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/gzip"
-	"github.com/nlnwa/gowarc/internal"
-	"github.com/nlnwa/gowarc/internal/countingreader"
-	"github.com/nlnwa/gowarc/internal/timestamp"
+	"github.com/nlnwa/gowarc/v2/internal"
+	"github.com/nlnwa/gowarc/v2/internal/countingreader"
+	"github.com/nlnwa/gowarc/v2/internal/timestamp"
 	"github.com/prometheus/prometheus/tsdb/fileutil"
 )
 

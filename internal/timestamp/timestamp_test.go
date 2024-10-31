@@ -17,9 +17,10 @@
 package timestamp_test
 
 import (
-	"github.com/nlnwa/gowarc/internal/timestamp"
 	"testing"
 	"time"
+
+	"github.com/nlnwa/gowarc/v2/internal/timestamp"
 )
 
 type TestData struct {
