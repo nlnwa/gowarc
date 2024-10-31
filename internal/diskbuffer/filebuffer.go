@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 )
 
@@ -24,7 +23,7 @@ func newFileBuffer(maxSize int64, tmpDir string) (*fileBuffer, error) {
 	b := &fileBuffer{
 		max: maxSize,
 	}
-	if b.diskFile, err = ioutil.TempFile(tmpDir, tmpFilePrefix); err != nil {
+	if b.diskFile, err = os.CreateTemp(tmpDir, tmpFilePrefix); err != nil {
 		return nil, err
 	}
 

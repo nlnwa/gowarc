@@ -20,8 +20,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/nlnwa/gowarc"
 	"io"
+
+	"github.com/nlnwa/gowarc"
 )
 
 func ExampleNewRecordBuilder() {
@@ -69,6 +70,7 @@ func ExampleUnmarshaler() {
 	// gowarc: Validation errors:
 	//   1: gowarc: record was found 2 bytes after expected offset
 	//   2: block: wrong digest: expected sha1:af4d582b4ffc017d07a947d841e392a821f754f3, computed: sha1:8a936f9fd60d664cf95b1ffb40f1c4093e65bb40
+	//   3: too few bytes in end of record marker. Expected "\r\n\r\n", was ""
 }
 
 func ExampleNewWarcFileWriter() {

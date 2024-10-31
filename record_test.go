@@ -17,11 +17,12 @@
 package gowarc
 
 import (
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_warcRecord_ToRevisitRecord(t *testing.T) {
@@ -250,7 +251,7 @@ func Test_warcRecord_ToRevisitRecord(t *testing.T) {
 			assert.IsType(&revisitBlock{}, got.Block())
 			r, err := got.Block().RawBytes()
 			assert.Nil(err)
-			b, err := ioutil.ReadAll(r)
+			b, err := io.ReadAll(r)
 			assert.Nil(err)
 			assert.Equal(tt.want.data, string(b))
 
@@ -489,7 +490,7 @@ func Test_warcRecord_Merge(t *testing.T) {
 
 			r, err := got.Block().RawBytes()
 			assert.Nil(err)
-			b, err := ioutil.ReadAll(r)
+			b, err := io.ReadAll(r)
 			assert.Nil(err)
 			assert.Equal(tt.want.data, string(b))
 
