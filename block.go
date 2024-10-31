@@ -18,9 +18,9 @@ package gowarc
 
 import (
 	"errors"
-	"github.com/nlnwa/gowarc/internal/diskbuffer"
 	"io"
-	"io/ioutil"
+
+	"github.com/nlnwa/gowarc/internal/diskbuffer"
 )
 
 // Block is the interface used to represent the content of a WARC record as specified by the WARC specification:
@@ -124,7 +124,7 @@ func (block *genericBlock) BlockDigest() string {
 		if block.filterReader == nil {
 			block.filterReader = newDigestFilterReader(block.rawBytes, block.blockDigest)
 		}
-		_, _ = io.Copy(ioutil.Discard, block.filterReader)
+		_, _ = io.Copy(io.Discard, block.filterReader)
 		block.blockDigestString = block.blockDigest.format()
 	}
 	return block.blockDigestString

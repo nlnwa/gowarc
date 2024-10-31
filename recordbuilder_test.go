@@ -17,10 +17,11 @@
 package gowarc
 
 import (
-	"github.com/stretchr/testify/assert"
-	"io/ioutil"
+	"io"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRecordBuilder(t *testing.T) {
@@ -500,7 +501,7 @@ func TestRecordBuilder(t *testing.T) {
 			assert.Equal(tt.want.validation, validation)
 			r, err := wr.Block().RawBytes()
 			assert.Nil(err)
-			b, err := ioutil.ReadAll(r)
+			b, err := io.ReadAll(r)
 			assert.Nil(err)
 			assert.Equal(tt.want.data, string(b))
 
