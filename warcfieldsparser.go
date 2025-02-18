@@ -25,8 +25,8 @@ import (
 )
 
 var (
-	colon        = []byte{':'}
-	endOfHeaders = errors.New("EOH")
+	colon           = []byte{':'}
+	errEndOfHeaders = errors.New("EOH")
 )
 
 type warcfieldsParser struct {
@@ -66,7 +66,7 @@ func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte
 	line, err = r.ReadBytes('\n')
 	if err != nil {
 		if err == io.EOF {
-			err = endOfHeaders
+			err = errEndOfHeaders
 		}
 		line = bytes.Trim(line, sphtcrlf)
 		return
@@ -97,7 +97,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 	for {
 		line, nc, err := p.readLine(r, pos.incrLineNumber())
 		if err != nil {
-			if err == endOfHeaders {
+			if err == errEndOfHeaders {
 				eoh = true
 				if len(line) == 0 {
 					return &wf, nil
