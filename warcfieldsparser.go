@@ -19,6 +19,7 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"io"
 	"mime"
@@ -110,6 +111,8 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 						return nil, newSyntaxError("missing newline", pos)
 					}
 				}
+			} else if errors.Is(err, gzip.ErrChecksum) {
+				return nil, err
 			} else {
 				switch p.Options.errSyntax {
 				case ErrIgnore:
