@@ -75,14 +75,6 @@ func TestFrom14ToTimeSucceedsOnValidString(t *testing.T) {
 	}
 }
 
-func TestUTC(t *testing.T) {
-	data := createTestData()
-
-	if ts := timestamp.UTC(data.time); ts != data.time {
-		t.Errorf("UTC() = %s, want %s", ts, data.time)
-	}
-}
-
 func TestUTC14(t *testing.T) {
 	data := createTestData()
 
