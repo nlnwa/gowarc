@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -163,7 +164,7 @@ func (wf *WarcFields) Set(name string, value string) {
 	for idx, nv := range *wf {
 		if nv.Name == name {
 			if isSet {
-				*wf = append((*wf)[:idx], (*wf)[idx+1:]...)
+				*wf = slices.Delete(*wf, idx, idx+1)
 			} else {
 				nv.Value = value
 				isSet = true
