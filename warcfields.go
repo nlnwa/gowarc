@@ -142,6 +142,14 @@ func (wf *WarcFields) AddTime(name string, value time.Time) {
 	wf.Add(name, value.UTC().Format(time.RFC3339))
 }
 
+// AddTimeNano adds the key, value pair to the header.
+// It appends to any existing values associated with key. The key is case-insensitive.
+//
+// The value is formatted as RFC 3339 with up to nanosecond precision.
+func (wf *WarcFields) AddTimeNano(name string, value time.Time) {
+	wf.Add(name, value.UTC().Format(time.RFC3339Nano))
+}
+
 // AddId adds the key, value pair to the header.
 // It appends to any existing values associated with key. The key is case-insensitive.
 //

@@ -37,7 +37,3 @@ func From14ToTime(s string) (time.Time, error) {
 func UTC14(t time.Time) string {
 	return t.UTC().Format("20060102150405")
 }
-
-func UTCW3cIso8601(t time.Time) string {
-	return t.UTC().Format(time.RFC3339)
-}

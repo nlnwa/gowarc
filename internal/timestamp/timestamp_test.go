@@ -82,11 +82,3 @@ func TestUTC14(t *testing.T) {
 		t.Errorf("UTC14() = %s, want %s", ts, data.gowarc14Date)
 	}
 }
-
-func TestUTCW3cIso8601(t *testing.T) {
-	data := createTestData()
-
-	if ts := timestamp.UTCW3cIso8601(data.time); ts != data.iso8601Date {
-		t.Errorf("UTCW3cIso8601() = %s, want %s", ts, data.iso8601Date)
-	}
-}
