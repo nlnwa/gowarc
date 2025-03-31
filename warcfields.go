@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -141,6 +142,14 @@ func (wf *WarcFields) AddTime(name string, value time.Time) {
 	wf.Add(name, value.UTC().Format(time.RFC3339))
 }
 
+// AddTimeNano adds the key, value pair to the header.
+// It appends to any existing values associated with key. The key is case-insensitive.
+//
+// The value is formatted as RFC 3339 with up to nanosecond precision.
+func (wf *WarcFields) AddTimeNano(name string, value time.Time) {
+	wf.Add(name, value.UTC().Format(time.RFC3339Nano))
+}
+
 // AddId adds the key, value pair to the header.
 // It appends to any existing values associated with key. The key is case-insensitive.
 //
@@ -163,7 +172,7 @@ func (wf *WarcFields) Set(name string, value string) {
 	for idx, nv := range *wf {
 		if nv.Name == name {
 			if isSet {
-				*wf = append((*wf)[:idx], (*wf)[idx+1:]...)
+				*wf = slices.Delete(*wf, idx, idx+1)
 			} else {
 				nv.Value = value
 				isSet = true

@@ -80,7 +80,11 @@ func (rb *recordBuilder) AddWarcHeaderInt64(name string, value int64) {
 
 // AddWarcHeaderTime adds a new WARC header field with the given name and a time.Time value to the record
 func (rb *recordBuilder) AddWarcHeaderTime(name string, value time.Time) {
-	rb.headers.AddTime(name, value)
+	if rb.version.id == V1_0.id {
+		rb.headers.AddTime(name, value)
+	} else {
+		rb.headers.AddTimeNano(name, value)
+	}
 }
 
 // Close releases resources used by the WarcRecordBuilder

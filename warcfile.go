@@ -414,7 +414,7 @@ func (w *singleWarcFileWriter) writeRecord(writer io.Writer, record WarcRecord, 
 
 func (w *singleWarcFileWriter) createWarcInfoRecord(fileName string) (int64, error) {
 	r := NewRecordBuilder(Warcinfo, w.opts.recordOptions...)
-	r.AddWarcHeader(WarcDate, timestamp.UTCW3cIso8601(now()))
+	r.AddWarcHeaderTime(WarcDate, now())
 	r.AddWarcHeader(WarcFilename, fileName)
 	r.AddWarcHeader(ContentType, ApplicationWarcFields)
 

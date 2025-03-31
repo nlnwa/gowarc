@@ -34,14 +34,6 @@ func From14ToTime(s string) (time.Time, error) {
 	return t, err
 }
 
-func UTC(t time.Time) time.Time {
-	return t.In(time.UTC)
-}
-
 func UTC14(t time.Time) string {
-	return t.In(time.UTC).Format("20060102150405")
-}
-
-func UTCW3cIso8601(t time.Time) string {
-	return t.In(time.UTC).Format(time.RFC3339)
+	return t.UTC().Format("20060102150405")
 }
