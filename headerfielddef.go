@@ -276,7 +276,8 @@ var (
 		if shouldValidate, err := checkLegal(opts, name, version, recordType, def); err != nil {
 			return "", err
 		} else if shouldValidate {
-			if _, err := url.Parse(value); err != nil {
+			urlParser := url.NewParser(opts.urlParserOptions...)
+			if _, err := urlParser.Parse(value); err != nil {
 				return "", err
 			}
 		}
