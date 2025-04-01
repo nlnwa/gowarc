@@ -19,6 +19,7 @@ package gowarc
 import (
 	"github.com/google/uuid"
 	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/nlnwa/whatwg-url/url"
 )
 
 type warcRecordOptions struct {
@@ -39,6 +40,7 @@ type warcRecordOptions struct {
 	defaultDigestAlgorithm   string
 	defaultDigestEncoding    digestEncoding
 	bufferOptions            []diskbuffer.Option
+	urlParserOptions         []url.ParserOption
 }
 
 // The errorPolicy constants describe how to handle WARC record errors.
@@ -320,5 +322,11 @@ func WithBufferTmpDir(dir string) WarcRecordOption {
 func WithBufferMaxMemBytes(size int64) WarcRecordOption {
 	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
 		o.bufferOptions = append(o.bufferOptions, diskbuffer.WithMaxMemBytes(size))
+	})
+}
+
+func WithUrlParserOptions(opts ...url.ParserOption) WarcRecordOption {
+	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+		o.urlParserOptions = append(o.urlParserOptions, opts...)
 	})
 }
