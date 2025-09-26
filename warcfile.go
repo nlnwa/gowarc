@@ -23,6 +23,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -33,7 +34,6 @@ import (
 	"github.com/nlnwa/gowarc/v2/internal"
 	"github.com/nlnwa/gowarc/v2/internal/countingreader"
 	"github.com/nlnwa/gowarc/v2/internal/timestamp"
-	"github.com/prometheus/prometheus/tsdb/fileutil"
 )
 
 // WarcFileNameGenerator is the interface that wraps the NewWarcfileName function.
@@ -474,7 +474,7 @@ func (w *singleWarcFileWriter) close() error {
 			return fmt.Errorf("failed to close file: %s: %w", f.Name(), err)
 		}
 		finalFileName := strings.TrimSuffix(f.Name(), w.opts.openFileSuffix)
-		if err := fileutil.Rename(f.Name(), finalFileName); err != nil {
+		if err := rename(f.Name(), finalFileName); err != nil {
 			return fmt.Errorf("failed to rename file: %s: %w", f.Name(), err)
 		}
 
@@ -483,6 +483,25 @@ func (w *singleWarcFileWriter) close() error {
 		}
 	}
 	return nil
+}
+
+// rename renames a file and fsyncs the parent directory to persist the change.
+func rename(from, to string) error {
+	if err := os.Rename(from, to); err != nil {
+		return err
+	}
+
+	// A directory entry changed due to rename; fsync parent dir to persist rename.
+	pdir, err := os.Open(filepath.Dir(to))
+	if err != nil {
+		return err
+	}
+
+	if err = pdir.Sync(); err != nil {
+		pdir.Close()
+		return err
+	}
+	return pdir.Close()
 }
 
 // WarcFileReader is used to read WARC files.
