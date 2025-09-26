@@ -37,7 +37,7 @@ func Sprintt(format string, params map[string]any) string {
 	pos := 1
 	var args []any
 	for key, val := range params {
-		replaced := strings.Replace(format, "{"+key+"}", "["+strconv.Itoa(pos)+"]", -1)
+		replaced := strings.ReplaceAll(format, "{"+key+"}", "["+strconv.Itoa(pos)+"]")
 		if replaced != format {
 			pos++
 			args = append(args, val)
