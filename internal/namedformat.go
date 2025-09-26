@@ -25,7 +25,7 @@ import (
 // Sprintt is like fmt.Sprintf, but accepts named parameters from a map.
 //
 // Example:
-//   params := map[string]interface{}{
+//   params := map[string]any{
 //     "hello": "world",
 //     "num":   42,
 //   }
@@ -33,11 +33,11 @@ import (
 //   result := internal.Sprintt("Hello %{hello}s. The answer is %{num}d", params)
 //
 // Result will then be: 'Hello world. The answer is 42'
-func Sprintt(format string, params map[string]interface{}) string {
+func Sprintt(format string, params map[string]any) string {
 	pos := 1
-	var args []interface{}
+	var args []any
 	for key, val := range params {
-		replaced := strings.Replace(format, "{"+key+"}", "["+strconv.Itoa(pos)+"]", -1)
+		replaced := strings.ReplaceAll(format, "{"+key+"}", "["+strconv.Itoa(pos)+"]")
 		if replaced != format {
 			pos++
 			args = append(args, val)
