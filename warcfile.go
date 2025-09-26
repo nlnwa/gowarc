@@ -17,6 +17,7 @@
 package gowarc
 
 import (
+	"maps"
 	"bufio"
 	"errors"
 	"fmt"
@@ -104,9 +105,7 @@ func (g *PatternNameGenerator) NewWarcfileName() (string, string) {
 	}
 
 	// Add default parameters, overriding any custom parameters with the same key
-	for k, v := range defaultParams {
-		p[k] = v
-	}
+	maps.Copy(p, defaultParams)
 
 	name := internal.Sprintt(g.Pattern, p)
 	return g.Directory, name
