@@ -64,8 +64,11 @@ func (p *warcfieldsParser) parseLine(line []byte, nv WarcFields, pos *position) 
 // nextChar returns the first character a new call to readLine would process.
 func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position) (line []byte, nextChar byte, err error) {
 	line, err = r.ReadBytes('\n')
+	if isFatalReadErr(err) {
+		return bytes.Trim(line, sphtcrlf), 0, err
+	}
 	if err != nil {
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			err = errEndOfHeaders
 		}
 		line = bytes.Trim(line, sphtcrlf)
@@ -96,6 +99,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 
 	for {
 		line, nc, err := p.readLine(r, pos.incrLineNumber())
+		if isFatalReadErr(err) {
+			return nil, err
+		}
 		if err != nil {
 			if err == errEndOfHeaders {
 				eoh = true
@@ -125,6 +131,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 		for nc == sp || nc == ht {
 			var l []byte
 			l, nc, err = p.readLine(r, pos.incrLineNumber())
+			if isFatalReadErr(err) {
+				return nil, err
+			}
 			if err != nil {
 				if l == nil {
 					return nil, err
@@ -167,4 +176,14 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 		}
 	}
 	return &wf, nil
+}
+
+func isFatalReadErr(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, io.ErrUnexpectedEOF) {
+		return true
+	}
+	return false
 }
