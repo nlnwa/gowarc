@@ -19,6 +19,8 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"compress/flate"
+	"compress/gzip"
 	"errors"
 	"io"
 	"mime"
@@ -182,8 +184,13 @@ func isFatalReadErr(err error) bool {
 	if err == nil {
 		return false
 	}
-	if errors.Is(err, io.ErrUnexpectedEOF) {
+
+	if errors.Is(err, gzip.ErrChecksum) ||
+		errors.Is(err, gzip.ErrHeader) ||
+		errors.Is(err, io.ErrUnexpectedEOF) {
 		return true
 	}
-	return false
+
+	var cie flate.CorruptInputError
+	return errors.As(err, &cie)
 }
