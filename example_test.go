@@ -78,7 +78,7 @@ func ExampleNewWarcFileWriter() {
 
 	w := gowarc.NewWarcFileWriter(gowarc.WithFileNameGenerator(nameGenerator))
 	defer func() {
-		w.Close()
+		_ = w.Close()
 	}()
 
 	builder := gowarc.NewRecordBuilder(gowarc.Response, gowarc.WithStrictValidation())

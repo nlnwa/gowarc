@@ -17,12 +17,12 @@
 package gowarc
 
 import (
-	"maps"
 	"bufio"
 	"errors"
 	"fmt"
 	"io"
 	"log"
+	"maps"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -497,7 +497,7 @@ func rename(from, to string) error {
 	}
 
 	if err = pdir.Sync(); err != nil {
-		pdir.Close()
+		_ = pdir.Close()
 		return err
 	}
 	return pdir.Close()

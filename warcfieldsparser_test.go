@@ -18,9 +18,13 @@ package gowarc
 
 import (
 	"bufio"
-	"github.com/stretchr/testify/assert"
+	"bytes"
+	"errors"
+	"io"
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestParseWarcFields(t *testing.T) {
@@ -174,6 +178,21 @@ func TestParseWarcFields(t *testing.T) {
 			false,
 		},
 		{
+			"policy_warn/marker_lf_only",
+			args{
+				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+					"Content-Length: 1\r\n" +
+					"\n", // marker is LF only
+				opts: newOptions(WithSyntaxErrorPolicy(ErrWarn)),
+			},
+			&WarcFields{
+				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+				&nameValue{Name: ContentLength, Value: "1"},
+			},
+			&Validation{}, // marker LF-only should not warn
+			false,
+		},
+		{
 			"policy_warn/missing colon",
 			args{
 				data: "WARC-Date: 2017-03-06T04:03:53Z\r\n" +
@@ -287,6 +306,13 @@ func TestParseWarcFields(t *testing.T) {
 			&Validation{},
 			true,
 		},
+		{
+			"policy_warn/empty_input",
+			args{data: "", opts: newOptions(WithSyntaxErrorPolicy(ErrWarn))},
+			&WarcFields{},
+			&Validation{},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -304,5 +330,108 @@ func TestParseWarcFields(t *testing.T) {
 			assert.Equal(tt.want, got)
 			assert.Equal(tt.wantValidation, validation, "%s", validation.String())
 		})
+	}
+}
+
+func TestParseWarcFields_DoesNotTreatEOHAsContinuationEvenIfNextByteIsSpace(t *testing.T) {
+	// Regression test:
+	// If the EOH marker (blank line) is read as a normal line (e.g. lookahead issues),
+	// and the next byte in the stream is SP/HT, the parser must not treat that next
+	// line as a continuation of the blank line and consume it.
+
+	// One header, then EOH marker, then "payload" that starts with a space.
+	in := []byte("WARC-Type: response\r\n\r\n continued-payload\r\n")
+
+	r := bufio.NewReader(bytes.NewReader(in))
+	validation := &Validation{}
+	pos := &position{}
+
+	p := &warcfieldsParser{
+		Options: &warcRecordOptions{errSyntax: ErrWarn},
+	}
+
+	_, err := p.Parse(r, validation, pos)
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	// The next line must still be available in the reader.
+	rest, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("ReadAll after Parse returned error: %v", err)
+	}
+
+	want := []byte(" continued-payload\r\n")
+	if !bytes.Equal(rest, want) {
+		t.Fatalf("remaining bytes mismatch:\nwant: %q\ngot : %q", want, rest)
+	}
+}
+
+func TestParseWarcFields_DoesNotConsumePastEOHWhenNextLineStartsWithSpace(t *testing.T) {
+	in := "WARC-Type: response\r\n\r\n continued-payload\r\n"
+	r := bufio.NewReader(strings.NewReader(in))
+
+	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
+	validation := &Validation{}
+	_, err := p.Parse(r, validation, &position{})
+	if err != nil {
+		t.Fatalf("Parse returned error: %v", err)
+	}
+
+	rest, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("failed to read remaining payload: %v", err)
+	}
+	if string(rest) != " continued-payload\r\n" {
+		t.Fatalf("expected payload to remain, got %q", string(rest))
+	}
+}
+
+type failOnceAfterReader struct {
+	r       io.Reader
+	limit   int
+	n       int
+	errOnce error
+	failed  bool
+}
+
+func (f *failOnceAfterReader) Read(p []byte) (int, error) {
+	if f.n >= f.limit && !f.failed {
+		f.failed = true
+		return 0, f.errOnce
+	}
+	if f.n >= f.limit && f.failed {
+		return 0, io.EOF
+	}
+	if len(p) > f.limit-f.n {
+		p = p[:f.limit-f.n]
+	}
+	n, err := f.r.Read(p)
+	f.n += n
+	return n, err
+}
+
+func TestParseWarcFields_NonFatalPeekErrorIsIgnored(t *testing.T) {
+	data := "WARC-Type: response\r\n\r\n"
+
+	fr := &failOnceAfterReader{
+		r:       strings.NewReader(data),
+		limit:   len("WARC-Type: response\r\n"),
+		errOnce: errors.New("boom"), // non-fatal
+	}
+
+	r := bufio.NewReader(fr)
+	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
+	validation := &Validation{}
+
+	got, err := p.Parse(r, validation, &position{})
+	if err != nil {
+		t.Fatalf("Parse returned unexpected error: %v", err)
+	}
+	if len(*validation) != 0 {
+		t.Fatalf("unexpected validation errors: %s", validation.String())
+	}
+	if got == nil || len(*got) != 1 {
+		t.Fatalf("unexpected parsed fields: %#v", got)
 	}
 }
