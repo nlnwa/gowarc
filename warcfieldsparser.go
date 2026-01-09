@@ -211,7 +211,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 
 			// If continuation read hit EOF, we can't continue; treat like missing newline/marker.
 			if err == errEndOfHeaders {
-				// RFC-ish: a continuation implies another line existed; at EOF this is truncated.
+				// Per the WARC specification, a continuation implies another line existed; at EOF this is truncated.
 				switch p.Options.errSyntax {
 				case ErrIgnore:
 				case ErrWarn:
