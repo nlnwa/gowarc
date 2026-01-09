@@ -378,7 +378,10 @@ func TestParseWarcFields_DoesNotConsumePastEOHWhenNextLineStartsWithSpace(t *tes
 		t.Fatalf("Parse returned error: %v", err)
 	}
 
-	rest, _ := io.ReadAll(r)
+	rest, err := io.ReadAll(r)
+	if err != nil {
+		t.Fatalf("failed to read remaining payload: %v", err)
+	}
 	if string(rest) != " continued-payload\r\n" {
 		t.Fatalf("expected payload to remain, got %q", string(rest))
 	}
