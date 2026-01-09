@@ -70,8 +70,12 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 	if err != nil {
 		return nil, offset, validation, err
 	}
+
+	isGzipMagic := func(magic []byte) bool { return magic[0] == 0x1f && magic[1] == 0x8b }
+	isWARCMagic := func(magic []byte) bool { return bytes.Equal(magic, []byte("WARC/")) }
+
 	// Search for start of new record
-	for !(magic[0] == 0x1f && magic[1] == 0x8b) && !bytes.Equal(magic, []byte("WARC/")) {
+	for !isGzipMagic(magic) && !isWARCMagic(magic) {
 		if u.opts.errSyntax >= ErrFail {
 			return nil, offset, validation, newSyntaxError("expected start of record", &position{})
 		}
@@ -90,7 +94,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 				offset), &position{}))
 	}
 
-	if magic[0] == 0x1f && magic[1] == 0x8b {
+	if isGzipMagic(magic) {
 		isGzip = true
 		if u.gz == nil {
 			u.gz, err = gzip.NewReader(b)
@@ -114,7 +118,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		return nil, offset, validation, err
 	}
 	pos.incrLineNumber()
-	if i != 5 || !bytes.Equal(l, []byte("WARC/")) {
+	if i != 5 || !isWARCMagic(l) {
 		return nil, offset, validation, newSyntaxError("missing record version", pos)
 	}
 	l, err = r.ReadBytes('\n')
