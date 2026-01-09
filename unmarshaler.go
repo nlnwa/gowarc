@@ -71,8 +71,12 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		return nil, offset, validation, err
 	}
 
-	isGzipMagic := func(magic []byte) bool { return magic[0] == 0x1f && magic[1] == 0x8b }
-	isWARCMagic := func(magic []byte) bool { return bytes.Equal(magic, []byte("WARC/")) }
+	isGzipMagic := func(magic []byte) bool {
+		return len(magic) >= 2 && magic[0] == 0x1f && magic[1] == 0x8b
+	}
+	isWARCMagic := func(magic []byte) bool {
+		return len(magic) >= 5 && bytes.Equal(magic[:5], []byte("WARC/"))
+	}
 
 	// Search for start of new record
 	for !isGzipMagic(magic) && !isWARCMagic(magic) {
