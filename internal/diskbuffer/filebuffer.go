@@ -35,19 +35,29 @@ func (b *fileBuffer) close() error {
 		return nil
 	}
 
+	f := b.diskFile
+	name := f.Name()
+
+	b.diskFile = nil
 	b.len = 0
-	err := b.diskFile.Close()
-	if err != nil {
-		if !errors.Is(err, fs.ErrClosed) {
-			return err
-		}
+
+	closeErr := f.Close()
+	if errors.Is(closeErr, fs.ErrClosed) {
+		closeErr = nil
 	}
-	if err := os.Remove(b.diskFile.Name()); err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
+
+	removeErr := os.Remove(name)
+	if errors.Is(removeErr, fs.ErrNotExist) {
+		removeErr = nil
 	}
-	return nil
+
+	if removeErr != nil && closeErr != nil {
+		return errors.Join(closeErr, removeErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return removeErr
 }
 
 // empty reports whether the buffer is empty.
