@@ -55,17 +55,20 @@ type ProtocolHeaderBlock interface {
 	ProtocolHeaderBytes() []byte
 }
 
-type genericBlock struct {
-	opts              *warcRecordOptions
-	rawBytes          io.Reader
-	blockDigest       *digest
-	filterReader      *digestFilterReader
-	blockDigestString string
-}
-
 func newGenericBlock(opts *warcRecordOptions, r io.Reader, d *digest) *genericBlock {
 	return &genericBlock{opts: opts, rawBytes: r, blockDigest: d}
 }
+
+type genericBlock struct {
+	rawBytes          io.Reader
+	blockDigestString string
+	opts              *warcRecordOptions
+	blockDigest       *digest
+	filterReader      *digestFilterReader
+}
+
+// Assert that genericBlock implements the Block interface
+var _ Block = (*genericBlock)(nil)
 
 func (block *genericBlock) IsCached() bool {
 	_, ok := block.rawBytes.(io.Seeker)

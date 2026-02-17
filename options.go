@@ -24,10 +24,10 @@ import (
 
 type warcRecordOptions struct {
 	warcVersion              *WarcVersion
-	errSyntax                errorPolicy
-	errSpec                  errorPolicy
-	errUnknownRecordType     errorPolicy
-	errBlock                 errorPolicy
+	errSyntax                ErrorPolicy
+	errSpec                  ErrorPolicy
+	errUnknownRecordType     ErrorPolicy
+	errBlock                 ErrorPolicy
 	skipParseBlock           bool
 	addMissingRecordId       bool
 	recordIdFunc             func() (string, error)
@@ -38,18 +38,18 @@ type warcRecordOptions struct {
 	fixSyntaxErrors          bool
 	fixWarcFieldsBlockErrors bool
 	defaultDigestAlgorithm   string
-	defaultDigestEncoding    digestEncoding
+	defaultDigestEncoding    DigestEncoding
 	bufferOptions            []diskbuffer.Option
 	urlParserOptions         []url.ParserOption
 }
 
-// The errorPolicy constants describe how to handle WARC record errors.
-type errorPolicy int8
+// ErrorPolicy describes how to handle WARC record errors.
+type ErrorPolicy int8
 
 const (
-	ErrIgnore errorPolicy = 0 // Ignore the given error.
-	ErrWarn   errorPolicy = 1 // Ignore given error, but submit a warning.
-	ErrFail   errorPolicy = 2 // Fail on given error.
+	ErrIgnore ErrorPolicy = 0 // Ignore the given error.
+	ErrWarn   ErrorPolicy = 1 // Ignore given error, but submit a warning.
+	ErrFail   ErrorPolicy = 2 // Fail on given error.
 )
 
 // defaultIdGenerator is the default function used to generate record ids.
@@ -58,25 +58,9 @@ var defaultIdGenerator = func() (string, error) {
 }
 
 // WarcRecordOption configures validation, marshaling and unmarshaling of WARC records.
-type WarcRecordOption interface {
-	apply(*warcRecordOptions)
-}
+type WarcRecordOption func(*warcRecordOptions)
 
-// funcWarcRecordOption wraps a function that modifies warcRecordOptions into an
-// implementation of the WarcRecordOption interface.
-type funcWarcRecordOption struct {
-	f func(*warcRecordOptions)
-}
-
-func (fo *funcWarcRecordOption) apply(po *warcRecordOptions) {
-	fo.f(po)
-}
-
-func newFuncWarcRecordOption(f func(*warcRecordOptions)) *funcWarcRecordOption {
-	return &funcWarcRecordOption{
-		f: f,
-	}
-}
+func (f WarcRecordOption) apply(o *warcRecordOptions) { f(o) }
 
 func defaultWarcRecordOptions() warcRecordOptions {
 	uuid.EnableRandPool()
@@ -113,36 +97,36 @@ func newOptions(opts ...WarcRecordOption) *warcRecordOptions {
 //
 // defaults to WARC/1.1
 func WithVersion(version *WarcVersion) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.warcVersion = version
-	})
+	}
 }
 
 // WithSyntaxErrorPolicy sets the policy for handling syntax errors in WARC records.
 //
 // defaults to ErrWarn
-func WithSyntaxErrorPolicy(policy errorPolicy) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+func WithSyntaxErrorPolicy(policy ErrorPolicy) WarcRecordOption {
+	return func(o *warcRecordOptions) {
 		o.errSyntax = policy
-	})
+	}
 }
 
 // WithSpecViolationPolicy sets the policy for handling violations of the WARC specification in WARC records.
 //
 // defaults to ErrWarn
-func WithSpecViolationPolicy(policy errorPolicy) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+func WithSpecViolationPolicy(policy ErrorPolicy) WarcRecordOption {
+	return func(o *warcRecordOptions) {
 		o.errSpec = policy
-	})
+	}
 }
 
 // WithUnknownRecordTypePolicy sets the policy for handling unknown record types.
 //
 // defaults to ErrWarn
-func WithUnknownRecordTypePolicy(policy errorPolicy) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+func WithUnknownRecordTypePolicy(policy ErrorPolicy) WarcRecordOption {
+	return func(o *warcRecordOptions) {
 		o.errUnknownRecordType = policy
-	})
+	}
 }
 
 // WithBlockErrorPolicy sets the policy for handling errors in block parsing.
@@ -150,19 +134,19 @@ func WithUnknownRecordTypePolicy(policy errorPolicy) WarcRecordOption {
 // For most records this is the content fetched from the original source and errors here should be ignored.
 //
 // defaults to ErrIgnore
-func WithBlockErrorPolicy(policy errorPolicy) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+func WithBlockErrorPolicy(policy ErrorPolicy) WarcRecordOption {
+	return func(o *warcRecordOptions) {
 		o.errBlock = policy
-	})
+	}
 }
 
 // WithAddMissingRecordId sets if missing WARC-Record-ID header should be generated.
 //
 // defaults to true
 func WithAddMissingRecordId(addMissingRecordId bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.addMissingRecordId = addMissingRecordId
-	})
+	}
 }
 
 // WithRecordIdFunc sets a function for generating WARC-Record-ID if AddMissingRecordId is true.
@@ -172,18 +156,18 @@ func WithAddMissingRecordId(addMissingRecordId bool) WarcRecordOption {
 //
 // defaults to generating uuid
 func WithRecordIdFunc(recordIdFunc func() (string, error)) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.recordIdFunc = recordIdFunc
-	})
+	}
 }
 
 // WithAddMissingContentLength sets if missing Content-Length header should be calculated.
 //
 // defaults to true
 func WithAddMissingContentLength(addMissingContentLength bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.addMissingContentLength = addMissingContentLength
-	})
+	}
 }
 
 // WithAddMissingDigest sets if missing Block digest and eventually Payload digest header fields should be calculated.
@@ -192,9 +176,9 @@ func WithAddMissingContentLength(addMissingContentLength bool) WarcRecordOption 
 //
 // defaults to true
 func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.addMissingDigest = addMissingDigest
-	})
+	}
 }
 
 // WithDefaultDigestAlgorithm sets which algorithm to use for digest generation.
@@ -203,9 +187,9 @@ func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
 //
 // defaults to sha1
 func WithDefaultDigestAlgorithm(defaultDigestAlgorithm string) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.defaultDigestAlgorithm = defaultDigestAlgorithm
-	})
+	}
 }
 
 // WithDefaultDigestEncoding sets which encoding to use for digest generation.
@@ -213,10 +197,10 @@ func WithDefaultDigestAlgorithm(defaultDigestAlgorithm string) WarcRecordOption 
 // Valid values: Base16, Base32 and Base64.
 //
 // defaults to Base32
-func WithDefaultDigestEncoding(defaultDigestEncoding digestEncoding) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+func WithDefaultDigestEncoding(defaultDigestEncoding DigestEncoding) WarcRecordOption {
+	return func(o *warcRecordOptions) {
 		o.defaultDigestEncoding = defaultDigestEncoding
-	})
+	}
 }
 
 // WithFixContentLength sets if a ContentLength header with value which do not match the actual content length should be set to the real value.
@@ -225,9 +209,9 @@ func WithDefaultDigestEncoding(defaultDigestEncoding digestEncoding) WarcRecordO
 //
 // defaults to true
 func WithFixContentLength(fixContentLength bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.fixContentLength = fixContentLength
-	})
+	}
 }
 
 // WithFixDigest sets if a BlockDigest header or a PayloadDigest header with a value which do not match the actual content should be recalculated.
@@ -236,9 +220,9 @@ func WithFixContentLength(fixContentLength bool) WarcRecordOption {
 //
 // defaults to true
 func WithFixDigest(fixDigest bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.fixDigest = fixDigest
-	})
+	}
 }
 
 // WithFixSyntaxErrors sets if an attempt to fix syntax errors should be done when those are detected.
@@ -247,9 +231,9 @@ func WithFixDigest(fixDigest bool) WarcRecordOption {
 //
 // defaults to true
 func WithFixSyntaxErrors(fixSyntaxErrors bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.fixSyntaxErrors = fixSyntaxErrors
-	})
+	}
 }
 
 // WithFixWarcFieldsBlockErrors sets if an attempt to fix syntax errors in warcfields block should be done when those are detected.
@@ -258,18 +242,18 @@ func WithFixSyntaxErrors(fixSyntaxErrors bool) WarcRecordOption {
 //
 // defaults to false
 func WithFixWarcFieldsBlockErrors(fixWarcFieldsBlockErrors bool) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.fixWarcFieldsBlockErrors = fixWarcFieldsBlockErrors
-	})
+	}
 }
 
 // WithSkipParseBlock sets parser to skip detecting known block types.
 //
 // This implies that no payload digest can be computed.
 func WithSkipParseBlock() WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.skipParseBlock = true
-	})
+	}
 }
 
 // WithNoValidation sets the parser to do as little validation as possible.
@@ -282,12 +266,12 @@ func WithSkipParseBlock() WarcRecordOption {
 //	UnknownRecordPolicy = ErrIgnore
 //	SkipParseBlock = true
 func WithNoValidation() WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.errSyntax = ErrIgnore
 		o.errSpec = ErrIgnore
 		o.errUnknownRecordType = ErrIgnore
 		o.skipParseBlock = true
-	})
+	}
 }
 
 // WithStrictValidation sets the parser to fail on first error or violation of WARC specification.
@@ -299,34 +283,35 @@ func WithNoValidation() WarcRecordOption {
 //	UnknownRecordPolicy = ErrFail
 //	SkipParseBlock = false
 func WithStrictValidation() WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.errSyntax = ErrFail
 		o.errSpec = ErrFail
 		o.errUnknownRecordType = ErrFail
 		o.skipParseBlock = false
-	})
+	}
 }
 
 // WithBufferTmpDir sets the directory to use for temporary files.
 //
 // If not set or dir is the empty string then the default directory for temporary files is used (see os.TempDir).
 func WithBufferTmpDir(dir string) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.bufferOptions = append(o.bufferOptions, diskbuffer.WithTmpDir(dir))
-	})
+	}
 }
 
 // WithBufferMaxMemBytes sets the maximum amount of memory a buffer is allowed to use before overflowing to disk.
 //
 // defaults to 1 MiB
 func WithBufferMaxMemBytes(size int64) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
-		o.bufferOptions = append(o.bufferOptions, diskbuffer.WithMaxMemBytes(size))
-	})
+	return func(o *warcRecordOptions) {
+		//  TODO : change interface from int64 to int and remove the cast here
+		o.bufferOptions = append(o.bufferOptions, diskbuffer.WithMaxMemBytes(int(size)))
+	}
 }
 
 func WithUrlParserOptions(opts ...url.ParserOption) WarcRecordOption {
-	return newFuncWarcRecordOption(func(o *warcRecordOptions) {
+	return func(o *warcRecordOptions) {
 		o.urlParserOptions = append(o.urlParserOptions, opts...)
-	})
+	}
 }

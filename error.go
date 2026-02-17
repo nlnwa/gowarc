@@ -17,8 +17,44 @@
 package gowarc
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+)
+
+// Sentinel errors for common conditions.
+// These can be matched with [errors.Is].
+var (
+	// ErrNotRevisitRecord is returned when a revisit-only operation is attempted on a non-revisit record.
+	ErrNotRevisitRecord = errors.New("gowarc: not a revisit record")
+
+	// ErrIsRevisitRecord is returned when attempting to create a revisit reference from a revisit record.
+	ErrIsRevisitRecord = errors.New("gowarc: cannot reference a revisit record")
+
+	// ErrUnknownRevisitProfile is returned when a revisit record references an unrecognized profile URI.
+	ErrUnknownRevisitProfile = errors.New("gowarc: unknown revisit profile")
+
+	// ErrMissingPayloadDigest is returned when the identical-payload-digest profile is used but no payload digest is available.
+	ErrMissingPayloadDigest = errors.New("gowarc: payload digest required for identical-payload-digest profile")
+
+	// ErrMergeRequiresOneRecord is returned when Merge is called with zero or more than one referenced record.
+	ErrMergeRequiresOneRecord = errors.New("gowarc: revisit merge requires exactly one referenced record")
+
+	// ErrMergeNotSupported is returned when merging is attempted on a record type that does not support it.
+	ErrMergeNotSupported = errors.New("gowarc: merging is only possible for revisit records or segmented records")
+
+	// ErrMergeSegmentedNotImplemented is returned when merging of segmented records is attempted.
+	ErrMergeSegmentedNotImplemented = errors.New("gowarc: merging of segmented records is not implemented")
+
+	// ErrMergeWrongBlockType is returned when a revisit record's block type is incompatible with merging
+	// (typically because the record was parsed with SkipParseBlock).
+	ErrMergeWrongBlockType = errors.New("gowarc: revisit block type incompatible with merge; record must be parsed with SkipParseBlock=false")
+
+	// ErrMergeUnsupportedBlock is returned when merging a revisit with a non-HTTP block type.
+	ErrMergeUnsupportedBlock = errors.New("gowarc: merge only supports http request and response blocks")
+
+	// ErrUnsupportedDigestAlgorithm is returned when an unrecognized digest algorithm is encountered.
+	ErrUnsupportedDigestAlgorithm = errors.New("gowarc: unsupported digest algorithm")
 )
 
 // HeaderFieldError is used for violations of WARC header specification
@@ -31,7 +67,7 @@ func newHeaderFieldError(fieldName string, msg string) *HeaderFieldError {
 	return &HeaderFieldError{fieldName: fieldName, msg: msg}
 }
 
-func newHeaderFieldErrorf(fieldName string, msg string, param ...interface{}) *HeaderFieldError {
+func newHeaderFieldErrorf(fieldName string, msg string, param ...any) *HeaderFieldError {
 	return &HeaderFieldError{fieldName: fieldName, msg: fmt.Sprintf(msg, param...)}
 }
 
@@ -56,8 +92,10 @@ func newSyntaxError(msg string, pos *position) *SyntaxError {
 
 func newWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxError {
 	e := &SyntaxError{msg: msg, wrapped: wrapped}
-	if pos == nil && wrapped != nil && wrapped.(*SyntaxError).line > 0 {
-		e.line = wrapped.(*SyntaxError).line
+	if pos == nil {
+		if se, ok := wrapped.(*SyntaxError); ok && se.line > 0 {
+			e.line = se.line
+		}
 	} else {
 		e.line = pos.lineNumber
 	}
@@ -84,6 +122,11 @@ func (e *SyntaxError) Unwrap() error {
 }
 
 type multiErr []error
+
+// Unwrap returns the underlying errors for use with [errors.Is] and [errors.As].
+func (e multiErr) Unwrap() []error {
+	return []error(e)
+}
 
 func (e multiErr) Error() string {
 	switch len(e) {

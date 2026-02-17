@@ -20,20 +20,8 @@ import (
 	"time"
 )
 
-func To14(s string) (string, error) {
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		return "", err
-	}
-
-	return t.Format("20060102150405"), nil
-}
-
-func From14ToTime(s string) (time.Time, error) {
-	t, err := time.Parse("20060102150405", s)
-	return t, err
-}
+const Layout14 = "20060102150405"
 
 func UTC14(t time.Time) string {
-	return t.UTC().Format("20060102150405")
+	return t.UTC().Format(Layout14)
 }

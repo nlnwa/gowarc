@@ -25,13 +25,23 @@ import (
 )
 
 const (
-	sphtcrlf = " \t\r\n"  // Space, Tab, Carriage return, Newline
-	cr       = '\r'       // Carriage return
-	lf       = '\n'       // Newline
-	sp       = ' '        // Space
-	ht       = '\t'       // Tab
-	crlf     = "\r\n"     // Carriage return, Newline
-	crlfcrlf = "\r\n\r\n" // Carriage return, Newline, Carriage return, Newline
+	sphtcrlf = " \t\r\n" // Space, Tab, Carriage return, Newline
+	cr       = '\r'      // Carriage return
+	lf       = '\n'      // Newline
+	sp       = ' '       // Space
+	ht       = '\t'      // Tab
+	// crlf     = "\r\n"     // Carriage return, Newline
+	// crlfcrlf = "\r\n\r\n" // Carriage return, Newline, Carriage return, Newline
+	// fieldSep = ": " // Field separator in WARC header fields
+)
+
+var (
+	crlf      = []byte("\r\n")
+	crlfcrlf  = []byte("\r\n\r\n")
+	fieldSep  = []byte(": ")
+	warcMagic = []byte("WARC/")
+	v1_0      = []byte(V1_0.txt)
+	v1_1      = []byte(V1_1.txt)
 )
 
 // WarcRecord is the interface implemented by types that can represent a WARC record.
@@ -263,12 +273,12 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 			h.Set(WarcPayloadDigest, h.Get(WarcBlockDigest))
 		}
 		if !h.Has(WarcPayloadDigest) {
-			return nil, fmt.Errorf("payload digest is required for Identical Payload Digest Profile")
+			return nil, ErrMissingPayloadDigest
 		}
 	case ProfileServerNotModifiedV1_0:
 	case ProfileServerNotModifiedV1_1:
 	default:
-		return nil, fmt.Errorf("unknown revisit profile")
+		return nil, ErrUnknownRevisitProfile
 	}
 
 	h.Set(WarcType, Revisit.String())
@@ -303,7 +313,7 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 
 func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
 	if wr.recordType != Revisit {
-		return nil, fmt.Errorf("not a revisit record")
+		return nil, ErrNotRevisitRecord
 	}
 
 	return &RevisitRef{
@@ -316,7 +326,7 @@ func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
 
 func (wr *warcRecord) CreateRevisitRef(profile string) (*RevisitRef, error) {
 	if wr.recordType == Revisit {
-		return nil, fmt.Errorf("not allowed to reference a revisit record")
+		return nil, ErrIsRevisitRecord
 	}
 
 	return &RevisitRef{
@@ -329,17 +339,17 @@ func (wr *warcRecord) CreateRevisitRef(profile string) (*RevisitRef, error) {
 
 func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	if wr.headers.Get(WarcSegmentNumber) == "1" {
-		return nil, fmt.Errorf("merging of segmentet records is not implemented")
+		return nil, ErrMergeSegmentedNotImplemented
 	}
 	if wr.recordType != Revisit {
-		return nil, fmt.Errorf("merging is only possible for revisit records or segmentet records")
+		return nil, ErrMergeNotSupported
 	}
 	if len(record) != 1 {
-		return nil, fmt.Errorf("a revisit record must be merged with only one referenced record")
+		return nil, ErrMergeRequiresOneRecord
 	}
 
 	wr.recordType = record[0].Type()
-	wr.headers.Set(WarcType, "response")
+	wr.headers.Set(WarcType, record[0].Type().String())
 	wr.headers.Delete(WarcRefersTo)
 	wr.headers.Delete(WarcRefersToTargetURI)
 	wr.headers.Delete(WarcRefersToDate)
@@ -352,7 +362,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 
 	b, ok := wr.block.(*revisitBlock)
 	if !ok {
-		return nil, fmt.Errorf("the revisit record's has wrong block type. Creation of record must be done with SkipParseBlock set to false")
+		return nil, ErrMergeWrongBlockType
 	}
 
 	switch v := record[0].Block().(type) {
@@ -393,7 +403,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 			}
 		}
 	default:
-		return nil, fmt.Errorf("merging of revisits is only implemented for http requests and responses")
+		return nil, ErrMergeUnsupportedBlock
 	}
 	if record[0].Block().IsCached() {
 		wr.headers.Set(WarcBlockDigest, record[0].Block().BlockDigest())
