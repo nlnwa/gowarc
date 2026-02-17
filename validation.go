@@ -24,6 +24,8 @@ import (
 // Validation contain validation results.
 type Validation []error
 
+// TODO use value receivers for these methods since they do not modify the validation object
+// and replace addError with appends
 func (v *Validation) Error() string {
 	return v.String()
 }
@@ -53,9 +55,13 @@ func (v *Validation) Valid() bool {
 }
 
 func (v *Validation) addError(err error) {
+	if err == nil {
+		return
+	}
 	*v = append(*v, err)
 }
 
+// TODO evaluate the use of this struct (why not use a number directly)
 type position struct {
 	lineNumber int
 }

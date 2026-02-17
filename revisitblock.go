@@ -23,11 +23,11 @@ import (
 )
 
 type revisitBlock struct {
-	opts                *warcRecordOptions
 	headerBytes         []byte
-	blockDigest         *digest
 	blockDigestString   string
 	payloadDigestString string
+	opts                *warcRecordOptions
+	blockDigest         *digest
 }
 
 func (block *revisitBlock) IsCached() bool {

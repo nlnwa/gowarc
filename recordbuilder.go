@@ -17,6 +17,7 @@
 package gowarc
 
 import (
+	"errors"
 	"io"
 	"time"
 
@@ -111,6 +112,9 @@ func (rb *recordBuilder) SetRecordType(recordType RecordType) {
 func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
 		if id, err := rb.opts.recordIdFunc(); err != nil {
+			if cerr := rb.Close(); cerr != nil {
+				err = errors.Join(err, cerr)
+			}
 			return nil, nil, err
 		} else {
 			rb.headers.SetId(WarcRecordID, id)
@@ -129,17 +133,29 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 
 	validation, err := rb.validate(wr)
 	if err != nil {
-		return wr, validation, err
+		if cerr := rb.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return nil, validation, err
 	}
 
 	err = wr.parseBlock(rb.content, validation)
 	if err != nil {
-		return wr, validation, err
+		if cerr := rb.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return nil, validation, err
 	}
 
 	err = wr.ValidateDigest(validation)
+	if err != nil {
+		if cerr := rb.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return nil, validation, err
+	}
 
-	return wr, validation, err
+	return wr, validation, nil
 }
 
 func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {

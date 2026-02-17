@@ -45,22 +45,29 @@ func (m *defaultMarshaler) Marshal(w io.Writer, record WarcRecord, maxSize int64
 }
 
 func (m *defaultMarshaler) writeRecord(w io.Writer, record WarcRecord) (int64, error) {
+	var bytesWritten int64
+
 	// Write WARC record version
-	n, err := fmt.Fprintf(w, "%v\r\n", record.Version())
-	bytesWritten := int64(n)
+	n, err := io.WriteString(w, fmt.Sprint(record.Version()))
+	bytesWritten += int64(n)
+	if err != nil {
+		return bytesWritten, err
+	}
+	n, err = w.Write(crlf)
+	bytesWritten += int64(n)
 	if err != nil {
 		return bytesWritten, err
 	}
 
 	// Write WARC header
-	bw, err := record.WarcHeader().Write(w)
-	bytesWritten += bw
+	k, err := record.WarcHeader().Write(w)
+	bytesWritten += k
 	if err != nil {
 		return bytesWritten, err
 	}
 
 	// Write separator
-	n, err = w.Write([]byte(crlf))
+	n, err = w.Write(crlf)
 	bytesWritten += int64(n)
 	if err != nil {
 		return bytesWritten, err
@@ -71,14 +78,14 @@ func (m *defaultMarshaler) writeRecord(w io.Writer, record WarcRecord) (int64, e
 	if err != nil {
 		return bytesWritten, err
 	}
-	bw, err = io.Copy(w, r)
-	bytesWritten += bw
+	k, err = io.Copy(w, r)
+	bytesWritten += k
 	if err != nil {
 		return bytesWritten, err
 	}
 
 	// Write end of record separator
-	n, err = w.Write([]byte(crlfcrlf))
+	n, err = w.Write(crlfcrlf)
 	bytesWritten += int64(n)
 	if err != nil {
 		return bytesWritten, err

@@ -30,9 +30,9 @@ type WarcFieldsBlock interface {
 
 type warcFieldsBlock struct {
 	content     []byte
+	digestOnce  sync.Once
 	warcFields  *WarcFields
 	blockDigest *digest
-	digestOnce  sync.Once
 }
 
 func (block *warcFieldsBlock) IsCached() bool {
@@ -67,16 +67,17 @@ func (block *warcFieldsBlock) Size() int64 {
 	return int64(len(block.content))
 }
 
-func (block *warcFieldsBlock) Write(w io.Writer) (bytesWritten int64, err error) {
-	bytesWritten, err = block.warcFields.Write(w)
+func (block *warcFieldsBlock) Write(w io.Writer) (n int64, err error) {
+	m, err := block.warcFields.Write(w)
+	n += m
 	if err != nil {
 		return
 	}
-	n, err := w.Write([]byte(crlf))
+	k, err := w.Write(crlf)
+	n += int64(k)
 	if err != nil {
 		return
 	}
-	bytesWritten += int64(n)
 	return
 }
 

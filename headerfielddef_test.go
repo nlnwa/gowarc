@@ -20,6 +20,9 @@ import (
 	"errors"
 	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestValidateHeader(t *testing.T) {
@@ -181,4 +184,156 @@ func TestNormalizeName(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestValidateHeader_DuplicateField_ErrFail(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+		&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+		&nameValue{Name: WarcType, Value: "warcinfo"},
+		&nameValue{Name: ContentLength, Value: "0"},
+		&nameValue{Name: ContentType, Value: "application/warc-fields"},
+		&nameValue{Name: WarcDate, Value: "2017-04-06T04:03:53Z"}, // duplicate!
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrFail))
+	_, err := validateHeader(header, V1_1, &Validation{}, opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "field occurs more than once")
+}
+
+func TestValidateHeader_DuplicateField_ErrWarn(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+		&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+		&nameValue{Name: WarcType, Value: "warcinfo"},
+		&nameValue{Name: ContentLength, Value: "0"},
+		&nameValue{Name: ContentType, Value: "application/warc-fields"},
+		&nameValue{Name: WarcDate, Value: "2017-04-06T04:03:53Z"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
+	validation := &Validation{}
+	_, err := validateHeader(header, V1_1, validation, opts)
+	require.NoError(t, err)
+	assert.False(t, validation.Valid())
+	assert.Contains(t, validation.String(), "field occurs more than once")
+}
+
+func TestValidateHeader_IllegalConcurrentTo_Warcinfo_ErrFail(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+		&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+		&nameValue{Name: WarcType, Value: "warcinfo"},
+		&nameValue{Name: ContentLength, Value: "0"},
+		&nameValue{Name: ContentType, Value: "application/warc-fields"},
+		&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrFail))
+	_, err := validateHeader(header, V1_1, &Validation{}, opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "illegal field")
+}
+
+func TestValidateHeader_IllegalConcurrentTo_Warcinfo_ErrWarn(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+		&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+		&nameValue{Name: WarcType, Value: "warcinfo"},
+		&nameValue{Name: ContentLength, Value: "0"},
+		&nameValue{Name: ContentType, Value: "application/warc-fields"},
+		&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
+	validation := &Validation{}
+	_, err := validateHeader(header, V1_1, validation, opts)
+	require.NoError(t, err)
+	assert.False(t, validation.Valid())
+}
+
+func TestValidateHeader_MissingRequiredField_ErrWarn(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcType, Value: "warcinfo"},
+		&nameValue{Name: ContentLength, Value: "0"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
+	validation := &Validation{}
+	_, err := validateHeader(header, V1_1, validation, opts)
+	require.NoError(t, err)
+	assert.False(t, validation.Valid())
+	assert.Contains(t, validation.String(), "missing required field")
+}
+
+func TestValidateHeader_MissingContentType_ErrWarn(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+		&nameValue{Name: WarcRecordID, Value: "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>"},
+		&nameValue{Name: WarcType, Value: "resource"},
+		&nameValue{Name: ContentLength, Value: "249"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
+	validation := &Validation{}
+	_, err := validateHeader(header, V1_1, validation, opts)
+	require.NoError(t, err)
+	assert.False(t, validation.Valid())
+	assert.Contains(t, validation.String(), "missing required field: Content-Type")
+}
+
+func TestResolveRecordType_UnknownType_ErrWarn(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcType, Value: "unknowntype"},
+	}
+	opts := newOptions(WithUnknownRecordTypePolicy(ErrWarn))
+	validation := &Validation{}
+	rt, err := resolveRecordType(header, validation, opts)
+	require.NoError(t, err)
+	assert.Equal(t, RecordType(0), rt)
+	assert.False(t, validation.Valid())
+}
+
+func TestResolveRecordType_UnknownType_ErrFail(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcType, Value: "unknowntype"},
+	}
+	opts := newOptions(WithUnknownRecordTypePolicy(ErrFail))
+	_, err := resolveRecordType(header, &Validation{}, opts)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unrecognized value")
+}
+
+func TestResolveRecordType_MissingType_ErrWarn(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
+	validation := &Validation{}
+	_, err := resolveRecordType(header, validation, opts)
+	require.NoError(t, err)
+	assert.False(t, validation.Valid())
+}
+
+func TestResolveRecordType_MissingType_ErrIgnore(t *testing.T) {
+	header := &WarcFields{
+		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
+	}
+	opts := newOptions(WithSpecViolationPolicy(ErrIgnore), WithUnknownRecordTypePolicy(ErrIgnore))
+	validation := &Validation{}
+	rt, err := resolveRecordType(header, validation, opts)
+	require.NoError(t, err)
+	assert.Equal(t, RecordType(0), rt)
+	assert.True(t, validation.Valid())
+}
+
+func TestCheckLegal_UnknownRecordType(t *testing.T) {
+	opts := newOptions(WithSpecViolationPolicy(ErrFail))
+	shouldValidate, err := checkLegal(opts, WarcDate, V1_1, 0, lcHdrNameToDef["warc-date"])
+	require.NoError(t, err)
+	assert.False(t, shouldValidate) // unknown record types skip validation
+}
+
+func TestCheckLegal_FieldNotInSpec(t *testing.T) {
+	opts := newOptions(WithSpecViolationPolicy(ErrFail))
+	// WarcRefersToDate is only in V1_1 not V1_0
+	def := lcHdrNameToDef["warc-refers-to-date"]
+	shouldValidate, err := checkLegal(opts, WarcRefersToDate, V1_0, Revisit, def)
+	require.NoError(t, err)
+	assert.False(t, shouldValidate)
 }
