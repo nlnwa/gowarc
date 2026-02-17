@@ -235,57 +235,6 @@ func TestNewWrappedSyntaxError(t *testing.T) {
 	}
 }
 
-func TestMultiErr_Error(t *testing.T) {
-	tests := []struct {
-		name   string
-		errors []error
-		want   string
-	}{
-		{
-			name:   "empty",
-			errors: []error{},
-			want:   "",
-		},
-		{
-			name:   "single error",
-			errors: []error{errors.New("error 1")},
-			want:   "error 1",
-		},
-		{
-			name:   "two errors",
-			errors: []error{errors.New("error 1"), errors.New("error 2")},
-			want:   "[error 1, error 2]",
-		},
-		{
-			name: "three errors",
-			errors: []error{
-				errors.New("first"),
-				errors.New("second"),
-				errors.New("third"),
-			},
-			want: "[first, second, third]",
-		},
-		{
-			name: "errors with special characters",
-			errors: []error{
-				errors.New("error: with colon"),
-				errors.New("error, with comma"),
-			},
-			want: "[error: with colon, error, with comma]",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			e := multiErr(tt.errors)
-			got := e.Error()
-			if got != tt.want {
-				t.Errorf("multiErr.Error() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestPosition(t *testing.T) {
 	tests := []struct {
 		name         string

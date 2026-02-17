@@ -248,7 +248,7 @@ func (w *WarcFileWriter) Rotate() error {
 	// This ensures each worker closes its own file exactly once.
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var errs multiErr
+	var errs []error
 
 	for _, worker := range w.workers {
 		wg.Add(1)
@@ -286,8 +286,8 @@ func (w *WarcFileWriter) Rotate() error {
 
 	wg.Wait()
 
-	if errs != nil {
-		return fmt.Errorf("rotate error: %w", errs)
+	if len(errs) > 0 {
+		return fmt.Errorf("rotate error: %w", errors.Join(errs...))
 	}
 	return nil
 }

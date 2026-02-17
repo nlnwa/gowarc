@@ -19,6 +19,7 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -962,7 +963,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 
 			err3 := gotRecord.Close()
 			if tt.wantErr {
-				require.Error(multiErr{err1, err2, err3})
+				require.Error(errors.Join(err1, err2, err3))
 			} else {
 				require.NoError(err3)
 			}
