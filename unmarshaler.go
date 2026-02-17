@@ -58,7 +58,7 @@ func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
 
 	u := &unmarshaler{
 		opts:             o,
-		warcFieldsParser: &warcfieldsParser{o},
+		warcFieldsParser: &warcfieldsParser{Options: o},
 	}
 	return u
 }
@@ -86,7 +86,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 	// Search for start of new record
 	for !isGzipMagic(buf) && !isWARCMagic(buf) {
 		if u.opts.errSyntax >= ErrFail {
-			err = newSyntaxError("expected start of record", &position{})
+			err = newSyntaxError("expected start of record")
 			return
 		}
 		if _, err = b.Discard(1); err != nil {
@@ -101,7 +101,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 	if u.opts.errSyntax >= ErrWarn && offset != 0 {
 		validation = append(validation, newSyntaxError(
 			fmt.Sprintf("record was found %d bytes after expected offset",
-				offset), &position{}))
+				offset)))
 	}
 
 	if isGzipMagic(buf) {
@@ -126,17 +126,17 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 		r = b
 	}
 
-	pos := &position{}
+	lineNumber := 0
 
 	// Find WARC version
 	buf, err = r.ReadBytes('\n')
 	if err != nil {
 		return
 	}
-	pos.incrLineNumber()
+	lineNumber++
 
 	if !isWARCMagic(buf) {
-		err = newSyntaxError("missing record version", pos)
+		err = newSyntaxErrorAtLine("missing record version", lineNumber)
 		return
 	}
 
@@ -161,9 +161,9 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 	}
 
 	if !bytes.HasSuffix(buf, crlf) && u.opts.errSyntax > ErrIgnore {
-		sErr := newSyntaxError(
+		sErr := newSyntaxErrorAtLine(
 			fmt.Sprintf("missing carriage return on line %q", bytes.TrimSpace(buf)),
-			pos,
+			lineNumber,
 		)
 		if u.opts.errSyntax == ErrFail {
 			err = sErr
@@ -173,9 +173,10 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 	}
 
 	// Parse WARC header
+	u.warcFieldsParser.lineNumber = lineNumber
 	var wf *WarcFields
 	var parseValidation []error
-	wf, parseValidation, err = u.warcFieldsParser.Parse(r, pos)
+	wf, parseValidation, err = u.warcFieldsParser.Parse(r)
 	validation = append(validation, parseValidation...)
 	if err != nil {
 		return

@@ -703,8 +703,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&warcFieldsBlock{},
 				"foo: bar\nfood:bar\n",
 				[]error{
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 1)),
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 2)),
 				},
 				true,
 			},
@@ -751,8 +751,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&warcFieldsBlock{},
 				"Foo: bar\r\nFood: bar\r\n",
 				[]error{
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 1)),
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 2)),
 					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
 					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
 				},

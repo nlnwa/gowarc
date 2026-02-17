@@ -192,36 +192,43 @@ func TestNewWrappedSyntaxError(t *testing.T) {
 	tests := []struct {
 		name         string
 		msg          string
-		pos          *position
+		line         int
 		wrapped      error
 		expectedLine int
+		useLine      bool
 	}{
 		{
-			name:         "with position",
+			name:         "with line number",
 			msg:          "test error",
-			pos:          &position{lineNumber: 5},
+			line:         5,
 			wrapped:      errors.New("inner"),
 			expectedLine: 5,
+			useLine:      true,
 		},
 		{
-			name:         "nil position with wrapped SyntaxError",
+			name:         "no line with wrapped SyntaxError",
 			msg:          "test error",
-			pos:          nil,
 			wrapped:      &SyntaxError{msg: "inner", line: 10},
 			expectedLine: 10,
+			useLine:      false,
 		},
 		{
-			name:         "nil position with non-SyntaxError",
+			name:         "zero line with non-SyntaxError",
 			msg:          "test error",
-			pos:          &position{lineNumber: 0},
 			wrapped:      errors.New("inner"),
 			expectedLine: 0,
+			useLine:      false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			e := newWrappedSyntaxError(tt.msg, tt.pos, tt.wrapped)
+			var e *SyntaxError
+			if tt.useLine {
+				e = newWrappedSyntaxErrorAtLine(tt.msg, tt.line, tt.wrapped)
+			} else {
+				e = newWrappedSyntaxError(tt.msg, tt.wrapped)
+			}
 			if e.line != tt.expectedLine {
 				t.Errorf("newWrappedSyntaxError() line = %d, want %d", e.line, tt.expectedLine)
 			}
@@ -232,65 +239,6 @@ func TestNewWrappedSyntaxError(t *testing.T) {
 				t.Errorf("newWrappedSyntaxError() wrapped = %v, want %v", e.wrapped, tt.wrapped)
 			}
 		})
-	}
-}
-
-func TestPosition(t *testing.T) {
-	tests := []struct {
-		name         string
-		initialLine  int
-		increments   int
-		expectedLine int
-	}{
-		{
-			name:         "start at zero",
-			initialLine:  0,
-			increments:   1,
-			expectedLine: 1,
-		},
-		{
-			name:         "start at five",
-			initialLine:  5,
-			increments:   3,
-			expectedLine: 8,
-		},
-		{
-			name:         "no increments",
-			initialLine:  10,
-			increments:   0,
-			expectedLine: 10,
-		},
-		{
-			name:         "multiple increments",
-			initialLine:  1,
-			increments:   100,
-			expectedLine: 101,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := &position{lineNumber: tt.initialLine}
-			for i := 0; i < tt.increments; i++ {
-				p.incrLineNumber()
-			}
-			if p.lineNumber != tt.expectedLine {
-				t.Errorf("position.lineNumber = %d, want %d", p.lineNumber, tt.expectedLine)
-			}
-		})
-	}
-}
-
-func TestPosition_IncrLineNumber_ReturnsSelf(t *testing.T) {
-	p := &position{lineNumber: 5}
-	result := p.incrLineNumber()
-
-	if result != p {
-		t.Error("incrLineNumber() should return the same position instance")
-	}
-
-	if result.lineNumber != 6 {
-		t.Errorf("incrLineNumber() lineNumber = %d, want 6", result.lineNumber)
 	}
 }
 
@@ -327,8 +275,7 @@ func TestNewSyntaxError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pos := &position{lineNumber: tt.lineNumber}
-			e := newSyntaxError(tt.msg, pos)
+			e := newSyntaxErrorAtLine(tt.msg, tt.lineNumber)
 
 			if e.msg != tt.expectedMsg {
 				t.Errorf("newSyntaxError().msg = %q, want %q", e.msg, tt.expectedMsg)

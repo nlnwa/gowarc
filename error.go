@@ -85,20 +85,24 @@ type SyntaxError struct {
 	wrapped error
 }
 
-func newSyntaxError(msg string, pos *position) *SyntaxError {
-	return &SyntaxError{msg: msg, line: pos.lineNumber}
+func newSyntaxError(msg string) *SyntaxError {
+	return &SyntaxError{msg: msg}
 }
 
-func newWrappedSyntaxError(msg string, pos *position, wrapped error) *SyntaxError {
+func newSyntaxErrorAtLine(msg string, line int) *SyntaxError {
+	return &SyntaxError{msg: msg, line: line}
+}
+
+func newWrappedSyntaxError(msg string, wrapped error) *SyntaxError {
 	e := &SyntaxError{msg: msg, wrapped: wrapped}
-	if pos == nil {
-		if se, ok := wrapped.(*SyntaxError); ok && se.line > 0 {
-			e.line = se.line
-		}
-	} else {
-		e.line = pos.lineNumber
+	if se, ok := wrapped.(*SyntaxError); ok && se.line > 0 {
+		e.line = se.line
 	}
 	return e
+}
+
+func newWrappedSyntaxErrorAtLine(msg string, line int, wrapped error) *SyntaxError {
+	return &SyntaxError{msg: msg, line: line, wrapped: wrapped}
 }
 
 func (e *SyntaxError) Error() string {

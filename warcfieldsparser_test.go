@@ -542,7 +542,7 @@ func TestParseWarcFields(t *testing.T) {
 			r := bufio.NewReader(strings.NewReader(tt.args.data))
 			p := &warcfieldsParser{Options: tt.args.opts}
 
-			got, validation, err := p.Parse(r, &position{})
+			got, validation, err := p.Parse(r)
 
 			assert := assert.New(t)
 			if tt.wantErr {
@@ -567,13 +567,11 @@ func TestParseWarcFields_DoesNotTreatEOHAsContinuationEvenIfNextByteIsSpace(t *t
 
 	r := bufio.NewReader(bytes.NewReader(in))
 
-	pos := &position{}
-
 	p := &warcfieldsParser{
 		Options: &warcRecordOptions{errSyntax: ErrWarn},
 	}
 
-	_, _, err := p.Parse(r, pos)
+	_, _, err := p.Parse(r)
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
@@ -596,7 +594,7 @@ func TestParseWarcFields_DoesNotConsumePastEOHWhenNextLineStartsWithSpace(t *tes
 
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
 
-	_, _, err := p.Parse(r, &position{})
+	_, _, err := p.Parse(r)
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
@@ -645,7 +643,7 @@ func TestParseWarcFields_NonFatalPeekErrorIsIgnored(t *testing.T) {
 
 	r := bufio.NewReader(fr)
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	got, validation, err := p.Parse(r, &position{})
+	got, validation, err := p.Parse(r)
 	if err != nil {
 		t.Fatalf("Parse returned unexpected error: %v", err)
 	}
@@ -668,7 +666,7 @@ func TestParseWarcFields_FatalReadError(t *testing.T) {
 
 	r := bufio.NewReader(fr)
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	_, _, err := p.Parse(r, &position{})
+	_, _, err := p.Parse(r)
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
@@ -683,7 +681,7 @@ func TestParseWarcFields_FatalReadError_InContinuation(t *testing.T) {
 
 	r := bufio.NewReader(fr)
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	_, _, err := p.Parse(r, &position{})
+	_, _, err := p.Parse(r)
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
