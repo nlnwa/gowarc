@@ -121,8 +121,7 @@ func TestValidateHeader(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			validation := &Validation{}
-			rt, err := validateHeader(tt.header, V1_1, validation, tt.opts)
+			rt, validation, err := validateHeader(tt.header, V1_1, tt.opts)
 			if err != nil && tt.wantErr == nil {
 				t.Errorf("validateHeader() unexpected error = %v", err)
 				return
@@ -138,16 +137,16 @@ func TestValidateHeader(t *testing.T) {
 			if rt != stringToRecordType(tt.header.Get(WarcType)) {
 				t.Errorf("validateHeader() rt = %v, want %v", rt, tt.header.Get(WarcType))
 			}
-			if tt.wantValidationErr == nil && len(*validation) > 0 {
+			if tt.wantValidationErr == nil && len(validation) > 0 {
 				t.Errorf("validateHeader() unexpected validation error = %v", validation)
 				return
 			}
 			if tt.wantValidationErr != nil {
-				if len(*validation) != 1 {
-					t.Errorf("validateHeader() want single validation error = %v, got %v", tt.wantValidationErr, *validation)
+				if len(validation) != 1 {
+					t.Errorf("validateHeader() want single validation error = %v, got %v", tt.wantValidationErr, validation)
 					return
 				}
-				err := (*validation)[0]
+				err := validation[0]
 				if err.Error() != tt.wantValidationErr.Error() {
 					t.Errorf("validateHeader() got validation error = %v, want error %v", err.Error(), tt.wantValidationErr.Error())
 				}
@@ -196,7 +195,7 @@ func TestValidateHeader_DuplicateField_ErrFail(t *testing.T) {
 		&nameValue{Name: WarcDate, Value: "2017-04-06T04:03:53Z"}, // duplicate!
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrFail))
-	_, err := validateHeader(header, V1_1, &Validation{}, opts)
+	_, _, err := validateHeader(header, V1_1, opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "field occurs more than once")
 }
@@ -211,11 +210,10 @@ func TestValidateHeader_DuplicateField_ErrWarn(t *testing.T) {
 		&nameValue{Name: WarcDate, Value: "2017-04-06T04:03:53Z"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
-	validation := &Validation{}
-	_, err := validateHeader(header, V1_1, validation, opts)
+	_, validation, err := validateHeader(header, V1_1, opts)
 	require.NoError(t, err)
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "field occurs more than once")
+	assert.NotEmpty(t, validation)
+	assert.Contains(t, fmt.Sprint(validation), "field occurs more than once")
 }
 
 func TestValidateHeader_IllegalConcurrentTo_Warcinfo_ErrFail(t *testing.T) {
@@ -228,7 +226,7 @@ func TestValidateHeader_IllegalConcurrentTo_Warcinfo_ErrFail(t *testing.T) {
 		&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrFail))
-	_, err := validateHeader(header, V1_1, &Validation{}, opts)
+	_, _, err := validateHeader(header, V1_1, opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "illegal field")
 }
@@ -243,10 +241,9 @@ func TestValidateHeader_IllegalConcurrentTo_Warcinfo_ErrWarn(t *testing.T) {
 		&nameValue{Name: WarcConcurrentTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
-	validation := &Validation{}
-	_, err := validateHeader(header, V1_1, validation, opts)
+	_, validation, err := validateHeader(header, V1_1, opts)
 	require.NoError(t, err)
-	assert.False(t, validation.Valid())
+	assert.NotEmpty(t, validation)
 }
 
 func TestValidateHeader_MissingRequiredField_ErrWarn(t *testing.T) {
@@ -255,11 +252,10 @@ func TestValidateHeader_MissingRequiredField_ErrWarn(t *testing.T) {
 		&nameValue{Name: ContentLength, Value: "0"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
-	validation := &Validation{}
-	_, err := validateHeader(header, V1_1, validation, opts)
+	_, validation, err := validateHeader(header, V1_1, opts)
 	require.NoError(t, err)
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "missing required field")
+	assert.NotEmpty(t, validation)
+	assert.Contains(t, fmt.Sprint(validation), "missing required field")
 }
 
 func TestValidateHeader_MissingContentType_ErrWarn(t *testing.T) {
@@ -270,11 +266,10 @@ func TestValidateHeader_MissingContentType_ErrWarn(t *testing.T) {
 		&nameValue{Name: ContentLength, Value: "249"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
-	validation := &Validation{}
-	_, err := validateHeader(header, V1_1, validation, opts)
+	_, validation, err := validateHeader(header, V1_1, opts)
 	require.NoError(t, err)
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "missing required field: Content-Type")
+	assert.NotEmpty(t, validation)
+	assert.Contains(t, fmt.Sprint(validation), "missing required field: Content-Type")
 }
 
 func TestResolveRecordType_UnknownType_ErrWarn(t *testing.T) {
@@ -282,11 +277,10 @@ func TestResolveRecordType_UnknownType_ErrWarn(t *testing.T) {
 		&nameValue{Name: WarcType, Value: "unknowntype"},
 	}
 	opts := newOptions(WithUnknownRecordTypePolicy(ErrWarn))
-	validation := &Validation{}
-	rt, err := resolveRecordType(header, validation, opts)
+	rt, validation, err := resolveRecordType(header, opts)
 	require.NoError(t, err)
 	assert.Equal(t, RecordType(0), rt)
-	assert.False(t, validation.Valid())
+	assert.NotEmpty(t, validation)
 }
 
 func TestResolveRecordType_UnknownType_ErrFail(t *testing.T) {
@@ -294,7 +288,7 @@ func TestResolveRecordType_UnknownType_ErrFail(t *testing.T) {
 		&nameValue{Name: WarcType, Value: "unknowntype"},
 	}
 	opts := newOptions(WithUnknownRecordTypePolicy(ErrFail))
-	_, err := resolveRecordType(header, &Validation{}, opts)
+	_, _, err := resolveRecordType(header, opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unrecognized value")
 }
@@ -304,10 +298,9 @@ func TestResolveRecordType_MissingType_ErrWarn(t *testing.T) {
 		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrWarn))
-	validation := &Validation{}
-	_, err := resolveRecordType(header, validation, opts)
+	_, validation, err := resolveRecordType(header, opts)
 	require.NoError(t, err)
-	assert.False(t, validation.Valid())
+	assert.NotEmpty(t, validation)
 }
 
 func TestResolveRecordType_MissingType_ErrIgnore(t *testing.T) {
@@ -315,11 +308,10 @@ func TestResolveRecordType_MissingType_ErrIgnore(t *testing.T) {
 		&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 	}
 	opts := newOptions(WithSpecViolationPolicy(ErrIgnore), WithUnknownRecordTypePolicy(ErrIgnore))
-	validation := &Validation{}
-	rt, err := resolveRecordType(header, validation, opts)
+	rt, validation, err := resolveRecordType(header, opts)
 	require.NoError(t, err)
 	assert.Equal(t, RecordType(0), rt)
-	assert.True(t, validation.Valid())
+	assert.Empty(t, validation)
 }
 
 func TestCheckLegal_UnknownRecordType(t *testing.T) {

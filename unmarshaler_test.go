@@ -36,7 +36,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		headers    *WarcFields
 		blockType  any
 		content    string
-		validation *Validation
+		validation []error
 		cached     bool
 	}
 	tests := []struct {
@@ -83,7 +83,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"creator: temp-MJFXHZ4S\r\n" +
 					"isPartOf: Temporary%20Collection\r\n" +
 					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n",
-				validation: &Validation{},
+				validation: []error(nil),
 				cached:     true,
 			},
 			0,
@@ -119,7 +119,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -162,7 +162,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&genericBlock{},
 				"20191113232334\n" +
 					"ergoterapeutene.org.\t300\tIN\tA\t195.159.29.211\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -204,7 +204,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -242,7 +242,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"via: http://www.example.com/\r\n" +
 					"hopsFromSeed: P\r\n" +
 					"fetchTimeMs: 47\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -284,7 +284,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"<html><head></head>\n" +
 					"<body></body>\n" +
 					"</html>\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -334,7 +334,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Server: Apache/2.0.54 (Ubuntu) PHP/5.0.5-2ubuntu1.4 Connection: Keep-Alive\n" +
 					"Keep-Alive: timeout=15, max=100\n" +
 					"ETag: \"3e45-67e-2ed02ec0\"\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -370,7 +370,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&genericBlock{},
 				"body text\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -412,7 +412,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&genericBlock{},
 				"... last part of data\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -448,7 +448,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&genericBlock{},
 				"content\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -477,7 +477,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -507,7 +507,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -537,7 +537,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -567,7 +567,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -610,7 +610,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\nfood:bar\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -654,7 +654,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"Foo: bar\r\nFood: bar\r\n",
-				&Validation{
+				[]error{
 					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
 					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
 				},
@@ -701,7 +701,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\nfood:bar\n",
-				&Validation{
+				[]error{
 					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
 					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
 				},
@@ -749,7 +749,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"Foo: bar\r\nFood: bar\r\n",
-				&Validation{
+				[]error{
 					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
 					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
 					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
@@ -789,7 +789,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the " +
 					"\r\n\r\n",
-				&Validation{},
+				[]error(nil),
 				false,
 			},
 			0,
@@ -837,7 +837,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Referer: http://www.archive.org/\r\n" +
 					"Host: www.archive.org\r\n" +
 					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n",
-				&Validation{errMissingEndOfHeaders},
+				[]error{errMissingEndOfHeaders},
 				true,
 			},
 			0,
@@ -885,7 +885,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Referer: http://www.archive.org/\r\n" +
 					"Host: www.archive.org\r\n" +
 					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n\r\n",
-				&Validation{},
+				[]error(nil),
 				false,
 			},
 			0,
@@ -916,7 +916,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&revisitBlock{},
 				"",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -954,10 +954,11 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			assert.Equal(tt.want.content, string(content), "Content")
 			assert.Equal(tt.wantOffset, gotOffset, "Offset")
 
-			err2 := gotRecord.ValidateDigest(validation)
+			v2, err2 := gotRecord.ValidateDigest()
 			if !tt.wantErr {
 				require.NoError(err2)
 			}
+			validation = append(validation, v2...)
 
 			err3 := gotRecord.Close()
 			if tt.wantErr {
@@ -966,7 +967,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				require.NoError(err3)
 			}
 
-			assert.Equal(tt.want.validation, validation, "Want:\n %s\nGot:\n %s", tt.want.validation, validation.String())
+			assert.Equal(tt.want.validation, validation, "Want:\n %s\nGot:\n %s", tt.want.validation, fmt.Sprint(validation))
 		})
 	}
 }
@@ -1008,8 +1009,8 @@ func Test_unmarshaler_Unmarshal_GarbageBeforeRecord_ErrWarn(t *testing.T) {
 	require.NoError(t, err)
 	defer rec.Close()
 	assert.Equal(t, int64(2), offset)
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "bytes after expected offset")
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "bytes after expected offset")
 }
 
 func Test_unmarshaler_Unmarshal_UnsupportedVersion_ErrFail(t *testing.T) {
@@ -1045,8 +1046,8 @@ func Test_unmarshaler_Unmarshal_UnsupportedVersion_ErrWarn(t *testing.T) {
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "unsupported WARC version")
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "unsupported WARC version")
 }
 
 func Test_unmarshaler_Unmarshal_MissingCRLF_ErrFail(t *testing.T) {
@@ -1081,8 +1082,8 @@ func Test_unmarshaler_Unmarshal_MissingCRLF_ErrWarn(t *testing.T) {
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "missing carriage return")
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "missing carriage return")
 }
 
 func Test_unmarshaler_Unmarshal_GzipRecord(t *testing.T) {
@@ -1190,8 +1191,8 @@ func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFOnly(t *testing.T) {
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "missing carriage return in end of record marker")
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "missing carriage return in end of record marker")
 }
 
 func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFLFOnly(t *testing.T) {
@@ -1209,8 +1210,8 @@ func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFLFOnly(t *testing.T) {
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "missing carriage return in end of record marker")
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "missing carriage return in end of record marker")
 }
 
 func Test_unmarshaler_Unmarshal_EndOfRecordMarker_TooFewBytes(t *testing.T) {
@@ -1228,8 +1229,8 @@ func Test_unmarshaler_Unmarshal_EndOfRecordMarker_TooFewBytes(t *testing.T) {
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, validation.Valid())
-	assert.Contains(t, validation.String(), "too few bytes in end of record marker")
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "too few bytes in end of record marker")
 }
 
 func BenchmarkUnmarshaler_Unmarshal_compressed(b *testing.B) {
@@ -1313,7 +1314,7 @@ func Test_Unmarshal_MissingCR_ErrWarn(t *testing.T) {
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, v.Valid()) // Should have a validation warning about missing CR
+	assert.NotEmpty(t, v) // Should have a validation warning about missing CR
 }
 
 func Test_Unmarshal_EndOfRecordMarker_SingleLF(t *testing.T) {
@@ -1331,7 +1332,7 @@ func Test_Unmarshal_EndOfRecordMarker_SingleLF(t *testing.T) {
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, v.Valid()) // validation should flag the bad marker
+	assert.NotEmpty(t, v) // validation should flag the bad marker
 }
 
 func Test_Unmarshal_EndOfRecordMarker_DoubleLF(t *testing.T) {
@@ -1349,7 +1350,7 @@ func Test_Unmarshal_EndOfRecordMarker_DoubleLF(t *testing.T) {
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, v.Valid())
+	assert.NotEmpty(t, v)
 }
 
 func Test_Unmarshal_EndOfRecordMarker_TooFew(t *testing.T) {
@@ -1367,7 +1368,7 @@ func Test_Unmarshal_EndOfRecordMarker_TooFew(t *testing.T) {
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
 	defer rec.Close()
-	assert.False(t, v.Valid())
+	assert.NotEmpty(t, v)
 }
 
 func Test_Unmarshal_EndOfRecordMarker_ErrFail(t *testing.T) {

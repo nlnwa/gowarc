@@ -39,8 +39,8 @@ func ExampleNewRecordBuilder() {
 	builder.AddWarcHeader(gowarc.ContentType, "application/http;msgtype=response")
 	builder.AddWarcHeader(gowarc.WarcBlockDigest, "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4")
 
-	if wr, v, err := builder.Build(); err == nil {
-		fmt.Println(wr, v)
+	if wr, _, err := builder.Build(); err == nil {
+		fmt.Println(wr)
 	}
 	// Output: WARC record: version: WARC/1.1, type: response, id: urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008
 }
@@ -63,11 +63,17 @@ func ExampleUnmarshaler() {
 	unmarshaler := gowarc.NewUnmarshaler(gowarc.WithSpecViolationPolicy(gowarc.ErrWarn), gowarc.WithSyntaxErrorPolicy(gowarc.ErrWarn))
 	wr, off, validation, err := unmarshaler.Unmarshal(input)
 	if err == nil {
-		fmt.Printf("Offset: %d, %s\n%s", off, wr, validation)
+		fmt.Printf("Offset: %d, %s\n", off, wr)
+		if len(validation) > 0 {
+			fmt.Println("Validation errors:")
+			for i, e := range validation {
+				fmt.Printf("  %d: %s\n", i+1, e)
+			}
+		}
 	}
 
 	// Output: Offset: 2, WARC record: version: WARC/1.1, type: warcinfo, id: urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008
-	// gowarc: Validation errors:
+	// Validation errors:
 	//   1: gowarc: record was found 2 bytes after expected offset
 	//   2: block: wrong digest: expected sha1:af4d582b4ffc017d07a947d841e392a821f754f3, computed: sha1:8a936f9fd60d664cf95b1ffb40f1c4093e65bb40
 	//   3: too few bytes in end of record marker. Expected "\r\n\r\n", was ""

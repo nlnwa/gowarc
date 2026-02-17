@@ -50,11 +50,11 @@ func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			validation := &Validation{}
+			
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
+			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
-			require.True(t, validation.Valid(), validation)
+			require.Empty(t, validation)
 
 			validateBlockDigestTest(t, block, digest)
 		})
@@ -91,14 +91,14 @@ func Test_warcfieldsBlock_Cache(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			validation := &Validation{}
+			
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
+			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
 			if tt.wantCacheErr {
-				require.False(t, validation.Valid(), validation)
+				require.NotEmpty(t, validation)
 			} else {
-				require.True(t, validation.Valid(), validation)
+				require.Empty(t, validation)
 			}
 
 			validateCacheTest(t, block, content, digest, false)
@@ -130,11 +130,11 @@ func Test_warcfieldsBlock_IsCached(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			validation := &Validation{}
+			
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
+			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
-			require.True(t, validation.Valid(), validation)
+			require.Empty(t, validation)
 
 			got := block.IsCached()
 			assert.Equal(t, tt.want, got)
@@ -167,11 +167,11 @@ func Test_warcfieldsBlock_RawBytes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			validation := &Validation{}
+			
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d, validation)
+			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
-			require.True(t, validation.Valid(), validation)
+			require.Empty(t, validation)
 
 			validateRawBytesTest(t, tt, block, content, digest)
 		})
@@ -199,9 +199,9 @@ func Test_warcfieldsBlock_Write(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			validation := &Validation{}
+			
 			o := defaultWarcRecordOptions()
-			block, err := newWarcFieldsBlock(&o, &WarcFields{}, strings.NewReader(tt.content), d, validation)
+			block, _, err := newWarcFieldsBlock(&o, &WarcFields{}, strings.NewReader(tt.content), d)
 			require.NoError(t, err)
 
 			wfblock := block.(*warcFieldsBlock)
@@ -222,53 +222,53 @@ func Test_warcfieldsBlock_Write(t *testing.T) {
 
 func Test_newWarcFieldsBlock_ReadError_ErrFail(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	validation := &Validation{}
+	
 	opts := &warcRecordOptions{errSyntax: ErrFail}
 
-	_, err := newWarcFieldsBlock(opts, &WarcFields{}, iotest.ErrReader(io.ErrUnexpectedEOF), d, validation)
+	_, _, err := newWarcFieldsBlock(opts, &WarcFields{}, iotest.ErrReader(io.ErrUnexpectedEOF), d)
 	require.Error(t, err)
 }
 
 func Test_newWarcFieldsBlock_ReadError_ErrWarn(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	validation := &Validation{}
+	
 	opts := &warcRecordOptions{errSyntax: ErrWarn}
 
-	block, err := newWarcFieldsBlock(opts, &WarcFields{}, iotest.ErrReader(io.ErrUnexpectedEOF), d, validation)
+	block, validation, err := newWarcFieldsBlock(opts, &WarcFields{}, iotest.ErrReader(io.ErrUnexpectedEOF), d)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
-	assert.False(t, validation.Valid())
+	assert.NotEmpty(t, validation)
 }
 
 func Test_newWarcFieldsBlock_BlockValidationError_ErrBlockFail(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	validation := &Validation{}
+	
 	opts := &warcRecordOptions{errBlock: ErrFail, errSyntax: ErrWarn}
 
 	// Malformed warc fields content - errSyntax=ErrWarn puts error in blockValidation, errBlock=ErrFail returns it
-	_, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("invalid-no-colon-line\r\n"), d, validation)
+	_, _, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("invalid-no-colon-line\r\n"), d)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "warc fields block")
 }
 
 func Test_newWarcFieldsBlock_BlockValidationError_ErrBlockWarn(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	validation := &Validation{}
+	
 	opts := &warcRecordOptions{errBlock: ErrWarn, errSyntax: ErrWarn}
 
-	block, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("invalid-no-colon-line\r\n"), d, validation)
+	block, validation, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("invalid-no-colon-line\r\n"), d)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
-	assert.False(t, validation.Valid())
+	assert.NotEmpty(t, validation)
 }
 
 func Test_newWarcFieldsBlock_FixWarcFieldsBlockErrors(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	validation := &Validation{}
+	
 	opts := &warcRecordOptions{fixWarcFieldsBlockErrors: true}
 
 	// Even with invalid content, fix should not error out
-	block, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("software: test\r\n"), d, validation)
+	block, _, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("software: test\r\n"), d)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
 }
@@ -276,8 +276,8 @@ func Test_newWarcFieldsBlock_FixWarcFieldsBlockErrors(t *testing.T) {
 func Test_warcfieldsBlock_Write_Error(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
 	o := defaultWarcRecordOptions()
-	validation := &Validation{}
-	block, err := newWarcFieldsBlock(&o, &WarcFields{}, strings.NewReader("name: value\r\n"), d, validation)
+	
+	block, _, err := newWarcFieldsBlock(&o, &WarcFields{}, strings.NewReader("name: value\r\n"), d)
 	require.NoError(t, err)
 
 	wfblock := block.(*warcFieldsBlock)

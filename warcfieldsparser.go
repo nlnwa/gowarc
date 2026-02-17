@@ -142,29 +142,29 @@ func (p *warcfieldsParser) readLine(r *bufio.Reader, pos *position, checkCRLF bo
 //
 // On fatal read errors, parsing stops immediately and the error is
 // returned.
-func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *position) (*WarcFields, error) {
+func (p *warcfieldsParser) Parse(r *bufio.Reader, pos *position) (warcFields *WarcFields, validation []error, err error) {
 	wf := WarcFields{}
 
 	for {
 		line, nc, err := p.readLine(r, pos.incrLineNumber(), true)
 
 		if isFatalReadErr(err) {
-			return nil, err
+			return nil, validation, err
 		}
 
 		if err == errEndOfHeaders {
 			// EOF while reading a header line.
 			if len(line) == 0 {
-				return &wf, nil
+				return &wf, validation, nil
 			}
 
 			// Missing newline at end of last header line
 			switch p.Options.errSyntax {
 			case ErrIgnore:
 			case ErrWarn:
-				validation.addError(newSyntaxError("missing newline", pos))
+				validation = append(validation, newSyntaxError("missing newline", pos))
 			case ErrFail:
-				return nil, newSyntaxError("missing newline", pos)
+				return nil, validation, newSyntaxError("missing newline", pos)
 			}
 
 			// Parse the final line and we're done (no continuation possible at EOF).
@@ -173,12 +173,12 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				switch p.Options.errSyntax {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(perr)
+					validation = append(validation, perr)
 				case ErrFail:
-					return nil, perr
+					return nil, validation, perr
 				}
 			}
-			return &wf, nil
+			return &wf, validation, nil
 		}
 
 		// Non-EOH, non-fatal error on the line read (e.g. missing CR)
@@ -186,9 +186,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 			switch p.Options.errSyntax {
 			case ErrIgnore:
 			case ErrWarn:
-				validation.addError(err)
+				validation = append(validation, err)
 			case ErrFail:
-				return nil, err
+				return nil, validation, err
 			}
 		}
 
@@ -206,7 +206,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 			l, nc, err = p.readLine(r, pos.incrLineNumber(), true)
 
 			if isFatalReadErr(err) {
-				return nil, err
+				return nil, validation, err
 			}
 
 			// If continuation read hit EOF, we can't continue; treat like missing newline/marker.
@@ -215,9 +215,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				switch p.Options.errSyntax {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(newSyntaxError("unexpected end of headers in continuation", pos))
+					validation = append(validation, newSyntaxError("unexpected end of headers in continuation", pos))
 				case ErrFail:
-					return nil, newSyntaxError("unexpected end of headers in continuation", pos)
+					return nil, validation, newSyntaxError("unexpected end of headers in continuation", pos)
 				}
 				// Best effort: append what we got and then return after parsing.
 				line = append(line, ' ')
@@ -230,9 +230,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				switch p.Options.errSyntax {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(err)
+					validation = append(validation, err)
 				case ErrFail:
-					return nil, err
+					return nil, validation, err
 				}
 			}
 
@@ -246,9 +246,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 			switch p.Options.errSyntax {
 			case ErrIgnore:
 			case ErrWarn:
-				validation.addError(err)
+				validation = append(validation, err)
 			case ErrFail:
-				return nil, err
+				return nil, validation, err
 			}
 		}
 
@@ -258,7 +258,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 			marker, _, mErr := p.readLine(r, pos.incrLineNumber(), false)
 
 			if isFatalReadErr(mErr) {
-				return nil, mErr
+				return nil, validation, mErr
 			}
 
 			// If we hit EOF instead of actually reading a blank marker line,
@@ -266,12 +266,12 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 			if mErr == errEndOfHeaders {
 				switch p.Options.errSyntax {
 				case ErrIgnore:
-					return &wf, nil
+					return &wf, validation, nil
 				case ErrWarn:
-					validation.addError(errors.New("missing End of WARC-Fields marker"))
-					return &wf, nil
+					validation = append(validation, errors.New("missing End of WARC-Fields marker"))
+					return &wf, validation, nil
 				case ErrFail:
-					return nil, errors.New("missing End of WARC-Fields marker")
+					return nil, validation, errors.New("missing End of WARC-Fields marker")
 				}
 			}
 
@@ -280,9 +280,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				switch p.Options.errSyntax {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(mErr)
+					validation = append(validation, mErr)
 				case ErrFail:
-					return nil, mErr
+					return nil, validation, mErr
 				}
 			}
 
@@ -292,9 +292,9 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 				case ErrIgnore:
 					// ignore and accept what we have
 				case ErrWarn:
-					validation.addError(errors.New("missing End of WARC-Fields marker"))
+					validation = append(validation, errors.New("missing End of WARC-Fields marker"))
 				case ErrFail:
-					return nil, errors.New("missing End of WARC-Fields marker")
+					return nil, validation, errors.New("missing End of WARC-Fields marker")
 				}
 			}
 
@@ -302,7 +302,7 @@ func (p *warcfieldsParser) Parse(r *bufio.Reader, validation *Validation, pos *p
 		}
 	}
 
-	return &wf, nil
+	return &wf, validation, nil
 }
 
 func isFatalReadErr(err error) bool {

@@ -39,7 +39,7 @@ func TestParseWarcFields(t *testing.T) {
 		name           string
 		args           args
 		want           *WarcFields
-		wantValidation *Validation
+		wantValidation []error
 		wantErr        bool
 	}{
 		{
@@ -61,7 +61,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -83,7 +83,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -104,7 +104,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: WarcType, Value: "warcinfo"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -126,7 +126,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -148,7 +148,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -170,7 +170,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "missing carriage return", line: 1},
 				&SyntaxError{msg: "missing carriage return", line: 2},
 				&SyntaxError{msg: "missing carriage return", line: 3},
@@ -192,7 +192,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: WarcDate, Value: "2017-03-06T04:03:53Z"},
 				&nameValue{Name: ContentLength, Value: "1"},
 			},
-			&Validation{}, // marker LF-only should not warn
+			[]error(nil), // marker LF-only should not warn
 			false,
 		},
 		{
@@ -213,7 +213,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: WarcType, Value: "warcinfo"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "could not parse header line. Missing ':' in Content-Type application/warc-fields", line: 5},
 			},
 			false,
@@ -237,7 +237,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "missing newline", line: 6},
 			},
 			false,
@@ -261,7 +261,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: ContentType, Value: "application/warc-fields"},
 				&nameValue{Name: ContentLength, Value: "249"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -276,7 +276,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		{
@@ -291,7 +291,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		{
@@ -306,14 +306,14 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		{
 			"policy_warn/empty_input",
 			args{data: "", opts: newOptions(WithSyntaxErrorPolicy(ErrWarn))},
 			&WarcFields{},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		// --- Continuation line tests ---
@@ -326,7 +326,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response continuation"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -338,7 +338,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response continuation"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -350,7 +350,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response Tab-Continued"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -362,7 +362,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response continuation"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "missing carriage return", line: 2},
 			},
 			false,
@@ -374,7 +374,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		// --- Continuation at EOF tests ---
@@ -387,7 +387,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response continuation"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -399,7 +399,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response continuation"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "unexpected end of headers in continuation", line: 2},
 			},
 			false,
@@ -411,7 +411,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		// --- Missing EOH marker at EOF ---
@@ -424,7 +424,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -436,7 +436,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response"},
 			},
-			&Validation{errors.New("missing End of WARC-Fields marker")},
+			[]error{errors.New("missing End of WARC-Fields marker")},
 			false,
 		},
 		{
@@ -446,7 +446,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		// --- Non-blank marker line ---
@@ -459,7 +459,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response"},
 			},
-			&Validation{},
+			[]error(nil),
 			false,
 		},
 		{
@@ -471,7 +471,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response"},
 			},
-			&Validation{errors.New("missing End of WARC-Fields marker")},
+			[]error{errors.New("missing End of WARC-Fields marker")},
 			false,
 		},
 		{
@@ -481,7 +481,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		// --- parseLine error at EOF ---
@@ -494,7 +494,7 @@ func TestParseWarcFields(t *testing.T) {
 			&WarcFields{
 				&nameValue{Name: WarcType, Value: "response"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "missing newline", line: 2},
 				&SyntaxError{msg: "could not parse header line. Missing ':' in NO-COLON-HERE", line: 2},
 			},
@@ -507,7 +507,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 		// --- parseLine error in normal flow ---
@@ -521,7 +521,7 @@ func TestParseWarcFields(t *testing.T) {
 				&nameValue{Name: WarcType, Value: "response"},
 				&nameValue{Name: ContentLength, Value: "0"},
 			},
-			&Validation{
+			[]error{
 				&SyntaxError{msg: "could not parse header line. Missing ':' in BAD LINE", line: 2},
 			},
 			false,
@@ -533,7 +533,7 @@ func TestParseWarcFields(t *testing.T) {
 				opts: newOptions(WithSyntaxErrorPolicy(ErrFail)),
 			},
 			nil,
-			&Validation{},
+			[]error(nil),
 			true,
 		},
 	}
@@ -541,8 +541,8 @@ func TestParseWarcFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := bufio.NewReader(strings.NewReader(tt.args.data))
 			p := &warcfieldsParser{Options: tt.args.opts}
-			validation := &Validation{}
-			got, err := p.Parse(r, validation, &position{})
+
+			got, validation, err := p.Parse(r, &position{})
 
 			assert := assert.New(t)
 			if tt.wantErr {
@@ -551,7 +551,7 @@ func TestParseWarcFields(t *testing.T) {
 				assert.NoError(err)
 			}
 			assert.Equal(tt.want, got)
-			assert.Equal(tt.wantValidation, validation, "%s", validation.String())
+			assert.Equal(tt.wantValidation, validation, "%v", validation)
 		})
 	}
 }
@@ -566,14 +566,14 @@ func TestParseWarcFields_DoesNotTreatEOHAsContinuationEvenIfNextByteIsSpace(t *t
 	in := []byte("WARC-Type: response\r\n\r\n continued-payload\r\n")
 
 	r := bufio.NewReader(bytes.NewReader(in))
-	validation := &Validation{}
+
 	pos := &position{}
 
 	p := &warcfieldsParser{
 		Options: &warcRecordOptions{errSyntax: ErrWarn},
 	}
 
-	_, err := p.Parse(r, validation, pos)
+	_, _, err := p.Parse(r, pos)
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
@@ -595,8 +595,8 @@ func TestParseWarcFields_DoesNotConsumePastEOHWhenNextLineStartsWithSpace(t *tes
 	r := bufio.NewReader(strings.NewReader(in))
 
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	validation := &Validation{}
-	_, err := p.Parse(r, validation, &position{})
+
+	_, _, err := p.Parse(r, &position{})
 	if err != nil {
 		t.Fatalf("Parse returned error: %v", err)
 	}
@@ -645,14 +645,12 @@ func TestParseWarcFields_NonFatalPeekErrorIsIgnored(t *testing.T) {
 
 	r := bufio.NewReader(fr)
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	validation := &Validation{}
-
-	got, err := p.Parse(r, validation, &position{})
+	got, validation, err := p.Parse(r, &position{})
 	if err != nil {
 		t.Fatalf("Parse returned unexpected error: %v", err)
 	}
-	if len(*validation) != 0 {
-		t.Fatalf("unexpected validation errors: %s", validation.String())
+	if len(validation) != 0 {
+		t.Fatalf("unexpected validation errors: %v", validation)
 	}
 	if got == nil || len(*got) != 1 {
 		t.Fatalf("unexpected parsed fields: %#v", got)
@@ -670,9 +668,7 @@ func TestParseWarcFields_FatalReadError(t *testing.T) {
 
 	r := bufio.NewReader(fr)
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	validation := &Validation{}
-
-	_, err := p.Parse(r, validation, &position{})
+	_, _, err := p.Parse(r, &position{})
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 
@@ -687,9 +683,7 @@ func TestParseWarcFields_FatalReadError_InContinuation(t *testing.T) {
 
 	r := bufio.NewReader(fr)
 	p := &warcfieldsParser{Options: newOptions(WithSyntaxErrorPolicy(ErrWarn))}
-	validation := &Validation{}
-
-	_, err := p.Parse(r, validation, &position{})
+	_, _, err := p.Parse(r, &position{})
 	assert.ErrorIs(t, err, io.ErrUnexpectedEOF)
 }
 

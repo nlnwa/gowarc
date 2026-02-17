@@ -27,20 +27,23 @@ import (
 	"github.com/nlnwa/gowarc/v2/internal/countingreader"
 )
 
-// Unmarshaler is the interface implemented by types that can unmarshal a WARC record. A new instance of Unmarshaler is created by calling [NewUnmarshaler].
-// NewUnmarshaler accepts a number of options that can be used to control the unmarshalling process. See [WarcRecordOption] for details.
+// Unmarshaler is the interface implemented by types that can unmarshal a WARC record.
+// A new instance of Unmarshaler is created by calling [NewUnmarshaler].
+// NewUnmarshaler accepts a number of options that can be used to control the unmarshalling process.
+// See [WarcRecordOption] for details.
 //
 // Unmarshal parses the WARC record from the given reader and returns:
-//   - The parsed WARC record. If an error occurred during the parsing, the returned WARC record might be nil.
-//   - The offset value indicating the number of characters that have been discarded until the start of a new record is found.
-//   - A pointer to a [Validation] object that stores any errors or warnings encountered during the parsing process.
-//     The validation object is only populated if the error specification is set to ErrWarn or ErrFail.
-//   - The standard error object in Go. If no error occurred during the parsing, this object is nil. Otherwise, it contains details about the encountered error.
+//   - record: the parsed [WarcRecord]. May be nil if a fatal error occurred.
+//   - offset: the number of bytes that were discarded before the start of the record was found.
+//   - validation: a slice of non-fatal errors discovered during parsing (populated when
+//     an [ErrorPolicy] is set to [ErrWarn]).
+//   - err: a fatal error, if any. A nil err does not imply the record is fully valid;
+//     check the validation slice for warnings.
 //
 // If the reader contains multiple records, Unmarshal parses the first record and returns.
 // If the reader contains no records, Unmarshal returns an [io.EOF] error.
 type Unmarshaler interface {
-	Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation, error)
+	Unmarshal(b *bufio.Reader) (record WarcRecord, offset int64, validation []error, err error)
 }
 
 // unmarshaler implements the Unmarshaler interface.
@@ -69,10 +72,9 @@ func isWARCMagic(magic []byte) bool {
 }
 
 // Unmarshal implements the Unmarshal method in the Unmarshaler interface.
-func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, validation *Validation, err error) {
+func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, validation []error, err error) {
 	var r *bufio.Reader
 	var vErr error
-	validation = &Validation{}
 	isGzip := false
 	var buf []byte
 
@@ -97,7 +99,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 		}
 	}
 	if u.opts.errSyntax >= ErrWarn && offset != 0 {
-		validation.addError(newSyntaxError(
+		validation = append(validation, newSyntaxError(
 			fmt.Sprintf("record was found %d bytes after expected offset",
 				offset), &position{}))
 	}
@@ -151,7 +153,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 
 		switch u.opts.errSpec {
 		case ErrWarn:
-			validation.addError(vErr)
+			validation = append(validation, vErr)
 		case ErrFail:
 			err = vErr
 			return
@@ -167,17 +169,21 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 			err = sErr
 			return
 		}
-		validation.addError(sErr)
+		validation = append(validation, sErr)
 	}
 
 	// Parse WARC header
 	var wf *WarcFields
-	wf, err = u.warcFieldsParser.Parse(r, validation, pos)
+	var parseValidation []error
+	wf, parseValidation, err = u.warcFieldsParser.Parse(r, pos)
+	validation = append(validation, parseValidation...)
 	if err != nil {
 		return
 	}
 	var rt RecordType
-	rt, err = validateHeader(wf, version, validation, u.opts)
+	var headerValidation []error
+	rt, headerValidation, err = validateHeader(wf, version, u.opts)
+	validation = append(validation, headerValidation...)
 	if err != nil {
 		return
 	}
@@ -207,12 +213,16 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 	length, _ := record.headers.GetInt64(ContentLength)
 	content := countingreader.NewLimited(r, length)
 
-	err = record.parseBlock(content, validation)
+	var blockValidation []error
+	blockValidation, err = record.parseBlock(content)
+	validation = append(validation, blockValidation...)
 	if err != nil {
 		return
 	}
 
-	err = record.ValidateDigest(validation)
+	var digestValidation []error
+	digestValidation, err = record.ValidateDigest()
+	validation = append(validation, digestValidation...)
 	if err != nil {
 		return
 	}
@@ -248,7 +258,7 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 			err = vErr
 			return
 		case ErrWarn:
-			validation.addError(vErr)
+			validation = append(validation, vErr)
 		}
 	}
 	if isGzip {

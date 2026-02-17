@@ -250,7 +250,7 @@ type buffer interface {
 	Peek(n int) ([]byte, error)
 }
 
-func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDigest, payloadDigest *digest, validation *Validation) (PayloadBlock, error) {
+func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDigest, payloadDigest *digest) (block PayloadBlock, validation []error, err error) {
 	var rb buffer
 	if v, ok := r.(diskbuffer.Buffer); ok {
 		rb = v
@@ -258,18 +258,18 @@ func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDig
 		rb = bufio.NewReader(r)
 	}
 
-	_, err := rb.Peek(4)
+	_, err = rb.Peek(4)
 	if err != nil {
-		return nil, fmt.Errorf("not a http block: %w", err)
+		return nil, nil, fmt.Errorf("not a http block: %w", err)
 	}
 
 	hb, herr := headerBytes(rb)
 	if herr != nil {
 		switch opts.errSyntax {
 		case ErrWarn:
-			validation.addError(herr)
+			validation = append(validation, herr)
 		case ErrFail:
-			return nil, herr
+			return nil, validation, herr
 		}
 	}
 
@@ -281,7 +281,7 @@ func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDig
 	}
 
 	if _, err := blockDigest.Write(hb); err != nil {
-		return nil, err
+		return nil, validation, err
 	}
 
 	var payload io.Reader
@@ -311,12 +311,12 @@ func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDig
 		if err := resp.parseHeaders(hb); err != nil && opts.errBlock > ErrIgnore {
 			err = fmt.Errorf("error in http response block: %w", err)
 			if opts.errBlock == ErrWarn {
-				validation.addError(err)
+				validation = append(validation, err)
 			} else {
-				return resp, err
+				return resp, validation, err
 			}
 		}
-		return resp, err
+		return resp, validation, nil
 	} else {
 		resp := &httpRequestBlock{
 			baseHttpBlock: &baseHttpBlock{
@@ -337,11 +337,11 @@ func newHttpBlock(opts *warcRecordOptions, wf *WarcFields, r io.Reader, blockDig
 		if err := resp.parseHeaders(hb); err != nil && opts.errBlock > ErrIgnore {
 			err = fmt.Errorf("error in http request block: %w", err)
 			if opts.errBlock == ErrWarn {
-				validation.addError(err)
+				validation = append(validation, err)
 			} else {
-				return resp, err
+				return resp, validation, err
 			}
 		}
-		return resp, err
+		return resp, validation, nil
 	}
 }

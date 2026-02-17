@@ -448,7 +448,7 @@ func TestWarcFileReader(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, rec)
 		assert.Equal(t, int64(0), offset)
-		assert.True(t, validation.Valid())
+		assert.Empty(t, validation)
 		assert.Equal(t, Response, rec.Type())
 
 		// Second call should return EOF

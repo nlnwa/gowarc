@@ -650,25 +650,28 @@ func NewWarcFileReaderFromStream(r io.Reader, offset int64, opts ...WarcRecordOp
 // Next reads the next WarcRecord from the WarcFileReader.
 // The method also provides the offset at which the record is found within the file.
 //
-// The validation and error values that Next produces depend on the [ErrorPolicy] options that have been set on the WarcFileReader:
+// The returned values depend on the [ErrorPolicy] options set on the WarcFileReader:
 //
-//   - [ErrIgnore]: This setting ignores all errors. A WarcRecord and its offset are returned without any validation.
-//     An error is only returned if the file is so badly formatted that nothing meaningful can be parsed.
+//   - [ErrIgnore]: errors are suppressed. A [WarcRecord] and its offset are returned without
+//     any validation. An error is only returned if the file is so badly formatted that nothing
+//     meaningful can be parsed.
 //
-//   - [ErrWarn]: Similar to ErrIgnore, this setting returns a WarcRecord and its offset.
-//     However, the record is validated and all validation errors are collected in a Validation object which can then be examined.
+//   - [ErrWarn]: a [WarcRecord] and its offset are returned. Non-fatal validation findings
+//     are collected in the validation slice, which should be inspected by the caller.
 //
-//   - [ErrFail]: If this is set, the method will return an error in the case of a validation error, and WarcRecord might be nil.
+//   - [ErrFail]: the first validation failure is returned as err, and record may be nil.
 //
-//   - Mixed Policies: It's possible to set different error policies for different types of errors with the following options:
+//   - Mixed Policies: different [ErrorPolicy] values may be set per error category with
 //     [WithSyntaxErrorPolicy], [WithSpecViolationPolicy] and [WithUnknownRecordTypePolicy].
-//     The return values of Next would be a mix of the aforementioned scenarios based on the policies set.
+//     The return values of Next are a mix of the above based on the configured policies.
 //
-// When at end of file, returned offset is equal to length of file, WarcRecord is nil and err is [io.EOF].
-func (wf *WarcFileReader) Next() (WarcRecord, int64, *Validation, error) {
-	offset := wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
+// When at end of file, the returned offset equals the file length, record is nil
+// and err is [io.EOF].
+func (wf *WarcFileReader) Next() (record WarcRecord, offset int64, validation []error, err error) {
+	offset = wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
 
-	record, recordOffset, validation, err := wf.warcReader.Unmarshal(wf.bufferedReader)
+	var recordOffset int64
+	record, recordOffset, validation, err = wf.warcReader.Unmarshal(wf.bufferedReader)
 
 	return record, offset + recordOffset, validation, err
 }

@@ -81,36 +81,37 @@ func (block *warcFieldsBlock) Write(w io.Writer) (n int64, err error) {
 	return
 }
 
-func newWarcFieldsBlock(options *warcRecordOptions, _ *WarcFields, rb io.Reader, d *digest, validation *Validation) (WarcFieldsBlock, error) {
+func newWarcFieldsBlock(options *warcRecordOptions, _ *WarcFields, rb io.Reader, d *digest) (WarcFieldsBlock, []error, error) {
+	var validation []error
 	wfb := &warcFieldsBlock{blockDigest: d}
 	var err error
 	wfb.content, err = io.ReadAll(rb)
 	if err != nil && options.errSyntax > ErrIgnore {
 		switch options.errSyntax {
 		case ErrWarn:
-			validation.addError(err)
+			validation = append(validation, err)
 		case ErrFail:
-			return wfb, err
+			return wfb, validation, err
 		}
 	}
 	p := &warcfieldsParser{options}
-	blockValidation := Validation{}
-	wfb.warcFields, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), &blockValidation, &position{})
-	if options.errBlock > ErrIgnore && !blockValidation.Valid() {
+	var blockValidation []error
+	wfb.warcFields, blockValidation, err = p.Parse(bufio.NewReader(bytes.NewReader(wfb.content)), &position{})
+	if options.errBlock > ErrIgnore && len(blockValidation) > 0 {
 		switch options.errBlock {
 		case ErrWarn:
 			for _, e := range blockValidation {
-				validation.addError(newWrappedSyntaxError("error in warc fields block", nil, e))
+				validation = append(validation, newWrappedSyntaxError("error in warc fields block", nil, e))
 			}
 		case ErrFail:
-			if !blockValidation.Valid() {
+			if len(blockValidation) > 0 {
 				err = newWrappedSyntaxError("error in warc fields block", nil, blockValidation[0])
-				return wfb, err
+				return wfb, validation, err
 			}
 		}
 	}
 
-	if options.fixWarcFieldsBlockErrors && !blockValidation.Valid() {
+	if options.fixWarcFieldsBlockErrors && len(blockValidation) > 0 {
 		// Write corrected warc fields block to content buffer
 		b := bytes.Buffer{}
 		_, err = wfb.WarcFields().Write(&b)
@@ -119,5 +120,5 @@ func newWarcFieldsBlock(options *warcRecordOptions, _ *WarcFields, rb io.Reader,
 		}
 	}
 
-	return wfb, err
+	return wfb, validation, err
 }

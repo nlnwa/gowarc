@@ -44,10 +44,10 @@ func Test_httpRequestBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			validateBlockDigestTest(t, block, digest)
 			validatePayloadDigestTest(t, block, payloadDigest)
@@ -92,10 +92,10 @@ func Test_httpRequestBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
@@ -133,10 +133,10 @@ func Test_httpRequestBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			got := block.IsCached()
 			assert.Equal(t, tt.want, got)
@@ -176,10 +176,10 @@ func Test_httpRequestBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			validateRawBytesTest(t, tt, block, content, digest)
 		})
@@ -213,10 +213,10 @@ func Test_httpResponseBlock_BlockDigest(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			validateBlockDigestTest(t, block, digest)
 			validatePayloadDigestTest(t, block, payloadDigest)
@@ -258,10 +258,10 @@ func Test_httpResponseBlock_Cache(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			validateCacheTest(t, block, content, digest, tt.wantCacheErr)
 		})
@@ -296,10 +296,10 @@ func Test_httpResponseBlock_IsCached(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			got := block.IsCached()
 			assert.Equal(t, tt.want, got)
@@ -336,10 +336,10 @@ func Test_httpResponseBlock_RawBytes(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest, val)
+
+			block, val, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, tt.data, blockDigest, pDigest)
 			require.NoError(t, err)
-			require.True(t, val.Valid(), val.String())
+			require.Empty(t, val)
 
 			validateRawBytesTest(t, tt, block, content, digest)
 		})
@@ -382,8 +382,8 @@ func Test_httpResponseBlock_Accessors(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(tt.content), blockDigest, pDigest, val)
+
+			block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(tt.content), blockDigest, pDigest)
 			require.NoError(t, err)
 
 			respBlock, ok := block.(HttpResponseBlock)
@@ -429,10 +429,10 @@ func Test_httpRequestBlock_Accessors(t *testing.T) {
 			require.NoError(t, err)
 			pDigest, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			val := &Validation{}
-			block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
+
+			block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
 				&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
-			}, strings.NewReader(tt.content), blockDigest, pDigest, val)
+			}, strings.NewReader(tt.content), blockDigest, pDigest)
 			require.NoError(t, err)
 
 			reqBlock, ok := block.(HttpRequestBlock)
@@ -458,9 +458,7 @@ func Test_httpResponseBlock_Write(t *testing.T) {
 	require.NoError(t, err)
 	pDigest, err := newDigest("sha1", Base16)
 	require.NoError(t, err)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	require.NoError(t, block.Cache())
@@ -481,11 +479,9 @@ func Test_httpRequestBlock_Write(t *testing.T) {
 	require.NoError(t, err)
 	pDigest, err := newDigest("sha1", Base16)
 	require.NoError(t, err)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	require.NoError(t, block.Cache())
@@ -502,9 +498,7 @@ func Test_httpRequestBlock_Write(t *testing.T) {
 func Test_newHttpBlock_EmptyContent(t *testing.T) {
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	_, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(""), blockDigest, pDigest, val)
+	_, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(""), blockDigest, pDigest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "not a http block")
 }
@@ -515,14 +509,12 @@ func Test_newHttpBlock_MissingEndOfHeaders_ErrWarn(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{errSyntax: ErrWarn}, &WarcFields{
+	block, val, err := newHttpBlock(&warcRecordOptions{errSyntax: ErrWarn}, &WarcFields{
 		&nameValue{Name: ContentLength, Value: "44"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
-	assert.False(t, val.Valid())
+	assert.NotEmpty(t, val)
 }
 
 func Test_newHttpBlock_MissingEndOfHeaders_ErrFail(t *testing.T) {
@@ -530,11 +522,9 @@ func Test_newHttpBlock_MissingEndOfHeaders_ErrFail(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	_, err := newHttpBlock(&warcRecordOptions{errSyntax: ErrFail}, &WarcFields{
+	_, _, err := newHttpBlock(&warcRecordOptions{errSyntax: ErrFail}, &WarcFields{
 		&nameValue{Name: ContentLength, Value: "44"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "missing line separator")
 }
@@ -544,12 +534,12 @@ func Test_newHttpBlock_MissingEndOfHeaders_FixSyntax(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
+
 	wf := &WarcFields{
 		&nameValue{Name: ContentLength, Value: "44"},
 	}
 
-	block, err := newHttpBlock(&warcRecordOptions{fixSyntaxErrors: true}, wf, strings.NewReader(content), blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{fixSyntaxErrors: true}, wf, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
 	// Content-Length should be updated (+2 for added CRLF)
@@ -562,12 +552,10 @@ func Test_newHttpBlock_MalformedHTTP_ErrBlockWarn(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{errBlock: ErrWarn}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, val, err := newHttpBlock(&warcRecordOptions{errBlock: ErrWarn}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
-	assert.False(t, val.Valid())
+	assert.NotEmpty(t, val)
 }
 
 func Test_newHttpBlock_MalformedHTTP_ErrBlockFail(t *testing.T) {
@@ -575,9 +563,7 @@ func Test_newHttpBlock_MalformedHTTP_ErrBlockFail(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	_, err := newHttpBlock(&warcRecordOptions{errBlock: ErrFail}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	_, _, err := newHttpBlock(&warcRecordOptions{errBlock: ErrFail}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error in http response block")
 }
@@ -587,12 +573,10 @@ func Test_newHttpBlock_MalformedRequest_ErrBlockWarn(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{errBlock: ErrWarn}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, val, err := newHttpBlock(&warcRecordOptions{errBlock: ErrWarn}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
-	assert.False(t, val.Valid())
+	assert.NotEmpty(t, val)
 }
 
 func Test_newHttpBlock_MalformedRequest_ErrBlockFail(t *testing.T) {
@@ -600,9 +584,7 @@ func Test_newHttpBlock_MalformedRequest_ErrBlockFail(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	_, err := newHttpBlock(&warcRecordOptions{errBlock: ErrFail}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	_, _, err := newHttpBlock(&warcRecordOptions{errBlock: ErrFail}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "error in http request block")
 }
@@ -612,11 +594,9 @@ func Test_newHttpBlock_RequestMissingEndOfHeaders_NoFixSyntax(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{fixSyntaxErrors: false}, &WarcFields{
+	block, _, err := newHttpBlock(&warcRecordOptions{fixSyntaxErrors: false}, &WarcFields{
 		&nameValue{Name: ContentLength, Value: "35"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
 	// Parser adds CRLF internally for parsing even without fixSyntaxErrors
@@ -632,9 +612,7 @@ func Test_newHttpBlock_WithDiskBuffer(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, buf, blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, buf, blockDigest, pDigest)
 	require.NoError(t, err)
 	assert.NotNil(t, block)
 	assert.True(t, block.IsCached())
@@ -645,9 +623,7 @@ func Test_httpResponseBlock_PayloadBytes_NonCached(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	// First call to PayloadBytes should work
@@ -666,9 +642,7 @@ func Test_httpResponseBlock_Close_NonCloser(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	// strings.Reader payload doesn't implement io.Closer
@@ -681,9 +655,7 @@ func Test_httpResponseBlock_Cache_NonCached(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	assert.False(t, block.IsCached())
@@ -703,9 +675,7 @@ func Test_httpResponseBlock_Write_Error(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest, val)
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	require.NoError(t, block.Cache())
 
@@ -728,11 +698,9 @@ func Test_httpRequestBlock_Write_Error(t *testing.T) {
 
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 	require.NoError(t, block.Cache())
 
@@ -747,10 +715,10 @@ func Test_httpResponseBlock_Cache_PayloadBytesError(t *testing.T) {
 	content := "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest"
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
+
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	respBlock := block.(*httpResponseBlock)
@@ -779,10 +747,10 @@ func Test_httpResponseBlock_PayloadBytes_SeekError(t *testing.T) {
 	content := "HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\ntest"
 	blockDigest, _ := newDigest("sha1", Base16)
 	pDigest, _ := newDigest("sha1", Base16)
-	val := &Validation{}
-	block, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
+
+	block, _, err := newHttpBlock(&warcRecordOptions{}, &WarcFields{
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
-	}, strings.NewReader(content), blockDigest, pDigest, val)
+	}, strings.NewReader(content), blockDigest, pDigest)
 	require.NoError(t, err)
 
 	respBlock := block.(*httpResponseBlock)

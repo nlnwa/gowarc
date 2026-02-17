@@ -896,7 +896,7 @@ func Test_warcRecord_ValidateDigest_Paths(t *testing.T) {
 		}
 		defer wr.Close()
 		// Validation should have content length mismatch warning
-		assert.False(t, v.Valid())
+		assert.NotEmpty(t, v)
 		// Content-Length should be fixed
 		cl, _ := wr.ContentLength()
 		assert.Equal(t, int64(5), cl)
@@ -1143,9 +1143,9 @@ func Test_warcRecord_ValidateDigest_WrongPayloadDigest(t *testing.T) {
 	require.NoError(t, err) // ErrWarn should not fail
 	defer rec.Close()
 	// Validation should contain the wrong payload digest error
-	assert.False(t, v.Valid())
+	assert.NotEmpty(t, v)
 	found := false
-	for _, e := range *v {
+	for _, e := range v {
 		if e != nil {
 			errStr := e.Error()
 			if len(errStr) > 0 {
@@ -1198,7 +1198,7 @@ func Test_warcRecord_ValidateDigest_FixContentLength(t *testing.T) {
 	defer rec.Close()
 
 	// Content length should have been fixed
-	assert.False(t, v.Valid()) // should have the mismatch warning
+	assert.NotEmpty(t, v) // should have the mismatch warning
 	assert.Equal(t, "42", rec.WarcHeader().Get(ContentLength))
 }
 

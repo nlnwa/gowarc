@@ -38,7 +38,7 @@ func TestRecordBuilder(t *testing.T) {
 		headers    *WarcFields
 		blockType  any
 		data       string
-		validation *Validation
+		validation []error
 		cached     bool
 	}
 	tests := []struct {
@@ -82,7 +82,7 @@ func TestRecordBuilder(t *testing.T) {
 					"creator: temp-MJFXHZ4S\r\n" +
 					"isPartOf: Temporary%20Collection\r\n" +
 					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -118,7 +118,7 @@ func TestRecordBuilder(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\r\n\r\nThis is the content",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -158,7 +158,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -198,7 +198,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
-				&Validation{errMissingEndOfHeaders},
+				[]error{errMissingEndOfHeaders},
 				true,
 			},
 			false,
@@ -238,7 +238,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			true,
@@ -274,7 +274,7 @@ func TestRecordBuilder(t *testing.T) {
 				"via: http://www.example.com/\r\n" +
 					"hopsFromSeed: P\r\n" +
 					"fetchTimeMs: 47\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -314,7 +314,7 @@ func TestRecordBuilder(t *testing.T) {
 				"<html><head></head>\n" +
 					"<body></body>\n" +
 					"</html>\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -362,7 +362,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Server: Apache/2.0.54 (Ubuntu) PHP/5.0.5-2ubuntu1.4 Connection: Keep-Alive\n" +
 					"Keep-Alive: timeout=15, max=100\n" +
 					"ETag: \"3e45-67e-2ed02ec0\"\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -396,7 +396,7 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"body text\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -436,7 +436,7 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"... last part of data\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -471,7 +471,7 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"content\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -690,9 +690,8 @@ func TestRecordBuilder_Build_ValidationFailure(t *testing.T) {
 	rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
 	rb.AddWarcHeader(ContentLength, "0")
 
-	_, validation, err := rb.Build()
+	_, _, err := rb.Build()
 	require.Error(t, err)
-	assert.NotNil(t, validation)
 }
 
 func TestRecordBuilder_AddWarcHeaderTime_V1_0(t *testing.T) {

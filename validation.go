@@ -16,52 +16,7 @@
 
 package gowarc
 
-import (
-	"strconv"
-	"strings"
-)
-
-// Validation contain validation results.
-type Validation []error
-
-// TODO use value receivers for these methods since they do not modify the validation object
-// and replace addError with appends
-func (v *Validation) Error() string {
-	return v.String()
-}
-
-func (v *Validation) String() string {
-	if len(*v) == 0 {
-		return ""
-	}
-
-	sb := strings.Builder{}
-	sb.WriteString("gowarc: Validation errors:\n")
-	for i, e := range *v {
-		if i > 0 {
-			sb.WriteByte('\n')
-		}
-		sb.WriteString("  ")
-		sb.WriteString(strconv.Itoa(i + 1))
-		sb.WriteString(": ")
-		sb.WriteString(e.Error())
-	}
-	return sb.String()
-}
-
-// Valid returns true if no validation errors where found.
-func (v *Validation) Valid() bool {
-	return len(*v) == 0
-}
-
-func (v *Validation) addError(err error) {
-	if err == nil {
-		return
-	}
-	*v = append(*v, err)
-}
-
-// TODO evaluate the use of this struct (why not use a number directly)
+// position tracks the current line number during WARC header parsing.
 type position struct {
 	lineNumber int
 }
