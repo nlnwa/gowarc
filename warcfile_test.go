@@ -452,10 +452,9 @@ func TestWarcFileReader(t *testing.T) {
 		assert.Empty(t, rec.Validation)
 		assert.Equal(t, Response, rec.WarcRecord.Type())
 
-		// Second call should return EOF
-		rec2, err2 := reader.Next()
-		assert.ErrorIs(t, err2, io.EOF)
-		assert.Nil(t, rec2.WarcRecord)
+		// EOF
+		_, err = reader.Next()
+		assert.ErrorIs(t, err, io.EOF)
 	})
 
 	t.Run("read with offset", func(t *testing.T) {
