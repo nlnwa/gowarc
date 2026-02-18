@@ -18,6 +18,7 @@ package gowarc
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -139,7 +140,7 @@ func TestSyntaxError_Error(t *testing.T) {
 			name:    "with wrapped SyntaxError",
 			msg:     "outer error",
 			line:    3,
-			wrapped: &SyntaxError{msg: "inner error", line: 2},
+			wrapped: &SyntaxError{Msg: "inner error", Line: 2},
 			want:    "gowarc: outer error at line 3: inner error",
 		},
 	}
@@ -147,9 +148,9 @@ func TestSyntaxError_Error(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &SyntaxError{
-				msg:     tt.msg,
-				line:    tt.line,
-				wrapped: tt.wrapped,
+				Msg:     tt.msg,
+				Line:    tt.line,
+				Wrapped: tt.wrapped,
 			}
 			got := e.Error()
 			if got != tt.want {
@@ -177,8 +178,8 @@ func TestSyntaxError_Unwrap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			e := &SyntaxError{
-				msg:     "test",
-				wrapped: tt.wrapped,
+				Msg:     "test",
+				Wrapped: tt.wrapped,
 			}
 			got := e.Unwrap()
 			if got != tt.wrapped {
@@ -208,7 +209,7 @@ func TestNewWrappedSyntaxError(t *testing.T) {
 		{
 			name:         "no line with wrapped SyntaxError",
 			msg:          "test error",
-			wrapped:      &SyntaxError{msg: "inner", line: 10},
+			wrapped:      &SyntaxError{Msg: "inner", Line: 10},
 			expectedLine: 10,
 			useLine:      false,
 		},
@@ -229,14 +230,14 @@ func TestNewWrappedSyntaxError(t *testing.T) {
 			} else {
 				e = newWrappedSyntaxError(tt.msg, tt.wrapped)
 			}
-			if e.line != tt.expectedLine {
-				t.Errorf("newWrappedSyntaxError() line = %d, want %d", e.line, tt.expectedLine)
+			if e.Line != tt.expectedLine {
+				t.Errorf("newWrappedSyntaxError() line = %d, want %d", e.Line, tt.expectedLine)
 			}
-			if e.msg != tt.msg {
-				t.Errorf("newWrappedSyntaxError() msg = %q, want %q", e.msg, tt.msg)
+			if e.Msg != tt.msg {
+				t.Errorf("newWrappedSyntaxError() msg = %q, want %q", e.Msg, tt.msg)
 			}
-			if e.wrapped != tt.wrapped {
-				t.Errorf("newWrappedSyntaxError() wrapped = %v, want %v", e.wrapped, tt.wrapped)
+			if e.Wrapped != tt.wrapped {
+				t.Errorf("newWrappedSyntaxError() wrapped = %v, want %v", e.Wrapped, tt.wrapped)
 			}
 		})
 	}
@@ -277,11 +278,11 @@ func TestNewSyntaxError(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			e := newSyntaxErrorAtLine(tt.msg, tt.lineNumber)
 
-			if e.msg != tt.expectedMsg {
-				t.Errorf("newSyntaxError().msg = %q, want %q", e.msg, tt.expectedMsg)
+			if e.Msg != tt.expectedMsg {
+				t.Errorf("newSyntaxError().msg = %q, want %q", e.Msg, tt.expectedMsg)
 			}
-			if e.line != tt.expectedLine {
-				t.Errorf("newSyntaxError().line = %d, want %d", e.line, tt.expectedLine)
+			if e.Line != tt.expectedLine {
+				t.Errorf("newSyntaxError().line = %d, want %d", e.Line, tt.expectedLine)
 			}
 		})
 	}
@@ -290,8 +291,8 @@ func TestNewSyntaxError(t *testing.T) {
 func TestSyntaxError_ErrorMessage_Format(t *testing.T) {
 	// Test that the error message is properly constructed
 	e := &SyntaxError{
-		msg:  "test error",
-		line: 42,
+		Msg:  "test error",
+		Line: 42,
 	}
 
 	got := e.Error()
@@ -307,5 +308,81 @@ func TestSyntaxError_ErrorMessage_Format(t *testing.T) {
 	}
 	if !strings.Contains(got, "at line") {
 		t.Error("error message should contain 'at line' text")
+	}
+}
+
+func TestDigestError_Error(t *testing.T) {
+	e := &DigestError{
+		Algorithm: "sha1",
+		Expected:  "AAAA",
+		Computed:  "BBBB",
+	}
+	got := e.Error()
+	if got != "wrong digest: expected sha1:AAAA, computed: sha1:BBBB" {
+		t.Errorf("DigestError.Error() = %q", got)
+	}
+}
+
+func TestDigestError_ErrorsAs(t *testing.T) {
+	// Simulate the wrapping pattern used in ValidateDigest: fmt.Errorf("block: %w", digestErr)
+	inner := &DigestError{Algorithm: "sha256", Expected: "abc", Computed: "def"}
+	wrapped := fmt.Errorf("block: %w", inner)
+
+	var de *DigestError
+	if !errors.As(wrapped, &de) {
+		t.Fatal("errors.As should match *DigestError through wrapping")
+	}
+	if de.Algorithm != "sha256" || de.Expected != "abc" || de.Computed != "def" {
+		t.Errorf("unexpected fields: %+v", de)
+	}
+}
+
+func TestContentLengthError_Error(t *testing.T) {
+	e := &ContentLengthError{Expected: 100, Actual: 200}
+	got := e.Error()
+	if got != "content length mismatch: header 100, actual 200" {
+		t.Errorf("ContentLengthError.Error() = %q", got)
+	}
+}
+
+func TestContentLengthError_ErrorsAs(t *testing.T) {
+	var err error = &ContentLengthError{Expected: 18, Actual: 21}
+	var cle *ContentLengthError
+	if !errors.As(err, &cle) {
+		t.Fatal("errors.As should match *ContentLengthError")
+	}
+	if cle.Expected != 18 || cle.Actual != 21 {
+		t.Errorf("unexpected fields: %+v", cle)
+	}
+}
+
+func TestHeaderFieldError_ErrorsAs(t *testing.T) {
+	var err error = newHeaderFieldError("WARC-Date", "invalid format")
+	var hfe *HeaderFieldError
+	if !errors.As(err, &hfe) {
+		t.Fatal("errors.As should match *HeaderFieldError")
+	}
+	if hfe.FieldName != "WARC-Date" || hfe.Msg != "invalid format" {
+		t.Errorf("unexpected fields: %+v", hfe)
+	}
+}
+
+func TestSyntaxError_ErrorsAs(t *testing.T) {
+	inner := newSyntaxErrorAtLine("missing CR", 5)
+	outer := newWrappedSyntaxError("parse failed", inner)
+	var se *SyntaxError
+	if !errors.As(outer, &se) {
+		t.Fatal("errors.As should match *SyntaxError")
+	}
+	if se.Msg != "parse failed" || se.Line != 5 {
+		t.Errorf("unexpected fields: %+v", se)
+	}
+	// Unwrap should give us the inner error
+	var inner2 *SyntaxError
+	if !errors.As(se.Wrapped, &inner2) {
+		t.Fatal("inner should also be *SyntaxError")
+	}
+	if inner2.Msg != "missing CR" {
+		t.Errorf("inner msg = %q", inner2.Msg)
 	}
 }

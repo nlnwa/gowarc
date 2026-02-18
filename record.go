@@ -472,14 +472,16 @@ func (wr *warcRecord) ValidateDigest() (validation []error, err error) {
 
 		size := strconv.FormatInt(wr.block.Size(), 10)
 		if wr.WarcHeader().Has(ContentLength) && size != wr.headers.Get(ContentLength) {
+			headerLen, _ := wr.headers.GetInt64(ContentLength)
+			clErr := &ContentLengthError{Expected: headerLen, Actual: wr.block.Size()}
 			switch wr.opts.errSpec {
 			case ErrWarn:
-				validation = append(validation, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
+				validation = append(validation, clErr)
 				if wr.opts.fixContentLength {
 					wr.WarcHeader().Set(ContentLength, size)
 				}
 			case ErrFail:
-				return nil, fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
+				return nil, clErr
 			}
 		}
 	}

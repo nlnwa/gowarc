@@ -656,8 +656,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&warcFieldsBlock{},
 				"Foo: bar\r\nFood: bar\r\n",
 				[]error{
-					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
-					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
+					&ContentLengthError{Expected: 18, Actual: 21},
+					fmt.Errorf("block: %w", &DigestError{Algorithm: "sha1", Expected: "QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY", Computed: "U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO"}),
 				},
 				true,
 			},
@@ -753,8 +753,8 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				[]error{
 					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 1)),
 					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 2)),
-					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
-					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
+					&ContentLengthError{Expected: 18, Actual: 21},
+					fmt.Errorf("block: %w", &DigestError{Algorithm: "sha1", Expected: "QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY", Computed: "U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO"}),
 				},
 				true,
 			},

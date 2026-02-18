@@ -62,70 +62,109 @@ var (
 	ErrNoRecord = errors.New("gowarc: no WARC record found")
 )
 
-// HeaderFieldError is used for violations of WARC header specification
+// HeaderFieldError is used for violations of WARC header specification.
+// Use [errors.As] to extract the field name and message programmatically.
 type HeaderFieldError struct {
-	fieldName string
-	msg       string
+	// FieldName is the WARC header field that caused the error (e.g. "WARC-Date").
+	// May be empty for structural errors like missing required fields.
+	FieldName string
+	// Msg describes the violation.
+	Msg string
 }
 
 func newHeaderFieldError(fieldName string, msg string) *HeaderFieldError {
-	return &HeaderFieldError{fieldName: fieldName, msg: msg}
+	return &HeaderFieldError{FieldName: fieldName, Msg: msg}
 }
 
 func newHeaderFieldErrorf(fieldName string, msg string, param ...any) *HeaderFieldError {
-	return &HeaderFieldError{fieldName: fieldName, msg: fmt.Sprintf(msg, param...)}
+	return &HeaderFieldError{FieldName: fieldName, Msg: fmt.Sprintf(msg, param...)}
 }
 
 func (e *HeaderFieldError) Error() string {
-	if e.fieldName != "" {
-		return fmt.Sprintf("gowarc: %s at header %s", e.msg, e.fieldName)
+	if e.FieldName != "" {
+		return fmt.Sprintf("gowarc: %s at header %s", e.Msg, e.FieldName)
 	} else {
-		return fmt.Sprintf("gowarc: %s", e.msg)
+		return fmt.Sprintf("gowarc: %s", e.Msg)
 	}
 }
 
-// SyntaxError is used for syntactical errors like wrong line endings
+// SyntaxError is used for syntactical errors like wrong line endings.
+// Use [errors.As] to extract position information and wrapped cause programmatically.
 type SyntaxError struct {
-	msg     string
-	line    int
-	wrapped error
+	// Msg describes the syntax violation.
+	Msg string
+	// Line is the 1-based line number where the error occurred, or 0 if unknown.
+	Line int
+	// Wrapped is the underlying cause, if any. Use [errors.As] or [errors.Is]
+	// to inspect it, or access it directly.
+	Wrapped error
 }
 
 func newSyntaxError(msg string) *SyntaxError {
-	return &SyntaxError{msg: msg}
+	return &SyntaxError{Msg: msg}
 }
 
 func newSyntaxErrorAtLine(msg string, line int) *SyntaxError {
-	return &SyntaxError{msg: msg, line: line}
+	return &SyntaxError{Msg: msg, Line: line}
 }
 
 func newWrappedSyntaxError(msg string, wrapped error) *SyntaxError {
-	e := &SyntaxError{msg: msg, wrapped: wrapped}
-	if se, ok := wrapped.(*SyntaxError); ok && se.line > 0 {
-		e.line = se.line
+	e := &SyntaxError{Msg: msg, Wrapped: wrapped}
+	if se, ok := wrapped.(*SyntaxError); ok && se.Line > 0 {
+		e.Line = se.Line
 	}
 	return e
 }
 
 func newWrappedSyntaxErrorAtLine(msg string, line int, wrapped error) *SyntaxError {
-	return &SyntaxError{msg: msg, line: line, wrapped: wrapped}
+	return &SyntaxError{Msg: msg, Line: line, Wrapped: wrapped}
 }
 
 func (e *SyntaxError) Error() string {
-	s := "gowarc: " + e.msg
-	if e.line > 0 {
-		s += fmt.Sprintf(" at line %d", e.line)
+	s := "gowarc: " + e.Msg
+	if e.Line > 0 {
+		s += fmt.Sprintf(" at line %d", e.Line)
 	}
-	if e.wrapped != nil {
-		if v, ok := e.wrapped.(*SyntaxError); ok {
-			s += ": " + v.msg
+	if e.Wrapped != nil {
+		if v, ok := e.Wrapped.(*SyntaxError); ok {
+			s += ": " + v.Msg
 		} else {
-			s += ": " + e.wrapped.Error()
+			s += ": " + e.Wrapped.Error()
 		}
 	}
 	return s
 }
 
 func (e *SyntaxError) Unwrap() error {
-	return e.wrapped
+	return e.Wrapped
+}
+
+// DigestError is returned when a computed digest does not match the expected value
+// from a WARC-Block-Digest or WARC-Payload-Digest header.
+// Use [errors.As] to extract the algorithm, expected, and computed values programmatically.
+type DigestError struct {
+	// Algorithm is the digest algorithm name (e.g. "sha1", "sha256").
+	Algorithm string
+	// Expected is the digest value from the WARC header.
+	Expected string
+	// Computed is the digest value calculated from the record content.
+	Computed string
+}
+
+func (e *DigestError) Error() string {
+	return fmt.Sprintf("wrong digest: expected %s:%s, computed: %s:%s", e.Algorithm, e.Expected, e.Algorithm, e.Computed)
+}
+
+// ContentLengthError is returned when the actual content size does not match
+// the Content-Length header value.
+// Use [errors.As] to extract the expected and actual lengths programmatically.
+type ContentLengthError struct {
+	// Expected is the Content-Length value declared in the WARC header.
+	Expected int64
+	// Actual is the measured size of the content.
+	Actual int64
+}
+
+func (e *ContentLengthError) Error() string {
+	return fmt.Sprintf("content length mismatch: header %d, actual %d", e.Expected, e.Actual)
 }

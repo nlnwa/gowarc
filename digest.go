@@ -160,7 +160,11 @@ func (d *digest) validate() error {
 		return err
 	}
 	if !bytes.Equal(dig, d.Sum(nil)) {
-		return fmt.Errorf("wrong digest: expected %s:%s, computed: %s:%s", d.name, d.hash, d.name, computed)
+		return &DigestError{
+			Algorithm: d.name,
+			Expected:  d.hash,
+			Computed:  computed,
+		}
 	}
 	return nil
 }
