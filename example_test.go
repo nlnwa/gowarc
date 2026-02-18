@@ -109,7 +109,7 @@ func ExampleNewWarcFileReader() {
 	}
 
 	for {
-		record, _, _, err := reader.Next()
+		rec, err := reader.Next()
 		if err == io.EOF {
 			break
 		}
@@ -117,8 +117,8 @@ func ExampleNewWarcFileReader() {
 			fmt.Println("Error reading record:", err)
 			return
 		}
-		fmt.Println("Record type:", record.Type().String())
-		fmt.Println("Record version:", record.Version())
+		fmt.Println("Record type:", rec.WarcRecord.Type().String())
+		fmt.Println("Record version:", rec.WarcRecord.Version())
 		// Do more with record as per needs
 	}
 

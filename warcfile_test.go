@@ -444,17 +444,18 @@ func TestWarcFileReader(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		rec, offset, validation, err := reader.Next()
+		rec, err := reader.Next()
 		require.NoError(t, err)
-		require.NotNil(t, rec)
-		assert.Equal(t, int64(0), offset)
-		assert.Empty(t, validation)
-		assert.Equal(t, Response, rec.Type())
+		require.NotNil(t, rec.WarcRecord)
+		assert.Equal(t, int64(0), rec.Offset)
+		assert.Greater(t, rec.Size, int64(0))
+		assert.Empty(t, rec.Validation)
+		assert.Equal(t, Response, rec.WarcRecord.Type())
 
 		// Second call should return EOF
-		rec2, _, _, err2 := reader.Next()
+		rec2, err2 := reader.Next()
 		assert.ErrorIs(t, err2, io.EOF)
-		assert.Nil(t, rec2)
+		assert.Nil(t, rec2.WarcRecord)
 	})
 
 	t.Run("read with offset", func(t *testing.T) {
@@ -462,7 +463,7 @@ func TestWarcFileReader(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		_, _, _, err = reader.Next()
+		_, err = reader.Next()
 		assert.Error(t, err)
 	})
 
@@ -512,10 +513,10 @@ func TestNewWarcFileReaderFromStream(t *testing.T) {
 		require.NoError(t, err)
 		defer reader.Close()
 
-		rec, _, _, err := reader.Next()
+		rec, err := reader.Next()
 		require.NoError(t, err)
-		require.NotNil(t, rec)
-		assert.Equal(t, Response, rec.Type())
+		require.NotNil(t, rec.WarcRecord)
+		assert.Equal(t, Response, rec.WarcRecord.Type())
 	})
 
 	t.Run("from stream non-closer", func(t *testing.T) {
@@ -525,9 +526,9 @@ func TestNewWarcFileReaderFromStream(t *testing.T) {
 		reader, err := NewWarcFileReaderFromStream(bytes.NewReader(data), 0)
 		require.NoError(t, err)
 
-		rec, _, _, err := reader.Next()
+		rec, err := reader.Next()
 		require.NoError(t, err)
-		require.NotNil(t, rec)
+		require.NotNil(t, rec.WarcRecord)
 
 		// Close when underlying is not an io.Closer
 		err = reader.Close()

@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"maps"
 	"os"
 	"path/filepath"
@@ -586,6 +587,29 @@ func rename(from, to string) error {
 	return pdir.Close()
 }
 
+// Record represents a WARC record as read from a WARC file, including its
+// position within the file and any validation findings.
+type Record struct {
+	// WarcRecord is the parsed WARC record.
+	WarcRecord WarcRecord
+	// Offset is the byte offset of the record within the file.
+	Offset int64
+	// Size is the number of bytes consumed by the record in the file,
+	// including headers, payload, and framing (e.g. gzip envelope).
+	Size int64
+	// Validation contains non-fatal validation findings (populated when
+	// an [ErrorPolicy] is set to [ErrWarn]). It is nil when clean.
+	Validation []error
+}
+
+// Close closes the underlying [WarcRecord], releasing any resources.
+func (r Record) Close() error {
+	if r.WarcRecord != nil {
+		return r.WarcRecord.Close()
+	}
+	return nil
+}
+
 // WarcFileReader is used to read WARC files.
 // Use [NewWarcFileReader] to create a new instance.
 type WarcFileReader struct {
@@ -647,33 +671,73 @@ func NewWarcFileReaderFromStream(r io.Reader, offset int64, opts ...WarcRecordOp
 	return wf, nil
 }
 
-// Next reads the next WarcRecord from the WarcFileReader.
-// The method also provides the offset at which the record is found within the file.
+// Next reads the next [Record] from the WarcFileReader.
+//
+// The returned [Record] contains the parsed [WarcRecord], its byte offset and
+// size within the file, and any non-fatal validation findings.
 //
 // The returned values depend on the [ErrorPolicy] options set on the WarcFileReader:
 //
-//   - [ErrIgnore]: errors are suppressed. A [WarcRecord] and its offset are returned without
+//   - [ErrIgnore]: errors are suppressed. A [Record] is returned without
 //     any validation. An error is only returned if the file is so badly formatted that nothing
 //     meaningful can be parsed.
 //
-//   - [ErrWarn]: a [WarcRecord] and its offset are returned. Non-fatal validation findings
-//     are collected in the validation slice, which should be inspected by the caller.
+//   - [ErrWarn]: a [Record] is returned. Non-fatal validation findings
+//     are collected in the [Record.Validation] slice, which should be inspected by the caller.
 //
-//   - [ErrFail]: the first validation failure is returned as err, and record may be nil.
+//   - [ErrFail]: the first validation failure is returned as err, and [Record.WarcRecord] may be nil.
 //
 //   - Mixed Policies: different [ErrorPolicy] values may be set per error category with
 //     [WithSyntaxErrorPolicy], [WithSpecViolationPolicy] and [WithUnknownRecordTypePolicy].
 //     The return values of Next are a mix of the above based on the configured policies.
 //
-// When at end of file, the returned offset equals the file length, record is nil
-// and err is [io.EOF].
-func (wf *WarcFileReader) Next() (record WarcRecord, offset int64, validation []error, err error) {
-	offset = wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
+// When at end of file, [Record.WarcRecord] is nil and err is [io.EOF].
+func (wf *WarcFileReader) Next() (Record, error) {
+	positionBefore := wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
 
-	var recordOffset int64
-	record, recordOffset, validation, err = wf.warcReader.Unmarshal(wf.bufferedReader)
+	record, recordOffset, validation, err := wf.warcReader.Unmarshal(wf.bufferedReader)
 
-	return record, offset + recordOffset, validation, err
+	positionAfter := wf.initialOffset + wf.countingReader.N() - int64(wf.bufferedReader.Buffered())
+	offset := positionBefore + recordOffset
+	size := positionAfter - offset
+
+	return Record{
+		WarcRecord: record,
+		Offset:     offset,
+		Size:       size,
+		Validation: validation,
+	}, err
+}
+
+// Records returns an iterator over all records in the WARC file.
+//
+// Each iteration yields a [Record] and an error. The iterator stops
+// automatically at EOF. Fatal errors are yielded and the iterator stops.
+//
+// Usage:
+//
+//	for rec, err := range reader.Records() {
+//	    if err != nil {
+//	        log.Fatal(err)
+//	    }
+//	    fmt.Println(rec.WarcRecord.Type())
+//	    rec.Close()
+//	}
+func (wf *WarcFileReader) Records() iter.Seq2[Record, error] {
+	return func(yield func(Record, error) bool) {
+		for {
+			rec, err := wf.Next()
+			if err == io.EOF {
+				return
+			}
+			if !yield(rec, err) {
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}
 }
 
 // Close closes the WarcFileReader.
