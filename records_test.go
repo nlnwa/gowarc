@@ -50,6 +50,7 @@ func TestWarcFileReader_Records(t *testing.T) {
 
 		wantRecords []wantRecord
 		wantErr     string // non-empty: the iterator should yield an error containing this
+		wantErrIs   error  // non-nil: the iterator error must match errors.Is
 		wantNoErr   bool   // explicitly expect NO error (distinguishes from don't-care)
 	}{
 		{
@@ -111,13 +112,9 @@ func TestWarcFileReader_Records(t *testing.T) {
 			wantErr: "expected start of record",
 		},
 		{
-			name: "corrupt data with ErrWarn silently yields nothing",
-			// BUG/GAP: with ErrWarn the unmarshaler scans through all garbage,
-			// hits EOF, and returns io.EOF — indistinguishable from an empty stream.
-			// No validation warning is surfaced because the "found N bytes after
-			// expected offset" warning only fires *after* finding a record.
+			name:      "corrupt data with ErrWarn yields ErrNoRecord",
 			data:      []byte("NOT A WARC RECORD AT ALL"),
-			wantNoErr: true,
+			wantErrIs: ErrNoRecord,
 		},
 		{
 			name:    "corrupt data with ErrFail yields error",
@@ -154,6 +151,15 @@ func TestWarcFileReader_Records(t *testing.T) {
 				{recordType: Warcinfo, idSuffix: "0001", sizeGt0: true, hasValidation: true},
 			},
 		},
+		{
+			name: "garbage after valid records yields records then ErrNoRecord",
+			data: append([]byte(rec1+rec2), []byte("TRAILING GARBAGE")...),
+			wantRecords: []wantRecord{
+				{recordType: Warcinfo, idSuffix: "0001", sizeGt0: true},
+				{recordType: Warcinfo, idSuffix: "0002", sizeGt0: true},
+			},
+			wantErrIs: ErrNoRecord,
+		},
 	}
 
 	for _, tt := range tests {
@@ -177,6 +183,11 @@ func TestWarcFileReader_Records(t *testing.T) {
 				require.Error(t, iterErr)
 				assert.Contains(t, iterErr.Error(), tt.wantErr)
 				return
+			}
+
+			if tt.wantErrIs != nil {
+				require.Error(t, iterErr, "expected an error from iterator")
+				assert.ErrorIs(t, iterErr, tt.wantErrIs)
 			}
 
 			if tt.wantNoErr {

@@ -95,6 +95,9 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 		offset++
 		buf, err = b.Peek(5)
 		if err != nil {
+			if errors.Is(err, io.EOF) && offset > 0 {
+				err = fmt.Errorf("%w: scanned %d bytes without finding WARC magic", ErrNoRecord, offset)
+			}
 			return
 		}
 	}

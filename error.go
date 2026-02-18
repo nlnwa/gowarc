@@ -54,6 +54,12 @@ var (
 
 	// ErrUnsupportedDigestAlgorithm is returned when an unrecognized digest algorithm is encountered.
 	ErrUnsupportedDigestAlgorithm = errors.New("gowarc: unsupported digest algorithm")
+
+	// ErrNoRecord is returned by [Unmarshaler.Unmarshal] and [WarcFileReader.Next]
+	// when the reader scans past one or more bytes without finding a WARC record
+	// before reaching end-of-file. This distinguishes "stream contained only
+	// unrecognizable data" from a clean EOF on an empty or fully-consumed stream.
+	ErrNoRecord = errors.New("gowarc: no WARC record found")
 )
 
 // HeaderFieldError is used for violations of WARC header specification
