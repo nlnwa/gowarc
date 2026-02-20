@@ -1254,9 +1254,13 @@ func BenchmarkUnmarshaler_Unmarshal_compressed(b *testing.B) {
 	_ = z.Close()
 
 	u := NewUnmarshaler(WithNoValidation())
+	r := bytes.NewReader(recordCompressed.Bytes())
+	data := bufio.NewReader(r)
 
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		data := bufio.NewReader(bytes.NewReader(recordCompressed.Bytes()))
+		r.Reset(recordCompressed.Bytes())
+		data.Reset(r)
 		gotRecord, _, _, _ := u.Unmarshal(data)
 		unmarshallerBenchmarkResult = gotRecord.Close()
 	}

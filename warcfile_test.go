@@ -35,7 +35,7 @@ import (
 const (
 	uncompressedRecordSize               int64 = 529
 	uncompressedRecordWithWarcInfoIdSize int64 = 596
-	uncompressedWarcinfoSize             int64 = 316
+	uncompressedWarcinfoSize             int64 = 250
 )
 
 func TestWarcFileWriter_write_cases(t *testing.T) {
@@ -758,15 +758,21 @@ func BenchmarkWarcFileWriter_Write_compressed(b *testing.B) {
 		Prefix:    "bench-",
 		Directory: dir,
 	}
+	record := createTestRecord()
+	b.Cleanup(func() {
+		_ = record.Close()
+	})
+
 	w := NewWarcFileWriter(
 		WithCompression(true),
 		WithFileNameGenerator(nameGenerator),
-		WithMaxFileSize(0),
+		WithMaxFileSize(1<<30),
 		WithMaxConcurrentWriters(1))
 	defer func() { assert.NoError(w.Close()) }()
 
+	b.ResetTimer()
 	for b.Loop() {
-		warcFileWriterBenchmarkResult = w.Write(createTestRecord())
+		warcFileWriterBenchmarkResult = w.Write(record)
 	}
 }
 
