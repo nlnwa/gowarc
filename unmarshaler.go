@@ -51,6 +51,7 @@ type unmarshaler struct {
 	opts             *warcRecordOptions
 	warcFieldsParser *warcfieldsParser
 	gz               *gzip.Reader // Holds gzip reader for enabling reuse
+	gzBuf            *bufio.Reader
 }
 
 func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
@@ -124,7 +125,12 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, 
 				_ = u.gz.Close()
 			}
 		}()
-		r = bufio.NewReader(u.gz)
+		if u.gzBuf == nil {
+			u.gzBuf = bufio.NewReader(u.gz)
+		} else {
+			u.gzBuf.Reset(u.gz)
+		}
+		r = u.gzBuf
 	} else {
 		r = b
 	}

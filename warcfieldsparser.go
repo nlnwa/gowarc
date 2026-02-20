@@ -24,16 +24,36 @@ import (
 	"errors"
 	"io"
 	"mime"
+	"strings"
 )
 
 var (
-	colon           = []byte{':'}
 	errEndOfHeaders = errors.New("EOH")
 )
 
 type warcfieldsParser struct {
 	Options    *warcRecordOptions
 	lineNumber int
+	decoder    mime.WordDecoder
+}
+
+func isTrimByte(b byte) bool {
+	return b == sp || b == ht || b == cr || b == lf
+}
+
+func trimFieldString(s string) string {
+	start := 0
+	for start < len(s) && isTrimByte(s[start]) {
+		start++
+	}
+	end := len(s)
+	for end > start && isTrimByte(s[end-1]) {
+		end--
+	}
+	if start == 0 && end == len(s) {
+		return s
+	}
+	return s[start:end]
 }
 
 // parseLine parses a single WARC header field line and adds it to nv.
@@ -49,21 +69,19 @@ func (p *warcfieldsParser) parseLine(line []byte, nv WarcFields) (WarcFields, er
 	line = bytes.TrimRight(line, sphtcrlf)
 
 	// Support for 'encoded-word' mechanism of [RFC2047]
-	d := mime.WordDecoder{}
-	l, err := d.DecodeHeader(string(line))
+	l, err := p.decoder.DecodeHeader(string(line))
 	if err != nil {
 		return nv, newWrappedSyntaxErrorAtLine("error decoding line", p.lineNumber, err)
 	}
-	line = []byte(l)
 
-	fv := bytes.SplitN(line, colon, 2)
-	if len(fv) != 2 {
-		err = newSyntaxErrorAtLine("could not parse header line. Missing ':' in "+string(fv[0]), p.lineNumber)
+	colonPos := strings.IndexByte(l, ':')
+	if colonPos < 0 {
+		err = newSyntaxErrorAtLine("could not parse header line. Missing ':' in "+l, p.lineNumber)
 		return nv, err
 	}
 
-	name := string(bytes.Trim(fv[0], sphtcrlf))
-	value := string(bytes.Trim(fv[1], sphtcrlf))
+	name := trimFieldString(l[:colonPos])
+	value := trimFieldString(l[colonPos+1:])
 
 	nv.Add(name, value)
 	return nv, nil

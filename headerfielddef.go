@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nlnwa/whatwg-url/url"
 )
@@ -127,7 +128,7 @@ func resolveRecordType(wf *WarcFields, opts *warcRecordOptions) (rt RecordType, 
 	typeFieldNameLc := "warc-type"
 	var typeField string
 	for _, f := range *wf {
-		if strings.ToLower(f.Name) == typeFieldNameLc {
+		if lowerASCII(f.Name) == typeFieldNameLc {
 			typeField = f.Value
 			break
 		}
@@ -143,7 +144,7 @@ func resolveRecordType(wf *WarcFields, opts *warcRecordOptions) (rt RecordType, 
 			return rt, validation, errors.New("missing required field WARC-Type")
 		}
 	}
-	typeFieldValLc := strings.ToLower(typeField)
+	typeFieldValLc := lowerASCII(typeField)
 	rt = stringToRecordType(typeFieldValLc)
 	if rt == 0 {
 		switch opts.errUnknownRecordType {
@@ -255,8 +256,37 @@ func init() {
 	}
 }
 
+func lowerASCII(s string) string {
+	hasUpper := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			hasUpper = true
+			continue
+		}
+		if c >= utf8.RuneSelf {
+			return strings.ToLower(s)
+		}
+	}
+
+	if !hasUpper {
+		return s
+	}
+
+	b := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		} else {
+			b[i] = c
+		}
+	}
+	return string(b)
+}
+
 func normalizeName(name string) (string, fieldDef) {
-	lcName := strings.ToLower(name)
+	lcName := lowerASCII(name)
 	if f, ok := lcHdrNameToDef[lcName]; ok {
 		return f.name, f
 	}
