@@ -110,7 +110,7 @@ func (rb *recordBuilder) SetRecordType(recordType RecordType) {
 }
 
 func (rb *recordBuilder) Build() (WarcRecord, []error, error) {
-	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
+	if !rb.headers.Has(WarcRecordID) {
 		if id, err := rb.opts.recordIdFunc(); err != nil {
 			if cerr := rb.Close(); cerr != nil {
 				err = errors.Join(err, cerr)
@@ -163,7 +163,7 @@ func (rb *recordBuilder) Build() (WarcRecord, []error, error) {
 
 func (rb *recordBuilder) validate(wr *warcRecord) ([]error, error) {
 	size := rb.content.Size()
-	if rb.opts.addMissingContentLength && !wr.WarcHeader().Has(ContentLength) {
+	if !wr.WarcHeader().Has(ContentLength) {
 		wr.headers.SetInt64(ContentLength, size)
 	}
 

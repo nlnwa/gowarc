@@ -1,10 +1,44 @@
 package gowarc
 
 import (
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestDefaultWarcRecordOptions_AreNonMutating(t *testing.T) {
+	o := defaultWarcRecordOptions()
+
+	assert.False(t, o.addMissingRecordId)
+	assert.False(t, o.addMissingContentLength)
+	assert.False(t, o.addMissingDigest)
+	assert.False(t, o.fixContentLength)
+	assert.False(t, o.fixDigest)
+	assert.False(t, o.fixSyntaxErrors)
+	assert.False(t, o.fixWarcFieldsBlockErrors)
+}
+
+func TestBuilderAddsMandatoryHeadersRegardlessOfAddMissingOptions(t *testing.T) {
+	rb := NewRecordBuilder(Warcinfo,
+		WithAddMissingRecordId(false),
+		WithAddMissingContentLength(false),
+	)
+	rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+	rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+	_, _ = rb.WriteString("hello")
+
+	record, _, err := rb.Build()
+	assert.NoError(t, err)
+	defer record.Close()
+
+	assert.True(t, record.WarcHeader().Has(WarcRecordID))
+	assert.Equal(t, "5", record.WarcHeader().Get(ContentLength))
+
+	length, err := strconv.ParseInt(record.WarcHeader().Get(ContentLength), 10, 64)
+	assert.NoError(t, err)
+	assert.Equal(t, int64(5), length)
+}
 
 func TestWithVersion(t *testing.T) {
 	tests := []struct {

@@ -71,15 +71,15 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		errUnknownRecordType:     ErrWarn,
 		errBlock:                 ErrIgnore,
 		skipParseBlock:           false,
-		addMissingRecordId:       true,
+		addMissingRecordId:       false,
 		recordIdFunc:             defaultIdGenerator,
-		addMissingContentLength:  true,
-		addMissingDigest:         true,
+		addMissingContentLength:  false,
+		addMissingDigest:         false,
 		defaultDigestAlgorithm:   "sha1",
 		defaultDigestEncoding:    Base32,
-		fixContentLength:         true,
-		fixDigest:                true,
-		fixSyntaxErrors:          true,
+		fixContentLength:         false,
+		fixDigest:                false,
+		fixSyntaxErrors:          false,
 		fixWarcFieldsBlockErrors: false,
 	}
 }
@@ -142,7 +142,10 @@ func WithBlockErrorPolicy(policy ErrorPolicy) WarcRecordOption {
 
 // WithAddMissingRecordId sets if missing WARC-Record-ID header should be generated.
 //
-// defaults to true
+// When creating records with [NewRecordBuilder], missing WARC-Record-ID is always generated.
+// This option primarily affects parsing/unmarshalling behavior.
+//
+// defaults to false
 func WithAddMissingRecordId(addMissingRecordId bool) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.addMissingRecordId = addMissingRecordId
@@ -163,7 +166,10 @@ func WithRecordIdFunc(recordIdFunc func() (string, error)) WarcRecordOption {
 
 // WithAddMissingContentLength sets if missing Content-Length header should be calculated.
 //
-// defaults to true
+// When creating records with [NewRecordBuilder], missing Content-Length is always set.
+// This option primarily affects parsing/unmarshalling behavior.
+//
+// defaults to false
 func WithAddMissingContentLength(addMissingContentLength bool) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.addMissingContentLength = addMissingContentLength
@@ -172,9 +178,10 @@ func WithAddMissingContentLength(addMissingContentLength bool) WarcRecordOption 
 
 // WithAddMissingDigest sets if missing Block digest and eventually Payload digest header fields should be calculated.
 //
-// Only fields which can be generated automatically are added. That includes WarcRecordID, ContentLength, BlockDigest and PayloadDigest.
+// Only digest fields are controlled by this option. Record ID and Content-Length are always set for records
+// created with [NewRecordBuilder] when missing.
 //
-// defaults to true
+// defaults to false
 func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.addMissingDigest = addMissingDigest
@@ -207,7 +214,7 @@ func WithDefaultDigestEncoding(defaultDigestEncoding DigestEncoding) WarcRecordO
 //
 // # This will not have any impact if SpecViolationPolicy is ErrIgnore
 //
-// defaults to true
+// defaults to false
 func WithFixContentLength(fixContentLength bool) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.fixContentLength = fixContentLength
@@ -218,7 +225,7 @@ func WithFixContentLength(fixContentLength bool) WarcRecordOption {
 //
 // # This will not have any impact if SpecViolationPolicy is ErrIgnore
 //
-// defaults to true
+// defaults to false
 func WithFixDigest(fixDigest bool) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.fixDigest = fixDigest
@@ -229,7 +236,7 @@ func WithFixDigest(fixDigest bool) WarcRecordOption {
 //
 // # This will not have any impact if SyntaxErrorPolicy is ErrIgnore
 //
-// defaults to true
+// defaults to false
 func WithFixSyntaxErrors(fixSyntaxErrors bool) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.fixSyntaxErrors = fixSyntaxErrors
