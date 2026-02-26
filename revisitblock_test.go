@@ -115,7 +115,7 @@ func Test_newRevisitBlock_FromResponseBlock(t *testing.T) {
 
 	rec, _, err := builder.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	require.NoError(t, rec.Block().Cache())
 
 	opts := defaultWarcRecordOptions()
@@ -136,7 +136,7 @@ func Test_newRevisitBlock_FromRequestBlock(t *testing.T) {
 
 	rec, _, err := builder.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	require.NoError(t, rec.Block().Cache())
 
 	opts := defaultWarcRecordOptions()

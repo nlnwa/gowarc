@@ -12,7 +12,7 @@ import (
 func TestFileBuffer_Basic(t *testing.T) {
 	fb, err := newFileBuffer(100, t.TempDir())
 	require.NoError(t, err)
-	defer fb.close()
+	defer func() { assert.NoError(t, fb.close()) }()
 
 	assert.Equal(t, int64(0), fb.Size())
 	assert.Equal(t, int64(100), fb.Limit())
@@ -26,7 +26,7 @@ func TestFileBuffer_Basic(t *testing.T) {
 func TestFileBuffer_Write_ExceedsLimit(t *testing.T) {
 	fb, err := newFileBuffer(5, t.TempDir())
 	require.NoError(t, err)
-	defer fb.close()
+	defer func() { assert.NoError(t, fb.close()) }()
 
 	// Write more than limit
 	n, err := fb.write([]byte("hello world"))
@@ -42,7 +42,7 @@ func TestFileBuffer_Write_ExceedsLimit(t *testing.T) {
 func TestFileBuffer_ReadAt(t *testing.T) {
 	fb, err := newFileBuffer(100, t.TempDir())
 	require.NoError(t, err)
-	defer fb.close()
+	defer func() { assert.NoError(t, fb.close()) }()
 
 	_, _ = fb.write([]byte("ABCDE"))
 
@@ -55,7 +55,7 @@ func TestFileBuffer_ReadAt(t *testing.T) {
 	// Empty buffer case
 	fb2, err := newFileBuffer(100, t.TempDir())
 	require.NoError(t, err)
-	defer fb2.close()
+	defer func() { assert.NoError(t, fb2.close()) }()
 
 	_, rerr = fb2.readAt(0, buf)
 	assert.ErrorIs(t, rerr, io.EOF)
@@ -64,7 +64,7 @@ func TestFileBuffer_ReadAt(t *testing.T) {
 func TestFileBuffer_ReadByteAt(t *testing.T) {
 	fb, err := newFileBuffer(100, t.TempDir())
 	require.NoError(t, err)
-	defer fb.close()
+	defer func() { assert.NoError(t, fb.close()) }()
 
 	_, _ = fb.write([]byte("XY"))
 	c, rerr := fb.readByteAt(0)
@@ -79,7 +79,7 @@ func TestFileBuffer_ReadByteAt(t *testing.T) {
 func TestFileBuffer_WriteToAt(t *testing.T) {
 	fb, err := newFileBuffer(100, t.TempDir())
 	require.NoError(t, err)
-	defer fb.close()
+	defer func() { assert.NoError(t, fb.close()) }()
 
 	_, _ = fb.write([]byte("ABCDE"))
 

@@ -30,7 +30,7 @@ func TestBuilderAddsMandatoryHeadersRegardlessOfAddMissingOptions(t *testing.T) 
 
 	record, _, err := rb.Build()
 	assert.NoError(t, err)
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	assert.True(t, record.WarcHeader().Has(WarcRecordID))
 	assert.Equal(t, "5", record.WarcHeader().Get(ContentLength))
@@ -58,7 +58,7 @@ func TestWithVersion(t *testing.T) {
 			rb.AddWarcHeader(ContentType, ApplicationWarcFields)
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			assert.Equal(t, tt.want, record.Version().String())
 		})
@@ -91,7 +91,7 @@ func TestWithRecordIdFunc(t *testing.T) {
 			rb.AddWarcHeader(ContentType, ApplicationWarcFields)
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			assert.Equal(t, tt.wantID, record.RecordId())
 		})
@@ -120,7 +120,7 @@ func TestWithDefaultDigestAlgorithm(t *testing.T) {
 			_, _ = rb.WriteString("test data")
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			digest := record.WarcHeader().Get(WarcBlockDigest)
 			assert.Contains(t, digest, tt.prefix) // e.g. "sha256:..."
@@ -138,7 +138,7 @@ func TestWithSkipParseBlock(t *testing.T) {
 	_, _ = rb.WriteString("HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nHello")
 	record, _, err := rb.Build()
 	assert.NoError(t, err)
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	// With SkipParseBlock, block should NOT be an HttpResponseBlock
 	_, ok := record.Block().(HttpResponseBlock)
@@ -152,7 +152,7 @@ func TestWithNoValidation(t *testing.T) {
 	_, _ = rb.WriteString("some content")
 	record, _, err := rb.Build()
 	assert.NoError(t, err)
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	// With SkipParseBlock (implied by NoValidation), the block should be generic
 	_, ok := record.Block().(WarcFieldsBlock)
@@ -170,7 +170,7 @@ func TestWithBufferTmpDir(t *testing.T) {
 	_, _ = rb.WriteString("test buffer dir")
 	record, _, err := rb.Build()
 	assert.NoError(t, err)
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 }
 
 func TestWithBufferMaxMemBytes(t *testing.T) {
@@ -184,7 +184,7 @@ func TestWithBufferMaxMemBytes(t *testing.T) {
 	_, _ = rb.WriteString("small content")
 	record, _, err := rb.Build()
 	assert.NoError(t, err)
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 }
 
 func TestWithUrlParserOptions(t *testing.T) {

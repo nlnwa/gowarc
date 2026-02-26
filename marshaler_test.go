@@ -126,7 +126,7 @@ func TestDefaultMarshaler_Marshal(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create record
 			record := createMarshalerTestRecord(tt.recordType, tt.headers, tt.content)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			// Marshal record
 			marshaler := NewMarshaler()
@@ -180,7 +180,7 @@ func TestDefaultMarshaler_MarshalWithMaxSize(t *testing.T) {
 		&nameValue{Name: ContentLength, Value: "5"},
 	}
 	record := createMarshalerTestRecord(Resource, headers, "Hello")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	// Marshal with maxSize (currently not implemented, so should ignore)
 	marshaler := NewMarshaler()
@@ -227,7 +227,7 @@ func TestDefaultMarshaler_WriteRecord(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			record := createMarshalerTestRecord(tt.recordType, tt.headers, tt.content)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			marshaler := &defaultMarshaler{}
 			var buf bytes.Buffer
@@ -297,7 +297,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtVersion(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "4"},
 	}, "test")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	m := &defaultMarshaler{}
 	w := &errWriter{n: 0, err: fmt.Errorf("write version failed")}
@@ -313,7 +313,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtVersionCRLF(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "4"},
 	}, "test")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	m := &defaultMarshaler{}
 	// Allow version string ("WARC/1.1" = 8 bytes) but fail on CRLF
@@ -330,7 +330,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtHeaders(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "4"},
 	}, "test")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	m := &defaultMarshaler{}
 	// Allow version + CRLF (10 bytes) but fail on headers
@@ -347,7 +347,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtContent(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "4"},
 	}, "test")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	// Write the record to measure total size
 	var countBuf bytes.Buffer
@@ -362,7 +362,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtContent(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "4"},
 	}, "test")
-	defer record2.Close()
+	defer func() { assert.NoError(t, record2.Close()) }()
 
 	// Allow all bytes except content(4) + end marker(4) = 8 bytes
 	w := &errWriter{n: int(totalSize) - 8, err: fmt.Errorf("write content failed")}
@@ -378,7 +378,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtEndMarker(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "0"},
 	}, "")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	// Write the record successfully to determine total size minus the end marker
 	var countBuf bytes.Buffer
@@ -393,7 +393,7 @@ func TestDefaultMarshaler_writeRecord_ErrorAtEndMarker(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "0"},
 	}, "")
-	defer record2.Close()
+	defer func() { assert.NoError(t, record2.Close()) }()
 
 	// Allow all bytes except the last 4 (end marker \r\n\r\n)
 	w := &errWriter{n: int(totalSize) - 4, err: fmt.Errorf("write end marker failed")}
@@ -420,7 +420,7 @@ func Test_writeRecord_RawBytesError(t *testing.T) {
 	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
 	rec, _, _, err := u.Unmarshal(bufio.NewReader(io.NopCloser(strings.NewReader(rawWARC))))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// Consume the block to make it inaccessible
 	r, err := rec.Block().RawBytes()

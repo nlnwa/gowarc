@@ -563,7 +563,7 @@ func TestRecordBuilder_Write(t *testing.T) {
 
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			r, err := record.Block().RawBytes()
 			assert.NoError(t, err)
@@ -595,7 +595,7 @@ func TestRecordBuilder_ReadFrom(t *testing.T) {
 
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			r, err := record.Block().RawBytes()
 			assert.NoError(t, err)
@@ -629,7 +629,7 @@ func TestRecordBuilder_Size(t *testing.T) {
 
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 		})
 	}
 }
@@ -656,7 +656,7 @@ func TestRecordBuilder_SetRecordType(t *testing.T) {
 
 			record, _, err := rb.Build()
 			assert.NoError(t, err)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			assert.Equal(t, tt.override, record.Type())
 			assert.Equal(t, tt.wantHeader, record.WarcHeader().Get(WarcType))
@@ -707,7 +707,7 @@ func TestRecordBuilder_AddWarcHeaderTime_V1_0(t *testing.T) {
 
 	rec, _, err := rb.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// V1_0 should use RFC3339 (no nanoseconds)
 	assert.Equal(t, "2024-01-01T12:30:45Z", rec.WarcHeader().Get(WarcDate))
@@ -726,7 +726,7 @@ func TestRecordBuilder_AddWarcHeaderTime_V1_1(t *testing.T) {
 
 	rec, _, err := rb.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// V1_1 should use RFC3339Nano
 	assert.Equal(t, "2024-01-01T12:30:45.123456789Z", rec.WarcHeader().Get(WarcDate))
@@ -743,7 +743,7 @@ func TestRecordBuilder_NoRecordType(t *testing.T) {
 
 	rec, _, err := rb.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.Equal(t, RecordType(0), rec.Type())
 }
 

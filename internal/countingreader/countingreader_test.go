@@ -127,14 +127,20 @@ func TestReader_N(t *testing.T) {
 
 	// After reading 2 bytes
 	buf := make([]byte, 2)
-	cr.Read(buf)
+	_, err := cr.Read(buf)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
 	if cr.N() != 2 {
 		t.Errorf("After reading 2 bytes, N() should be 2, got %d", cr.N())
 	}
 
 	// After reading 2 more bytes
-	cr.Read(buf)
+	_, err = cr.Read(buf)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
 	if cr.N() != 4 {
 		t.Errorf("After reading 4 bytes total, N() should be 4, got %d", cr.N())

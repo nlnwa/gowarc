@@ -166,7 +166,7 @@ func TestWarcFileReader_Records(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reader, err := NewWarcFileReaderFromStream(bytes.NewReader(tt.data), 0, tt.opts...)
 			require.NoError(t, err)
-			defer reader.Close()
+			defer func() { assert.NoError(t, reader.Close()) }()
 
 			var got []Record
 			var iterErr error
@@ -220,7 +220,7 @@ func TestWarcFileReader_Records(t *testing.T) {
 				assert.GreaterOrEqual(t, rec.Offset, prevEnd, "record %d offset >= prev end", i)
 				prevEnd = rec.Offset + rec.Size
 
-				rec.Close()
+				assert.NoError(t, rec.Close())
 			}
 
 			// Consecutive records: sum of offset+size should be monotonic
@@ -244,12 +244,12 @@ func TestWarcFileReader_Records_BreakEarly(t *testing.T) {
 	reader, err := NewWarcFileReaderFromStream(
 		bytes.NewReader([]byte(rec1+rec2+rec3)), 0)
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { assert.NoError(t, reader.Close()) }()
 
 	var count int
 	for rec, err := range reader.Records() {
 		require.NoError(t, err)
-		rec.Close()
+		func() { assert.NoError(t, rec.Close()) }()
 		count++
 		if count == 2 {
 			break
@@ -275,7 +275,7 @@ func TestWarcFileReader_Records_ValidationWarnings(t *testing.T) {
 		strings.NewReader(input), 0,
 		WithSyntaxErrorPolicy(ErrWarn), WithSpecViolationPolicy(ErrWarn))
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { assert.NoError(t, reader.Close()) }()
 
 	var records []Record
 	for rec, err := range reader.Records() {
@@ -287,7 +287,7 @@ func TestWarcFileReader_Records_ValidationWarnings(t *testing.T) {
 	assert.NotEmpty(t, records[0].Validation, "should have validation warnings")
 	// Offset should account for the skipped garbage
 	assert.Equal(t, int64(2), records[0].Offset)
-	records[0].Close()
+	func() { assert.NoError(t, records[0].Close()) }()
 }
 
 func TestWarcFileReader_Records_SizeCoversFullRecord(t *testing.T) {
@@ -319,13 +319,13 @@ func TestWarcFileReader_Records_SizeCoversFullRecord(t *testing.T) {
 
 	reader, err := NewWarcFileReader(dir+"/"+files[0], 0)
 	require.NoError(t, err)
-	defer reader.Close()
+	defer func() { assert.NoError(t, reader.Close()) }()
 
 	var records []Record
 	for rec, err := range reader.Records() {
 		require.NoError(t, err)
 		records = append(records, rec)
-		defer rec.Close()
+		defer func() { assert.NoError(t, rec.Close()) }()
 	}
 
 	require.Len(t, records, 2)

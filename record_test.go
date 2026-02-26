@@ -528,7 +528,7 @@ func Test_warcRecord_RecordId(t *testing.T) {
 					&nameValue{Name: ContentType, Value: ApplicationWarcFields},
 					&nameValue{Name: ContentLength, Value: "0"},
 				}, "")
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			assert.Equal(t, tt.wantID, record.RecordId())
 		})
@@ -555,7 +555,7 @@ func Test_warcRecord_ContentLength(t *testing.T) {
 					&nameValue{Name: ContentType, Value: ApplicationWarcFields},
 					&nameValue{Name: ContentLength, Value: fmt.Sprintf("%d", len(tt.content))},
 				}, tt.content)
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			got, err := record.ContentLength()
 			if tt.wantErr {
@@ -587,7 +587,7 @@ func Test_warcRecord_Date(t *testing.T) {
 					&nameValue{Name: ContentType, Value: ApplicationWarcFields},
 					&nameValue{Name: ContentLength, Value: "0"},
 				}, "")
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			got, err := record.Date()
 			if tt.wantErr {
@@ -766,11 +766,11 @@ func Test_warcRecord_Merge_ErrorPaths(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rec := tt.record()
-			defer rec.Close()
+			defer func() { assert.NoError(t, rec.Close()) }()
 			refs := tt.refs()
 			defer func() {
 				for _, r := range refs {
-					r.Close()
+					assert.NoError(t, r.Close())
 				}
 			}()
 			_, err := rec.Merge(refs...)
@@ -791,7 +791,7 @@ func Test_warcRecord_Merge_WithRequestBlock(t *testing.T) {
 		&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 		&nameValue{Name: WarcTruncated, Value: "length"},
 	}, "GET / HTTP/1.0\nHost: example.com\nUser-Agent: TestBot/1.0\nAccept: text/html\n\n")
-	defer revisitRecord.Close()
+	defer func() { assert.NoError(t, revisitRecord.Close()) }()
 
 	referencedRecord := createRecord1(Request, &WarcFields{
 		&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
@@ -800,7 +800,7 @@ func Test_warcRecord_Merge_WithRequestBlock(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
 		&nameValue{Name: ContentLength, Value: "69"},
 	}, "GET / HTTP/1.0\nHost: example.com\nUser-Agent: OldBot/1.0\nAccept: */*\n\n")
-	defer referencedRecord.Close()
+	defer func() { assert.NoError(t, referencedRecord.Close()) }()
 
 	got, err := revisitRecord.Merge(referencedRecord)
 	require.NoError(t, err)
@@ -837,7 +837,7 @@ func Test_warcRecord_ToRevisitRecord_Errors(t *testing.T) {
 			}, "HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
 				"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
 				"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content")
-			defer record.Close()
+			defer func() { assert.NoError(t, record.Close()) }()
 
 			_ = record.Block().Cache()
 			_, err := record.ToRevisitRecord(tt.ref)
@@ -854,7 +854,7 @@ func Test_warcRecord_RevisitRef_NonRevisit(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "0"},
 	}, "")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	_, err := record.RevisitRef()
 	assert.Error(t, err)
@@ -869,7 +869,7 @@ func Test_warcRecord_CreateRevisitRef_FromRevisit(t *testing.T) {
 		&nameValue{Name: ContentLength, Value: "0"},
 		&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
 	}, "")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	_, err := record.CreateRevisitRef(ProfileServerNotModifiedV1_1)
 	assert.Error(t, err)
@@ -889,12 +889,11 @@ func Test_warcRecord_ValidateDigest_Paths(t *testing.T) {
 		rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
 		rb.AddWarcHeader(ContentType, "text/plain")
 		rb.AddWarcHeader(ContentLength, "999") // wrong length
-		rb.WriteString("Hello")
+		_, err := rb.WriteString("Hello")
+		require.NoError(t, err)
 		wr, v, err := rb.Build()
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer wr.Close()
+		require.NoError(t, err)
+		defer func() { assert.NoError(t, wr.Close()) }()
 		// Validation should have content length mismatch warning
 		assert.NotEmpty(t, v)
 		// Content-Length should be fixed
@@ -913,8 +912,9 @@ func Test_warcRecord_ValidateDigest_Paths(t *testing.T) {
 		rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
 		rb.AddWarcHeader(ContentType, "text/plain")
 		rb.AddWarcHeader(ContentLength, "999")
-		rb.WriteString("Hello")
-		_, _, err := rb.Build()
+		_, err := rb.WriteString("Hello")
+		require.NoError(t, err)
+		_, _, err = rb.Build()
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "content length mismatch")
 	})
@@ -940,7 +940,7 @@ func Test_warcRecord_String_Format(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "text/plain"},
 		&nameValue{Name: ContentLength, Value: "5"},
 	}, "Hello")
-	defer record.Close()
+	defer func() { assert.NoError(t, record.Close()) }()
 
 	s := record.String()
 	assert.Contains(t, s, "WARC record")
@@ -959,8 +959,9 @@ func Test_warcRecord_ToRevisitRecord_WithTargetUriAndDate(t *testing.T) {
 	}, "HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content")
-	defer record.Close()
-	_ = record.Block().Cache()
+	defer func() { assert.NoError(t, record.Close()) }()
+	err := record.Block().Cache()
+	require.NoError(t, err)
 
 	ref := &RevisitRef{
 		Profile:        ProfileIdenticalPayloadDigestV1_0,
@@ -991,7 +992,7 @@ func Test_warcRecord_Merge_ParseHeadersError_Response(t *testing.T) {
 		&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
 		&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 	}, "GARBAGE NOT HTTP\r\n\r\n\n")
-	defer revisitRecord.Close()
+	defer func() { assert.NoError(t, revisitRecord.Close()) }()
 
 	// Reference record with valid response block
 	referencedRecord := createRecord1(Response, &WarcFields{
@@ -1001,7 +1002,7 @@ func Test_warcRecord_Merge_ParseHeadersError_Response(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 		&nameValue{Name: ContentLength, Value: "64"},
 	}, "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 4\n\ntest")
-	defer referencedRecord.Close()
+	defer func() { assert.NoError(t, referencedRecord.Close()) }()
 
 	// With ErrWarn syntax policy (from createRecord1), the merge should attempt CRLF append retry
 	got, err := revisitRecord.Merge(referencedRecord)
@@ -1023,7 +1024,7 @@ func Test_warcRecord_Merge_ParseHeadersError_Request(t *testing.T) {
 		&nameValue{Name: WarcProfile, Value: ProfileServerNotModifiedV1_1},
 		&nameValue{Name: WarcRefersTo, Value: "<urn:uuid:fff0cecc-0221-11e7-adb1-0242ac120008>"},
 	}, "GARBAGE NOT HTTP\r\n\r\n\n")
-	defer revisitRecord.Close()
+	defer func() { assert.NoError(t, revisitRecord.Close()) }()
 
 	// Reference record with valid request block — need correct content length
 	reqContent := "GET / HTTP/1.0\nHost: example.com\n\ndata"
@@ -1034,7 +1035,7 @@ func Test_warcRecord_Merge_ParseHeadersError_Request(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=request"},
 		&nameValue{Name: ContentLength, Value: fmt.Sprintf("%d", len(reqContent))},
 	}, reqContent)
-	defer referencedRecord.Close()
+	defer func() { assert.NoError(t, referencedRecord.Close()) }()
 
 	got, err := revisitRecord.Merge(referencedRecord)
 	assert.NotNil(t, got)
@@ -1057,7 +1058,7 @@ func Test_warcRecord_Merge_ParseHeadersError_ErrFail(t *testing.T) {
 	_, _ = rb.WriteString("GARBAGE NOT HTTP\r\n\r\n\n")
 	revisitRecord, _, err := rb.Build()
 	require.NoError(t, err)
-	defer revisitRecord.Close()
+	defer func() { assert.NoError(t, revisitRecord.Close()) }()
 
 	referencedRecord := createRecord1(Response, &WarcFields{
 		&nameValue{Name: WarcTargetURI, Value: "http://example.com"},
@@ -1066,7 +1067,7 @@ func Test_warcRecord_Merge_ParseHeadersError_ErrFail(t *testing.T) {
 		&nameValue{Name: ContentType, Value: "application/http;msgtype=response"},
 		&nameValue{Name: ContentLength, Value: "64"},
 	}, "HTTP/1.1 200 OK\nContent-Type: text/plain\nContent-Length: 4\n\ntest")
-	defer referencedRecord.Close()
+	defer func() { assert.NoError(t, referencedRecord.Close()) }()
 
 	// errSyntax=ErrFail, so first parseHeaders error returns immediately
 	got, err := revisitRecord.Merge(referencedRecord)
@@ -1089,7 +1090,7 @@ func Test_warcRecord_Merge_RefBlockNotCached(t *testing.T) {
 	}, "HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n"+
 		"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n"+
 		"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content")
-	defer revisitRecord.Close()
+	defer func() { assert.NoError(t, revisitRecord.Close()) }()
 
 	// Build a raw WARC record and unmarshal from a non-seekable reader to get an uncached block.
 	// NopCloser wraps the reader WITHOUT io.Seeker, so httpResponseBlock.IsCached() returns false.
@@ -1113,7 +1114,7 @@ func Test_warcRecord_Merge_RefBlockNotCached(t *testing.T) {
 	)
 	referencedRecord, _, _, err := u.Unmarshal(bufio.NewReader(nonSeekableReader))
 	require.NoError(t, err)
-	defer referencedRecord.Close()
+	defer func() { assert.NoError(t, referencedRecord.Close()) }()
 
 	// Confirm the block is NOT cached (non-seekable stream)
 	assert.False(t, referencedRecord.Block().IsCached())
@@ -1141,7 +1142,7 @@ func Test_warcRecord_ValidateDigest_WrongPayloadDigest(t *testing.T) {
 
 	rec, v, err := builder.Build()
 	require.NoError(t, err) // ErrWarn should not fail
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	// Validation should contain the wrong payload digest error
 	assert.NotEmpty(t, v)
 	found := false
@@ -1173,7 +1174,7 @@ func Test_warcRecord_ValidateDigest_FixDigest(t *testing.T) {
 
 	rec, _, err := builder.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// Digests should have been fixed by the builder
 	assert.NotEqual(t, "sha1:0000000000000000000000000000000000000000", rec.WarcHeader().Get(WarcBlockDigest))
@@ -1195,7 +1196,7 @@ func Test_warcRecord_ValidateDigest_FixContentLength(t *testing.T) {
 
 	rec, v, err := builder.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// Content length should have been fixed
 	assert.NotEmpty(t, v) // should have the mismatch warning
@@ -1255,7 +1256,7 @@ func Test_warcRecord_ValidateDigest_AddMissingPayloadDigest(t *testing.T) {
 
 	rec, _, err := builder.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// addMissingDigest should have added both block and payload digests
 	assert.NotEmpty(t, rec.WarcHeader().Get(WarcBlockDigest))

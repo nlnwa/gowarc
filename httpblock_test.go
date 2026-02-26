@@ -786,7 +786,7 @@ func Test_httpResponseBlock_Write_RawBytesError(t *testing.T) {
 	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
 	rec, _, _, err := u.Unmarshal(bufio.NewReader(io.NopCloser(strings.NewReader(rawWARC))))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { _ = rec.Close() }()
 
 	block := rec.Block().(PayloadBlock)
 
@@ -816,7 +816,7 @@ func Test_httpRequestBlock_Write_RawBytesError(t *testing.T) {
 	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
 	rec, _, _, err := u.Unmarshal(bufio.NewReader(io.NopCloser(strings.NewReader(rawWARC))))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	block := rec.Block().(PayloadBlock)
 

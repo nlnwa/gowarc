@@ -1008,7 +1008,7 @@ func Test_unmarshaler_Unmarshal_GarbageBeforeRecord_ErrWarn(t *testing.T) {
 	data := bufio.NewReader(strings.NewReader(input))
 	rec, offset, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.Equal(t, int64(2), offset)
 	assert.False(t, len(validation) == 0)
 	assert.Contains(t, fmt.Sprint(validation), "bytes after expected offset")
@@ -1046,7 +1046,7 @@ func Test_unmarshaler_Unmarshal_UnsupportedVersion_ErrWarn(t *testing.T) {
 	data := bufio.NewReader(strings.NewReader(input))
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.False(t, len(validation) == 0)
 	assert.Contains(t, fmt.Sprint(validation), "unsupported WARC version")
 }
@@ -1082,7 +1082,7 @@ func Test_unmarshaler_Unmarshal_MissingCRLF_ErrWarn(t *testing.T) {
 	data := bufio.NewReader(strings.NewReader(input))
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.False(t, len(validation) == 0)
 	assert.Contains(t, fmt.Sprint(validation), "missing carriage return")
 }
@@ -1107,7 +1107,7 @@ func Test_unmarshaler_Unmarshal_GzipRecord(t *testing.T) {
 	data := bufio.NewReader(bytes.NewReader(buf.Bytes()))
 	rec, _, _, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.Equal(t, V1_0, rec.Version())
 	assert.Equal(t, Warcinfo, rec.Type())
 }
@@ -1137,12 +1137,12 @@ func Test_unmarshaler_Unmarshal_GzipRecord_Reuse(t *testing.T) {
 	// First unmarshal creates gz reader
 	rec1, _, _, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	rec1.Close()
+	func() { assert.NoError(t, rec1.Close()) }()
 
 	// Second unmarshal reuses gz reader
 	rec2, _, _, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	rec2.Close()
+	func() { assert.NoError(t, rec2.Close()) }()
 }
 
 func Test_unmarshaler_Unmarshal_ShortInput(t *testing.T) {
@@ -1191,7 +1191,7 @@ func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFOnly(t *testing.T) {
 	data := bufio.NewReader(strings.NewReader(input))
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.False(t, len(validation) == 0)
 	assert.Contains(t, fmt.Sprint(validation), "missing carriage return in end of record marker")
 }
@@ -1210,7 +1210,7 @@ func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFLFOnly(t *testing.T) {
 	data := bufio.NewReader(strings.NewReader(input))
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.False(t, len(validation) == 0)
 	assert.Contains(t, fmt.Sprint(validation), "missing carriage return in end of record marker")
 }
@@ -1229,7 +1229,7 @@ func Test_unmarshaler_Unmarshal_EndOfRecordMarker_TooFewBytes(t *testing.T) {
 	data := bufio.NewReader(strings.NewReader(input))
 	rec, _, validation, err := u.Unmarshal(data)
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.False(t, len(validation) == 0)
 	assert.Contains(t, fmt.Sprint(validation), "too few bytes in end of record marker")
 }
@@ -1318,7 +1318,7 @@ func Test_Unmarshal_MissingCR_ErrWarn(t *testing.T) {
 	u := NewUnmarshaler(WithSyntaxErrorPolicy(ErrWarn), WithSpecViolationPolicy(ErrIgnore))
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.NotEmpty(t, v) // Should have a validation warning about missing CR
 }
 
@@ -1336,7 +1336,7 @@ func Test_Unmarshal_EndOfRecordMarker_SingleLF(t *testing.T) {
 	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrIgnore))
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.NotEmpty(t, v) // validation should flag the bad marker
 }
 
@@ -1354,7 +1354,7 @@ func Test_Unmarshal_EndOfRecordMarker_DoubleLF(t *testing.T) {
 	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrIgnore))
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.NotEmpty(t, v)
 }
 
@@ -1372,7 +1372,7 @@ func Test_Unmarshal_EndOfRecordMarker_TooFew(t *testing.T) {
 	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrIgnore))
 	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 	assert.NotEmpty(t, v)
 }
 

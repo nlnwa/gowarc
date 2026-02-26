@@ -442,7 +442,7 @@ func TestWarcFileReader(t *testing.T) {
 	t.Run("read back records", func(t *testing.T) {
 		reader, err := NewWarcFileReader(filePath, 0)
 		require.NoError(t, err)
-		defer reader.Close()
+		defer func() { assert.NoError(t, reader.Close()) }()
 
 		rec, err := reader.Next()
 		require.NoError(t, err)
@@ -460,7 +460,7 @@ func TestWarcFileReader(t *testing.T) {
 	t.Run("read with offset", func(t *testing.T) {
 		reader, err := NewWarcFileReader(filePath, 999999)
 		require.NoError(t, err)
-		defer reader.Close()
+		defer func() { assert.NoError(t, reader.Close()) }()
 
 		_, err = reader.Next()
 		assert.Error(t, err)
@@ -506,11 +506,12 @@ func TestNewWarcFileReaderFromStream(t *testing.T) {
 	t.Run("from opened file", func(t *testing.T) {
 		f, err := os.Open(filePath)
 		require.NoError(t, err)
-		defer f.Close()
+		// already closed by reader.Close(), so expect error
+		defer func() { assert.Error(t, f.Close()) }()
 
 		reader, err := NewWarcFileReaderFromStream(f, 0)
 		require.NoError(t, err)
-		defer reader.Close()
+		defer func() { assert.NoError(t, reader.Close()) }()
 
 		rec, err := reader.Next()
 		require.NoError(t, err)
@@ -543,7 +544,7 @@ func TestWarcFileWriter_String(t *testing.T) {
 		WithMaxFileSize(1024),
 		WithMaxConcurrentWriters(2),
 	)
-	defer w.Close()
+	defer func() { assert.NoError(t, w.Close()) }()
 
 	s := w.String()
 	assert.Contains(t, s, "WarcFileWriter")
@@ -651,7 +652,7 @@ func TestWarcFileWriter_WithSegmentation(t *testing.T) {
 		WithSegmentation(),
 		WithMaxConcurrentWriters(1),
 	)
-	defer w.Close()
+	defer func() { assert.NoError(t, w.Close()) }()
 
 	res := w.Write(createTestRecord())
 	require.Len(t, res, 1)
@@ -670,7 +671,7 @@ func TestWarcFileWriter_WithFlushEnabled(t *testing.T) {
 		WithFlush(true),
 		WithMaxConcurrentWriters(1),
 	)
-	defer w.Close()
+	defer func() { assert.NoError(t, w.Close()) }()
 
 	res := w.Write(createTestRecord())
 	require.Len(t, res, 1)
@@ -738,7 +739,7 @@ func TestNewWarcFileWriter_InvalidCompressionRatio(t *testing.T) {
 		WithExpectedCompressionRatio(-1),
 		WithMaxConcurrentWriters(1),
 	)
-	defer w.Close()
+	defer func() { assert.NoError(t, w.Close()) }()
 }
 
 var warcFileWriterBenchmarkResult []WriteResponse
@@ -878,10 +879,10 @@ func TestWarcFileWriter_WarcInfoFunc_Error(t *testing.T) {
 			return fmt.Errorf("warcinfo callback failed")
 		}),
 	)
-	defer w.Close()
+	defer func() { assert.NoError(t, w.Close()) }()
 
 	rec := createTestRecord()
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	// Write should fail because warcInfoFunc fails during file creation
 	responses := w.Write(rec)
@@ -898,7 +899,7 @@ func TestWarcFileWriter_MaxFileSize_ContentLengthMissing(t *testing.T) {
 		WithMaxFileSize(100000), // large enough that first write succeeds
 		WithFileNameGenerator(&PatternNameGenerator{Prefix: "test-", Directory: dir}),
 	)
-	defer w.Close()
+	defer func() { assert.NoError(t, w.Close()) }()
 
 	// Build a record without Content-Length header
 	rb := NewRecordBuilder(Warcinfo,
@@ -910,7 +911,7 @@ func TestWarcFileWriter_MaxFileSize_ContentLengthMissing(t *testing.T) {
 	// Deliberately NOT setting Content-Length
 	rec, _, err := rb.Build()
 	require.NoError(t, err)
-	defer rec.Close()
+	defer func() { assert.NoError(t, rec.Close()) }()
 
 	responses := w.Write(rec)
 	require.Len(t, responses, 1)
@@ -926,13 +927,17 @@ func TestWarcFileWriter_MaxFileSize_Rotate(t *testing.T) {
 	)
 
 	rec1 := createTestRecord()
-	defer rec1.Close()
+	defer func() {
+		require.NoError(t, rec1.Close(), "failed to close rec1")
+	}()
 	responses := w.Write(rec1)
 	require.Len(t, responses, 1)
 	require.NoError(t, responses[0].Err)
 
 	rec2 := createTestRecord()
-	defer rec2.Close()
+	defer func() {
+		require.NoError(t, rec2.Close(), "failed to close rec2")
+	}()
 	responses = w.Write(rec2)
 	require.Len(t, responses, 1)
 	require.NoError(t, responses[0].Err)
