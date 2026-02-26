@@ -128,14 +128,46 @@ type WarcFileWriter struct {
 	opts    *warcFileWriterOptions
 	workers []*singleWarcFileWriter
 
-	reqCh  chan request
+	opCh   chan writerOp
 	wg     sync.WaitGroup
 	once   sync.Once
 	closed atomic.Bool
 }
 
-func (w *WarcFileWriter) String() string {
-	return fmt.Sprintf("WarcFileWriter (%s)", w.opts)
+// internal op stream
+type writerOpKind uint8
+
+const (
+	opWrite writerOpKind = iota
+	opRotate
+)
+
+type writerOp struct {
+	kind writerOpKind
+	// write
+	req request
+	// rotate
+	rotateReply chan error
+}
+
+type workerCmdKind uint8
+
+const (
+	cmdWrite workerCmdKind = iota
+	cmdRotate
+)
+
+type workerCmd struct {
+	kind workerCmdKind
+	// write
+	req request
+	// rotate ack
+	ack chan error
+}
+
+type request struct {
+	records []WarcRecord
+	writeCh chan []WriteResponse
 }
 
 func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
@@ -147,24 +179,24 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 		o.maxConcurrentWriters = 1
 	}
 	if o.gzipLevel < gzip.DefaultCompression || o.gzipLevel > gzip.BestCompression {
+		// TODO return error instead of panic
 		panic("illegal compression level " + strconv.Itoa(o.gzipLevel) + ", must be between -1 and 9")
 	}
-
 	if o.expectedCompressionRatio <= 0 || o.expectedCompressionRatio > 1 {
-		// Keep it permissive but sane; ratio is only used for estimation.
 		o.expectedCompressionRatio = 0.5
 	}
 
 	w := &WarcFileWriter{
-		opts:  &o,
-		reqCh: make(chan request),
+		opts: &o,
+		opCh: make(chan writerOp),
 	}
 	w.workers = make([]*singleWarcFileWriter, 0, o.maxConcurrentWriters)
 
+	// start workers (each has its own mailbox)
 	for i := 0; i < o.maxConcurrentWriters; i++ {
 		sw := &singleWarcFileWriter{
 			opts:  &o,
-			ctlCh: make(chan func(*singleWarcFileWriter) error),
+			cmdCh: make(chan workerCmd),
 		}
 		if o.compress {
 			sw.gz, _ = gzip.NewWriterLevel(nil, o.gzipLevel)
@@ -177,33 +209,50 @@ func NewWarcFileWriter(opts ...WarcFileWriterOption) *WarcFileWriter {
 				_ = sw.Close()
 				w.wg.Done()
 			}()
-			for {
-				select {
-				case req, ok := <-w.reqCh:
-					if !ok {
-						return
-					}
-					res := make([]WriteResponse, len(req.records))
-					for i, r := range req.records {
+
+			for cmd := range sw.cmdCh {
+				switch cmd.kind {
+				case cmdWrite:
+					res := make([]WriteResponse, len(cmd.req.records))
+					for i, r := range cmd.req.records {
 						res[i] = sw.Write(r)
 					}
-					req.writeCh <- res
-				case ctlFn, ok := <-sw.ctlCh:
-					if !ok {
-						return
-					}
-					ctlFn(sw)
+					cmd.req.writeCh <- res
+
+				case cmdRotate:
+					err := sw.Close()
+					// Rotate completion is explicit and always signaled exactly once.
+					cmd.ack <- err
 				}
 			}
 		}(sw)
 	}
 
+	// start router (owns ordering)
+	w.wg.Add(1)
+	go func() {
+		defer w.wg.Done()
+		w.runRouter()
+	}()
+
 	return w
 }
 
-type request struct {
-	records []WarcRecord
-	writeCh chan []WriteResponse
+func (w *WarcFileWriter) String() string {
+	return fmt.Sprintf("WarcFileWriter (%s)", w.opts)
+}
+
+// Rotate closes the current file of each worker, ordered after all previously queued requests.
+func (w *WarcFileWriter) Rotate() error {
+	if w.closed.Load() {
+		return errors.New("warc writer is closed")
+	}
+
+	reply := make(chan error, 1)
+	if !w.trySendOp(writerOp{kind: opRotate, rotateReply: reply}) {
+		return errors.New("warc writer is closed")
+	}
+	return <-reply
 }
 
 // Write marshals one or more WarcRecords to file.
@@ -222,10 +271,89 @@ func (w *WarcFileWriter) Write(records ...WarcRecord) []WriteResponse {
 	respCh := make(chan []WriteResponse, 1)
 	req := request{records: records, writeCh: respCh}
 
-	if !w.trySend(req) {
+	if !w.trySendOp(writerOp{kind: opWrite, req: req}) {
 		return nil
 	}
 	return <-respCh
+}
+
+// Close drains queued work and stops workers.
+func (w *WarcFileWriter) Close() error {
+	w.once.Do(func() {
+		w.closed.Store(true)
+		close(w.opCh) // router drains FIFO and then close workers
+	})
+	w.wg.Wait()
+	return nil
+}
+
+func (w *WarcFileWriter) runRouter() {
+	next := 0
+
+	for op := range w.opCh {
+		switch op.kind {
+		case opWrite:
+			// Dispatch the entire request to one worker
+			sw := w.workers[next]
+			next++
+			if next >= len(w.workers) {
+				next = 0
+			}
+			sw.cmdCh <- workerCmd{kind: cmdWrite, req: op.req}
+
+		case opRotate:
+			// Barrier: opCh is a single FIFO stream consumed by this router.
+			// Therefore all writes sent before rotate are dispatched to worker mailboxes before rotate.
+			// Each worker processes its mailbox FIFO, so rotate executes after its prior writes and before any subsequent writes.
+			err := w.rotateAllWorkers()
+			op.rotateReply <- err
+		}
+	}
+
+	// opCh is closed -> drain complete -> shut down workers.
+	for _, sw := range w.workers {
+		close(sw.cmdCh)
+	}
+}
+
+func (w *WarcFileWriter) rotateAllWorkers() error {
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	var errs []error
+
+	for _, sw := range w.workers {
+		wg.Add(1)
+		go func(sw *singleWarcFileWriter) {
+			defer wg.Done()
+
+			ack := make(chan error, 1)
+			sw.cmdCh <- workerCmd{kind: cmdRotate, ack: ack}
+			if err := <-ack; err != nil {
+				mu.Lock()
+				errs = append(errs, err)
+				mu.Unlock()
+			}
+		}(sw)
+	}
+
+	wg.Wait()
+	if len(errs) > 0 {
+		return fmt.Errorf("rotate error: %w", errors.Join(errs...))
+	}
+	return nil
+}
+
+func (w *WarcFileWriter) trySendOp(op writerOp) (ok bool) {
+	if w.closed.Load() {
+		return false
+	}
+	defer func() {
+		if recover() != nil {
+			ok = false // send on closed channel
+		}
+	}()
+	w.opCh <- op
+	return true
 }
 
 func addConcurrentToHeaders(records []WarcRecord) {
@@ -237,83 +365,6 @@ func addConcurrentToHeaders(records []WarcRecord) {
 			wr.WarcHeader().AddId(WarcConcurrentTo, wr2.WarcHeader().GetId(WarcRecordID))
 		}
 	}
-}
-
-// Rotate closes the current file of each worker, ordered after all previously queued requests.
-func (w *WarcFileWriter) Rotate() error {
-	if w.closed.Load() {
-		return errors.New("warc writer is closed")
-	}
-
-	// Send close command to each worker's control channel and wait for acknowledgment.
-	// This ensures each worker closes its own file exactly once.
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var errs []error
-
-	for _, worker := range w.workers {
-		wg.Add(1)
-		go func(sw *singleWarcFileWriter) {
-			defer wg.Done()
-			done := make(chan error, 1)
-
-			// Send to worker's control channel with acknowledgment
-			select {
-			case sw.ctlCh <- func(w *singleWarcFileWriter) error {
-				err := w.Close()
-				done <- err
-				return err
-			}:
-				// Wait for the worker to complete the close operation
-				select {
-				case err := <-done:
-					if err != nil {
-						mu.Lock()
-						errs = append(errs, err)
-						mu.Unlock()
-					}
-				case <-time.After(5 * time.Second):
-					mu.Lock()
-					errs = append(errs, fmt.Errorf("timeout waiting for worker to close file"))
-					mu.Unlock()
-				}
-			case <-time.After(5 * time.Second):
-				mu.Lock()
-				errs = append(errs, fmt.Errorf("timeout sending rotate to worker"))
-				mu.Unlock()
-			}
-		}(worker)
-	}
-
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return fmt.Errorf("rotate error: %w", errors.Join(errs...))
-	}
-	return nil
-}
-
-// Close drains queued work and stops workers.
-func (w *WarcFileWriter) Close() error {
-	w.once.Do(func() {
-		w.closed.Store(true)
-		close(w.reqCh)
-	})
-	w.wg.Wait()
-	return nil
-}
-
-func (w *WarcFileWriter) trySend(req request) (ok bool) {
-	if w.closed.Load() {
-		return false
-	}
-	defer func() {
-		if recover() != nil {
-			ok = false // send on closed channel
-		}
-	}()
-	w.reqCh <- req
-	return true
 }
 
 // singleWarcFileWriter is owned by exactly one worker goroutine.
@@ -328,7 +379,7 @@ type singleWarcFileWriter struct {
 	gz *gzip.Writer        // reused gzip writer, if opts.compress
 	cw *countingFileWriter // reused counting writer
 
-	ctlCh chan func(*singleWarcFileWriter) error // per-worker control channel
+	cmdCh chan workerCmd // per-worker mailbox (FIFO)
 }
 
 func (w *singleWarcFileWriter) Write(record WarcRecord) (resp WriteResponse) {
@@ -359,6 +410,11 @@ func (w *singleWarcFileWriter) Write(record WarcRecord) (resp WriteResponse) {
 	return resp
 }
 
+// Close closes the current file. Next Write creates a new file.
+func (w *singleWarcFileWriter) Close() error {
+	return w.close()
+}
+
 func (w *singleWarcFileWriter) maxRecordSize() int64 {
 	if !w.opts.useSegmentation || w.opts.maxFileSize <= 0 {
 		return 0
@@ -379,18 +435,6 @@ func (w *singleWarcFileWriter) wouldExceedMax(record WarcRecord) bool {
 		est = int64(float64(rawLen) * w.opts.expectedCompressionRatio)
 	}
 	return w.fileSize > 0 && (w.fileSize+est) > w.opts.maxFileSize
-}
-
-func contentLength(r WarcRecord) (int64, bool) {
-	s := r.WarcHeader().Get(ContentLength)
-	if s == "" {
-		return 0, false
-	}
-	n, err := strconv.ParseInt(s, 10, 64)
-	if err != nil || n < 0 {
-		return 0, false
-	}
-	return n, true
 }
 
 func (w *singleWarcFileWriter) createFile() error {
@@ -432,19 +476,6 @@ func (w *singleWarcFileWriter) createFile() error {
 
 	return nil
 }
-
-type countingFileWriter struct {
-	f *os.File
-	n int64
-}
-
-func (c *countingFileWriter) Write(p []byte) (int, error) {
-	n, err := c.f.Write(p)
-	c.n += int64(n)
-	return n, err
-}
-
-func (c *countingFileWriter) Reset(f *os.File) { c.f = f; c.n = 0 }
 
 func (w *singleWarcFileWriter) writeOne(record WarcRecord, maxRecordSize int64) (uncompressed int64, err error) {
 	// Ensure records in this file reference the current warcinfo.
@@ -503,7 +534,7 @@ func (w *singleWarcFileWriter) writeOne(record WarcRecord, maxRecordSize int64) 
 	return uncompressed, nil
 }
 
-func (w *singleWarcFileWriter) createWarcInfo(fileName string) (int64, error) {
+func (w *singleWarcFileWriter) createWarcInfo(fileName string) (n int64, err error) {
 	r := NewRecordBuilder(Warcinfo, w.opts.recordOptions...)
 	r.AddWarcHeaderTime(WarcDate, now())
 	r.AddWarcHeader(WarcFilename, fileName)
@@ -517,21 +548,23 @@ func (w *singleWarcFileWriter) createWarcInfo(fileName string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer warcinfo.Close()
+	defer func() {
+		cerr := warcinfo.Close()
+		if err != nil {
+			err = errors.Join(err, cerr)
+		} else {
+			err = cerr
+		}
+	}()
 
 	w.warcInfoID = "" // don't self-reference
-	n, err := w.writeOne(warcinfo, 0)
+	n, err = w.writeOne(warcinfo, 0)
 	if err != nil {
 		return n, err
 	}
 
 	w.warcInfoID = warcinfo.WarcHeader().GetId(WarcRecordID)
 	return n, nil
-}
-
-// Close closes the current file. Next Write creates a new file.
-func (w *singleWarcFileWriter) Close() error {
-	return w.close()
 }
 
 func (w *singleWarcFileWriter) close() error {
@@ -566,6 +599,31 @@ func (w *singleWarcFileWriter) close() error {
 	}
 
 	return nil
+}
+
+type countingFileWriter struct {
+	f *os.File
+	n int64
+}
+
+func (c *countingFileWriter) Write(p []byte) (int, error) {
+	n, err := c.f.Write(p)
+	c.n += int64(n)
+	return n, err
+}
+
+func (c *countingFileWriter) Reset(f *os.File) { c.f = f; c.n = 0 }
+
+func contentLength(r WarcRecord) (int64, bool) {
+	s := r.WarcHeader().Get(ContentLength)
+	if s == "" {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(s, 10, 64)
+	if err != nil || n < 0 {
+		return 0, false
+	}
+	return n, true
 }
 
 // rename renames a file and fsyncs the parent directory to persist the change.
