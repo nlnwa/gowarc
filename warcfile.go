@@ -32,9 +32,9 @@ import (
 	"time"
 
 	"github.com/klauspost/compress/gzip"
-	"github.com/nlnwa/gowarc/v2/internal"
-	"github.com/nlnwa/gowarc/v2/internal/countingreader"
-	"github.com/nlnwa/gowarc/v2/internal/timestamp"
+	"github.com/nlnwa/gowarc/v3/internal"
+	"github.com/nlnwa/gowarc/v3/internal/countingreader"
+	"github.com/nlnwa/gowarc/v3/internal/timestamp"
 )
 
 // WarcFileNameGenerator is the interface that wraps the NewWarcfileName function.

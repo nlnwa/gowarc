@@ -23,7 +23,7 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/nlnwa/gowarc/v3/internal/diskbuffer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -50,7 +50,7 @@ func Test_warcfieldsBlock_BlockDigest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			
+
 			o := defaultWarcRecordOptions()
 			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
@@ -91,7 +91,7 @@ func Test_warcfieldsBlock_Cache(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			
+
 			o := defaultWarcRecordOptions()
 			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
@@ -130,7 +130,7 @@ func Test_warcfieldsBlock_IsCached(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			
+
 			o := defaultWarcRecordOptions()
 			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
@@ -167,7 +167,7 @@ func Test_warcfieldsBlock_RawBytes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			
+
 			o := defaultWarcRecordOptions()
 			block, validation, err := newWarcFieldsBlock(&o, &WarcFields{}, tt.data, d)
 			require.NoError(t, err)
@@ -199,7 +199,7 @@ func Test_warcfieldsBlock_Write(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			d, err := newDigest("sha1", Base16)
 			require.NoError(t, err)
-			
+
 			o := defaultWarcRecordOptions()
 			block, _, err := newWarcFieldsBlock(&o, &WarcFields{}, strings.NewReader(tt.content), d)
 			require.NoError(t, err)
@@ -222,7 +222,7 @@ func Test_warcfieldsBlock_Write(t *testing.T) {
 
 func Test_newWarcFieldsBlock_ReadError_ErrFail(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	
+
 	opts := &warcRecordOptions{errSyntax: ErrFail}
 
 	_, _, err := newWarcFieldsBlock(opts, &WarcFields{}, iotest.ErrReader(io.ErrUnexpectedEOF), d)
@@ -231,7 +231,7 @@ func Test_newWarcFieldsBlock_ReadError_ErrFail(t *testing.T) {
 
 func Test_newWarcFieldsBlock_ReadError_ErrWarn(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	
+
 	opts := &warcRecordOptions{errSyntax: ErrWarn}
 
 	block, validation, err := newWarcFieldsBlock(opts, &WarcFields{}, iotest.ErrReader(io.ErrUnexpectedEOF), d)
@@ -242,7 +242,7 @@ func Test_newWarcFieldsBlock_ReadError_ErrWarn(t *testing.T) {
 
 func Test_newWarcFieldsBlock_BlockValidationError_ErrBlockFail(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	
+
 	opts := &warcRecordOptions{errBlock: ErrFail, errSyntax: ErrWarn}
 
 	// Malformed warc fields content - errSyntax=ErrWarn puts error in blockValidation, errBlock=ErrFail returns it
@@ -253,7 +253,7 @@ func Test_newWarcFieldsBlock_BlockValidationError_ErrBlockFail(t *testing.T) {
 
 func Test_newWarcFieldsBlock_BlockValidationError_ErrBlockWarn(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	
+
 	opts := &warcRecordOptions{errBlock: ErrWarn, errSyntax: ErrWarn}
 
 	block, validation, err := newWarcFieldsBlock(opts, &WarcFields{}, strings.NewReader("invalid-no-colon-line\r\n"), d)
@@ -264,7 +264,7 @@ func Test_newWarcFieldsBlock_BlockValidationError_ErrBlockWarn(t *testing.T) {
 
 func Test_newWarcFieldsBlock_FixWarcFieldsBlockErrors(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
-	
+
 	opts := &warcRecordOptions{fixWarcFieldsBlockErrors: true}
 
 	// Even with invalid content, fix should not error out
@@ -276,7 +276,7 @@ func Test_newWarcFieldsBlock_FixWarcFieldsBlockErrors(t *testing.T) {
 func Test_warcfieldsBlock_Write_Error(t *testing.T) {
 	d, _ := newDigest("sha1", Base16)
 	o := defaultWarcRecordOptions()
-	
+
 	block, _, err := newWarcFieldsBlock(&o, &WarcFields{}, strings.NewReader("name: value\r\n"), d)
 	require.NoError(t, err)
 

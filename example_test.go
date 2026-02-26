@@ -22,7 +22,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/nlnwa/gowarc/v2"
+	"github.com/nlnwa/gowarc/v3"
 )
 
 func ExampleNewRecordBuilder() {

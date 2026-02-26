@@ -18,7 +18,7 @@ package gowarc
 
 import (
 	"github.com/google/uuid"
-	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/nlnwa/gowarc/v3/internal/diskbuffer"
 	"github.com/nlnwa/whatwg-url/url"
 )
 

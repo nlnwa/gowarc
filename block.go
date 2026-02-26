@@ -20,7 +20,7 @@ import (
 	"errors"
 	"io"
 
-	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/nlnwa/gowarc/v3/internal/diskbuffer"
 )
 
 // Block is the interface used to represent the content of a WARC record as specified by the WARC specification:

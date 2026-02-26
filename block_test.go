@@ -23,7 +23,7 @@ import (
 	"testing"
 	"testing/iotest"
 
-	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/nlnwa/gowarc/v3/internal/diskbuffer"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -299,4 +299,3 @@ func Test_genericBlock_RawBytes_SeekError(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "seek failed")
 }
-
