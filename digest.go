@@ -31,9 +31,10 @@ import (
 	"strings"
 )
 
-type digestEncoding uint8
+// DigestEncoding represents the encoding used for WARC digest values.
+type DigestEncoding uint8
 
-func (d digestEncoding) encode(digest *digest) string {
+func (d DigestEncoding) encode(digest *digest) string {
 	dig := digest.Sum(nil)
 	switch d {
 	case Base16:
@@ -47,7 +48,7 @@ func (d digestEncoding) encode(digest *digest) string {
 	}
 }
 
-func (d digestEncoding) decode(s string) ([]byte, error) {
+func (d DigestEncoding) decode(s string) ([]byte, error) {
 	switch d {
 	case Base16:
 		return hex.DecodeString(s)
@@ -61,13 +62,13 @@ func (d digestEncoding) decode(s string) ([]byte, error) {
 }
 
 const (
-	unknown digestEncoding = 0
-	Base16  digestEncoding = 1
-	Base32  digestEncoding = 2
-	Base64  digestEncoding = 3
+	unknown DigestEncoding = 0
+	Base16  DigestEncoding = 1
+	Base32  DigestEncoding = 2
+	Base64  DigestEncoding = 3
 )
 
-func detectEncoding(algorithm, digest string, defaultEncoding digestEncoding) digestEncoding {
+func detectEncoding(algorithm, digest string, defaultEncoding DigestEncoding) DigestEncoding {
 	var algorithmLength int
 	switch algorithm {
 	case "md5":
@@ -128,7 +129,7 @@ type digest struct {
 	name     string
 	hash     string
 	count    int64
-	encoding digestEncoding
+	encoding DigestEncoding
 }
 
 // Write (via the embedded io.Writer interface) adds more data to the running hash.
@@ -159,7 +160,11 @@ func (d *digest) validate() error {
 		return err
 	}
 	if !bytes.Equal(dig, d.Sum(nil)) {
-		return fmt.Errorf("wrong digest: expected %s:%s, computed: %s:%s", d.name, d.hash, d.name, computed)
+		return &DigestError{
+			Algorithm: d.name,
+			Expected:  d.hash,
+			Computed:  computed,
+		}
 	}
 	return nil
 }
@@ -175,7 +180,7 @@ func (d *digest) updateDigest() {
 //
 // The encoding is deduced from the length of the digestValue. In the case where only the algorithm is submitted
 // or the length of the digestValue is of wrong length for the supported encodings, the value of defaultEncoding is used.
-func newDigest(digestString string, defaultEncoding digestEncoding) (*digest, error) {
+func newDigest(digestString string, defaultEncoding DigestEncoding) (*digest, error) {
 	t := strings.SplitN(digestString, ":", 2)
 	algorithm := t[0]
 	algorithm = normalizeAlgorithmName(algorithm)
@@ -203,7 +208,7 @@ func newDigest(digestString string, defaultEncoding digestEncoding) (*digest, er
 	case "":
 		return &digest{sha1.New(), "sha1", hash, 0, encoding}, nil
 	default:
-		return nil, fmt.Errorf("unsupported digest algorithm '%s'", algorithm)
+		return nil, fmt.Errorf("%w: %s", ErrUnsupportedDigestAlgorithm, algorithm)
 	}
 }
 

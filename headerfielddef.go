@@ -19,12 +19,14 @@ package gowarc
 import (
 	"errors"
 	"fmt"
-	"github.com/nlnwa/whatwg-url/url"
 	"net"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/nlnwa/whatwg-url/url"
 )
 
 const (
@@ -55,11 +57,12 @@ const (
 	WarcJSONMetadata          = "WARC-JSON-Metadata" // Browsertrix extension field
 )
 
-// validateHeader validates a WarcFields object as a WARC-record header
-func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation, opts *warcRecordOptions) (RecordType, error) {
-	rt, err := resolveRecordType(wf, validation, opts)
+// validateHeader validates a WarcFields object as a WARC-record header.
+func validateHeader(wf *WarcFields, version *WarcVersion, opts *warcRecordOptions) (rt RecordType, validation []error, err error) {
+	rt, rtValidation, err := resolveRecordType(wf, opts)
+	validation = append(validation, rtValidation...)
 	if err != nil {
-		return rt, err
+		return rt, validation, err
 	}
 
 	if opts.errSpec > ErrIgnore {
@@ -71,18 +74,18 @@ func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation
 			if err != nil {
 				switch opts.errSpec {
 				case ErrWarn:
-					validation.addError(newHeaderFieldError(name, err.Error()))
+					validation = append(validation, newHeaderFieldError(name, err.Error()))
 				case ErrFail:
-					return rt, newHeaderFieldError(name, err.Error())
+					return rt, validation, newHeaderFieldError(name, err.Error())
 				}
 			}
 
 			if !def.repeatable && len(wf.GetAll(name)) > 1 {
 				switch opts.errSpec {
 				case ErrWarn:
-					validation.addError(newHeaderFieldError(name, "field occurs more than once"))
+					validation = append(validation, newHeaderFieldError(name, "field occurs more than once"))
 				case ErrFail:
-					return rt, newHeaderFieldError(name, "field occurs more than once")
+					return rt, validation, newHeaderFieldError(name, "field occurs more than once")
 				}
 			}
 		}
@@ -92,9 +95,9 @@ func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation
 			if !wf.Has(f) {
 				switch opts.errSpec {
 				case ErrWarn:
-					validation.addError(newHeaderFieldErrorf("", "missing required field: %s", f))
+					validation = append(validation, newHeaderFieldErrorf("", "missing required field: %s", f))
 				case ErrFail:
-					return rt, newHeaderFieldErrorf("", "missing required field: %s", f)
+					return rt, validation, newHeaderFieldErrorf("", "missing required field: %s", f)
 				}
 			}
 		}
@@ -102,9 +105,9 @@ func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation
 		if rt != Continuation && contentLength > 0 && !wf.Has(ContentType) {
 			switch opts.errSpec {
 			case ErrWarn:
-				validation.addError(newHeaderFieldErrorf("", "missing required field: %s", ContentType))
+				validation = append(validation, newHeaderFieldErrorf("", "missing required field: %s", ContentType))
 			case ErrFail:
-				return rt, newHeaderFieldErrorf("", "missing required field: %s", ContentType)
+				return rt, validation, newHeaderFieldErrorf("", "missing required field: %s", ContentType)
 			}
 		}
 
@@ -112,49 +115,48 @@ func validateHeader(wf *WarcFields, version *WarcVersion, validation *Validation
 		if (Warcinfo|Conversion|Continuation)&rt != 0 && wf.Has(WarcConcurrentTo) {
 			switch opts.errSpec {
 			case ErrWarn:
-				validation.addError(newHeaderFieldErrorf("", "not allowed for record type: %s", ContentType))
+				validation = append(validation, newHeaderFieldErrorf("", "not allowed for record type: %s", ContentType))
 			case ErrFail:
-				return rt, newHeaderFieldErrorf(WarcConcurrentTo, "not allowed for record type: %s", rt)
+				return rt, validation, newHeaderFieldErrorf(WarcConcurrentTo, "not allowed for record type: %s", rt)
 			}
 		}
 	}
-	return rt, nil
+	return rt, validation, nil
 }
 
-func resolveRecordType(wf *WarcFields, validation *Validation, opts *warcRecordOptions) (RecordType, error) {
+func resolveRecordType(wf *WarcFields, opts *warcRecordOptions) (rt RecordType, validation []error, err error) {
 	typeFieldNameLc := "warc-type"
 	var typeField string
 	for _, f := range *wf {
-		if strings.ToLower(f.Name) == typeFieldNameLc {
+		if lowerASCII(f.Name) == typeFieldNameLc {
 			typeField = f.Value
 			break
 		}
 	}
 
-	var rt RecordType
 	if typeField == "" {
 		rt = 0
 		switch opts.errSpec {
 		case ErrIgnore:
 		case ErrWarn:
-			validation.addError(errors.New("missing required field WARC-Type"))
+			validation = append(validation, errors.New("missing required field WARC-Type"))
 		case ErrFail:
-			return rt, errors.New("missing required field WARC-Type")
+			return rt, validation, errors.New("missing required field WARC-Type")
 		}
 	}
-	typeFieldValLc := strings.ToLower(typeField)
+	typeFieldValLc := lowerASCII(typeField)
 	rt = stringToRecordType(typeFieldValLc)
 	if rt == 0 {
 		switch opts.errUnknownRecordType {
 		case ErrIgnore:
 		case ErrWarn:
-			validation.addError(fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField))
+			validation = append(validation, fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField))
 		case ErrFail:
-			return rt, fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField)
+			return rt, validation, fmt.Errorf("unrecognized value '%s' in field WARC-Type", typeField)
 		}
 	}
 
-	return rt, nil
+	return rt, validation, nil
 }
 
 var requiredFields = []string{WarcRecordID, ContentLength, WarcDate, WarcType}
@@ -254,8 +256,37 @@ func init() {
 	}
 }
 
+func lowerASCII(s string) string {
+	hasUpper := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			hasUpper = true
+			continue
+		}
+		if c >= utf8.RuneSelf {
+			return strings.ToLower(s)
+		}
+	}
+
+	if !hasUpper {
+		return s
+	}
+
+	b := make([]byte, len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		} else {
+			b[i] = c
+		}
+	}
+	return string(b)
+}
+
 func normalizeName(name string) (string, fieldDef) {
-	lcName := strings.ToLower(name)
+	lcName := lowerASCII(name)
 	if f, ok := lcHdrNameToDef[lcName]; ok {
 		return f.name, f
 	}

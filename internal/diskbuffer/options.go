@@ -16,66 +16,42 @@
 
 package diskbuffer
 
-// browserControllerOptions configure the BrowserController. browserControllerOptions are set by the BrowserControllerOption
-// values passed to New.
 type options struct {
-	maxMemBytes       int64
+	maxMemBytes       int
 	maxTotalBytes     int64
-	memBufferSizeHint int64
+	memBufferSizeHint int
 	tmpDir            string
 	readOnly          bool
 }
 
-// BrowserControllerOption configures BrowserController.
-type Option interface {
-	apply(*options)
-}
-
-// funcBrowserControllerOption wraps a function that modifies browserControllerOptions into an
-// implementation of the BrowserControllerOption interface.
-type funcOption struct {
-	f func(*options)
-}
-
-func (fco *funcOption) apply(po *options) {
-	fco.f(po)
-}
-
-func newFuncOption(f func(*options)) *funcOption {
-	return &funcOption{
-		f: f,
-	}
-}
+// Option configures a Buffer created by New.
+type Option func(*options)
 
 func defaultOptions() options {
 	return options{
 		maxMemBytes:       1024 * 1024, // 1 MB
 		maxTotalBytes:     0,           // No limit
 		tmpDir:            "",          // Use OS default
-		memBufferSizeHint: 1024 * 16,
+		memBufferSizeHint: 1024 * 16,   // 16 KB
 	}
 }
 
-func WithMaxMemBytes(size int64) Option {
-	return newFuncOption(func(o *options) {
-		o.maxMemBytes = size
-	})
+func WithMaxMemBytes(size int) Option {
+	return func(o *options) { o.maxMemBytes = size }
 }
 
-func WithMemBufferSizeHint(size int64) Option {
-	return newFuncOption(func(o *options) {
-		o.memBufferSizeHint = size
-	})
+func WithMemBufferSizeHint(size int) Option {
+	return func(o *options) { o.memBufferSizeHint = size }
 }
 
 func WithMaxTotalBytes(size int64) Option {
-	return newFuncOption(func(o *options) {
-		o.maxTotalBytes = size
-	})
+	return func(o *options) { o.maxTotalBytes = size }
 }
 
 func WithTmpDir(dir string) Option {
-	return newFuncOption(func(o *options) {
-		o.tmpDir = dir
-	})
+	return func(o *options) { o.tmpDir = dir }
+}
+
+func WithReadOnly(readOnly bool) Option {
+	return func(o *options) { o.readOnly = readOnly }
 }

@@ -16,8 +16,6 @@
 
 package diskbuffer
 
-// A buffer which holds data in memory until a defined size and overflow extra data to a temporary file.
-
 import (
 	"bytes"
 	"errors"
@@ -29,314 +27,460 @@ import (
 const (
 	tmpFilePrefix = "tmp-diskbuffer-"
 	unlimited     = math.MaxInt64
+	readChunkSize = 32 * 1024
 )
+
+var (
+	ErrReadOnly      = errors.New("diskbuffer: mutating operation attempted on read only buffer")
+	ErrClosed        = errors.New("diskbuffer: use after close")
+	errInvalidOffset = errors.New("diskbuffer: invalid offset")
+	errWhence        = errors.New("diskbuffer: invalid whence")
+	errNegativeCount = errors.New("diskbuffer: negative count")
+)
+
+// ErrMaxSizeExceeded is returned when the maximum allowed buffer size is reached when writing
+type ErrMaxSizeExceeded int64
+
+func (e ErrMaxSizeExceeded) Error() string {
+	return fmt.Sprintf("diskbuffer: maximum size %d exceeded", e)
+}
 
 type Buffer interface {
 	io.Reader
+	io.ReaderAt
 	io.Writer
+	io.ByteReader
+	io.ByteWriter
 	io.Closer
 	io.ReaderFrom
 	io.StringWriter
 	io.WriterTo
 	io.Seeker
 	ReadBytes(delim byte) (line []byte, err error)
-	ReadString(delim byte) (line string, err error)
 	Peek(n int) (p []byte, err error)
 	Size() int64
-	Slice(offset, len int64) Slice
 }
 
-// A Buffer is a variable-sized buffer of bytes with Read and Write methods.
-// The zero value for Buffer is an empty buffer ready to use.
+// buffer implements the Buffer interface as a two-tier store: data is first
+// written to an in-memory buffer, then spills to a temporary file when the
+// memory limit is reached.
 type buffer struct {
-	opts    options
+	tmpDir string
+
+	pos   int64
+	limit int64
+
 	memBuf  *memBuffer
 	fileBuf *fileBuffer
-	off     int64 // read at &buf[off], write at &buf[len(buf)]
-	max     int64
+
+	readOnly bool
+	closed   bool
 }
 
-var ErrReadOnly = errors.New("diskbuffer.Buffer: mutating operation attempted on read only buffer")
-
-// ErrTooLarge is passed to panic if memory cannot be allocated to store data in a buffer.
-var ErrTooLarge = errors.New("diskbuffer.Buffer: too large")
-
-// ErrMaxSizeExceeded is returned when the maximum allowed buffer size is reached when writing
-type ErrMaxSizeExceeded int64
-
-func (e ErrMaxSizeExceeded) Error() string {
-	return fmt.Sprintf("diskbuffer.Buffer: maximum size %d exceeded", e)
-}
-
-var errNegativeRead = errors.New("diskbuffer.Buffer: reader returned negative count from Read")
-
-// String returns the contents of the unread portion of the buffer
-// as a string. If the Buffer is a nil pointer, it returns "<nil>".
-//
-// To build strings more efficiently, see the strings.Builder type.
-func (b *buffer) String() string {
-	if b == nil {
-		// Special case, useful in debugging.
-		return "<nil>"
+// New creates and initializes a new Buffer using sizeHint as the initial size of the memory buffer
+func New(opts ...Option) Buffer {
+	o := defaultOptions()
+	for _, opt := range opts {
+		opt(&o)
 	}
-	return fmt.Sprintf("size: %d, cap: %d, off: %d (mem: %d/%d, disk: %d/%d)",
-		b.Size(), b.Cap(), b.off, b.memBuf.size(), b.memBuf.cap(), b.fileBuf.size(), b.fileBuf.cap())
+
+	b := &buffer{
+		readOnly: o.readOnly,
+		tmpDir:   o.tmpDir,
+	}
+
+	// Normalize total limit
+	total := max(o.maxTotalBytes, 0)
+	if total == 0 {
+		total = unlimited
+	}
+
+	b.limit = total
+
+	// Normalize memory limit
+	memMax := int64(max(o.maxMemBytes, 0))
+	if total != unlimited && memMax > total {
+		memMax = total
+	}
+
+	// Normalize hint
+	hint := max(o.memBufferSizeHint, 0)
+
+	// Always create; memMax==0 just means it immediately spills to disk.
+	b.memBuf = newMemBuffer(memMax, hint)
+
+	return b
 }
 
-// empty reports whether the unread portion of the buffer is empty.
-func (b *buffer) empty() bool { return b.Len() <= 0 }
+func (b *buffer) Close() error {
+	if b.closed {
+		return nil
+	}
+	b.closed = true
+	b.memBuf = nil
+	if b.fileBuf == nil {
+		return nil
+	}
+	err := b.fileBuf.close()
+	b.fileBuf = nil
+	return err
+}
 
-// Len returns the number of bytes of the unread portion of the buffer;
+func (b *buffer) ensureOpen() error {
+	if b.closed {
+		return ErrClosed
+	}
+	return nil
+}
+
+// Len returns the number of bytes of the unread portion of the buffer.
 // b.Len() == len(b.Bytes()).
 func (b *buffer) Len() int64 {
-	return b.Size() - b.off
+	n := b.Size() - b.pos
+	if n < 0 {
+		return 0
+	}
+	return n
 }
 
 func (b *buffer) Size() int64 {
-	return b.memBuf.size() + b.fileBuf.size()
+	if b.closed {
+		return 0
+	}
+	sz := b.memBuf.Size()
+	if b.fileBuf != nil {
+		sz += b.fileBuf.Size()
+	}
+	return sz
 }
 
-// Cap returns the capacity of the buffer's underlying byte slice, that is, the
-// total space allocated for the buffer's data.
-func (b *buffer) Cap() int64 { return b.max }
-
-// Write appends the contents of p to the buffer, growing the buffer as
-// needed. The return value n is the length of p; err is always nil. If the
-// buffer becomes too large, Write will panic with ErrTooLarge.
-func (b *buffer) Write(p []byte) (n int, err error) {
-	if b.opts.readOnly {
-		return 0, ErrReadOnly
+// Limit returns the maximum number of bytes the buffer can hold.
+func (b *buffer) Limit() int64 {
+	if b.closed {
+		return 0
 	}
+	return b.limit
+}
+
+// Write appends p to the buffer.
+// It may return ErrReadOnly if the buffer is read-only, or ErrMaxSizeExceeded if the configured total limit is reached.
+// It may write fewer than len(p) bytes when returning ErrMaxSizeExceeded.
+func (b *buffer) Write(p []byte) (n int, err error) {
 	return b.write(p)
 }
 
 func (b *buffer) write(p []byte) (int, error) {
-	if b.opts.readOnly {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
+	}
+	if b.readOnly {
 		return 0, ErrReadOnly
 	}
+	if len(p) == 0 {
+		return 0, nil
+	}
 
-	var wrote int
-	var err error
+	wrote := 0
+
 	if b.memBuf.hasSpace() {
 		n := b.memBuf.write(p)
-		wrote = n
-		if b.memBuf.hasSpace() {
-			// All was written to memory buffer
+		wrote += n
+		if wrote == len(p) {
 			return wrote, nil
 		}
+		p = p[n:]
+	}
 
-		// we can't write to memory any more, switch to file
-		if b.fileBuf, err = newFileBuffer(b.max-b.memBuf.cap(), b.opts.tmpDir); err != nil {
+	if b.fileBuf == nil {
+		limit := b.remainingTotal()
+		if limit == 0 {
+			return wrote, ErrMaxSizeExceeded(b.limit)
+		}
+		fb, err := newFileBuffer(limit, b.tmpDir)
+		if err != nil {
 			return wrote, err
 		}
-		p = p[wrote:]
+		b.fileBuf = fb
 	}
-	// There is more to write, add to file
+
 	n, err := b.fileBuf.write(p)
 	wrote += n
 	return wrote, err
 }
 
-// WriteString appends the contents of s to the buffer, growing the buffer as
-// needed. The return value n is the length of s; err is always nil. If the
-// buffer becomes too large, WriteString will panic with ErrTooLarge.
-func (b *buffer) WriteString(s string) (n int, err error) {
-	if b.opts.readOnly {
-		return 0, ErrReadOnly
-	}
-	return b.write([]byte(s))
+// WriteString appends s to the buffer. See Write for error semantics.
+func (b *buffer) WriteString(s string) (int, error) {
+	return b.writeString(s)
 }
 
-// WriteByte appends the byte c to the buffer, growing the buffer as needed.
-// The returned error is always nil, but is included to match bufio.Writer's
-// WriteByte. If the buffer becomes too large, WriteByte will panic with
-// ErrTooLarge.
-func (b *buffer) WriteByte(c byte) error {
-	if b.opts.readOnly {
-		return ErrReadOnly
+func (b *buffer) writeString(s string) (int, error) {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
 	}
-	_, err := b.write([]byte{c})
-	return err
-}
-
-// ReadFrom reads data from r until EOF and appends it to the buffer, growing
-// the buffer as needed. The return value n is the number of bytes read. Any
-// error except io.EOF encountered during the read is also returned. If the
-// buffer becomes too large, ReadFrom will panic with ErrTooLarge.
-func (b *buffer) ReadFrom(r io.Reader) (n int64, err error) {
-	if b.opts.readOnly {
+	if b.readOnly {
 		return 0, ErrReadOnly
 	}
+	if len(s) == 0 {
+		return 0, nil
+	}
 
-	var wrote int64
+	wrote := 0
+
+	// Fill mem first
 	if b.memBuf.hasSpace() {
-		wrote, err = b.memBuf.readFrom(r)
-		if err == io.EOF {
+		n := b.memBuf.writeString(s)
+		wrote += n
+		if wrote == len(s) {
 			return wrote, nil
 		}
+		s = s[n:]
+	}
+
+	// Ensure file buffer exists
+	if b.fileBuf == nil {
+		limit := b.remainingTotal()
+		if limit == 0 {
+			return wrote, ErrMaxSizeExceeded(b.limit)
+		}
+		fb, err := newFileBuffer(limit, b.tmpDir)
 		if err != nil {
 			return wrote, err
 		}
-		if b.memBuf.hasSpace() {
-			// All was written to memory buffer
-			return wrote, nil
-		}
-
-		// we can't write to memory any more, switch to file
-		var err error
-		if b.fileBuf, err = newFileBuffer(b.max-b.memBuf.cap(), b.opts.tmpDir); err != nil {
-			return wrote, err
-		}
+		b.fileBuf = fb
 	}
 
-	// There is more to write, add to file
-	n, err = b.fileBuf.readFrom(r)
+	n, err := b.fileBuf.write([]byte(s))
 	wrote += n
 	return wrote, err
+}
+
+// WriteByte appends a single byte to the buffer. See Write for error semantics.
+func (b *buffer) WriteByte(c byte) error {
+	var one [1]byte
+	one[0] = c
+	_, err := b.write(one[:])
+	return err
+}
+
+// ReadFrom reads from r until EOF and appends to the buffer.
+// It returns ErrReadOnly if read-only, and ErrMaxSizeExceeded if the buffer reaches its configured limit.
+// On ErrMaxSizeExceeded, n is the number of bytes successfully stored.
+func (b *buffer) ReadFrom(r io.Reader) (int64, error) {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
+	}
+	if b.readOnly {
+		return 0, ErrReadOnly
+	}
+	buf := make([]byte, readChunkSize)
+	var total int64
+	for {
+		n, err := r.Read(buf)
+		if n > 0 {
+			m, werr := b.write(buf[:n])
+			total += int64(m)
+			if werr != nil {
+				return total, werr
+			}
+			if m != n {
+				return total, io.ErrShortWrite
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return total, nil
+			}
+			return total, err
+		}
+	}
 }
 
 // WriteTo writes data to w until the buffer is drained or an error occurs.
 // The return value n is the number of bytes written. Any error
 // encountered during the write is also returned.
 func (b *buffer) WriteTo(w io.Writer) (n int64, err error) {
-	m, err := w.Write(b.memBuf.bytes())
-	n = int64(m)
-	b.off += n
-	if err != nil {
-		return n, err
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
 	}
 
-	if b.fileBuf != nil {
-		// Memory buffer exhausted, write to file
-		m, err := b.fileBuf.writeTo(0, w)
-		n += m
-		b.off += m
-		if err != nil {
-			return n, err
+	mem := b.memBuf.bytes()
+	memSize := int64(len(mem))
+
+	if b.pos < memSize {
+		toWrite := memSize - b.pos
+		m, e := w.Write(mem[int(b.pos):])
+		n += int64(m)
+		b.pos += int64(m)
+		if e != nil {
+			return n, e
 		}
-		// all bytes should have been written, by definition of
-		// Write method in io.Writer
-		//if n != b.bytesWritten-b.memBuf.size() {
-		//	fmt.Printf("!!! s: %v, ml: %v, n:%v\n", b.bytesWritten, b.memBuf.size(), n)
-		//
-		//	return n, io.ErrShortWrite
-		//}
+		if int64(m) < toWrite {
+			return n, io.ErrShortWrite
+		}
 	}
+
+	if b.fileBuf != nil && b.pos < b.Size() {
+		diskOff := b.pos - memSize
+		m, e := b.fileBuf.writeToAt(diskOff, w)
+		n += m
+		b.pos += m
+		if e != nil {
+			return n, e
+		}
+	}
+
 	return n, nil
 }
 
-// Read reads the next len(p) bytes from the buffer or until the buffer
-// is drained. The return value n is the number of bytes read. If the
-// buffer has no data to return, err is io.EOF (unless len(p) is zero);
-// otherwise it is nil.
+// Read reads up to len(p) bytes from the current read position
+// and advances the position by the number of bytes read.
+//
+// When Read reaches the end of the buffer, it returns the number
+// of bytes read and io.EOF. Subsequent reads return 0, io.EOF.
+//
+// Read implements standard io.Reader semantics.
 func (b *buffer) Read(p []byte) (n int, err error) {
-	if b.empty() {
-		if len(p) == 0 {
-			return 0, nil
-		}
-		return 0, io.EOF
-	}
-	n, err = b.memBuf.read(b.off, p)
-	b.off += int64(n)
+	n, err = b.ReadAt(p, b.pos)
+	b.pos += int64(n)
 
-	if err == io.EOF && len(p) > n && b.fileBuf != nil {
-		// Memory buffer exhausted, read from file
-		var m int
-		m, err = b.fileBuf.read(b.off-b.memBuf.size(), p[n:])
-		b.off += int64(m)
-		n += m
+	if err == io.EOF && n > 0 {
+		return n, nil
 	}
+
 	return n, err
 }
 
-// Peek returns the next n bytes without advancing the reader.
-// If Peek returns fewer than n bytes, it also returns an error explaining why the read is short.
-// The error is ErrBufferFull if n is larger than b's buffer size.
+// ReadAt reads up to len(p) bytes starting at absolute offset off.
+// It implements io.ReaderAt semantics.
 //
-// Calling Peek prevents a UnreadByte or UnreadRune call from succeeding until the next read operation.
-func (b *buffer) Peek(n int) (p []byte, err error) {
-	peekOffset := b.off
-	p = make([]byte, n)
+// If fewer than len(p) bytes are available, ReadAt returns the
+// number of bytes read and a non-nil error, typically io.EOF.
+// ReadAt does not modify the buffer's read position.
+func (b *buffer) ReadAt(p []byte, off int64) (n int, err error) {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
+	}
+	if len(p) == 0 {
+		return 0, nil
+	}
+	if off < 0 {
+		return 0, errInvalidOffset
+	}
 
-	if b.empty() {
-		if n == 0 {
-			return p, nil
+	size := b.Size()
+	if off >= size {
+		return 0, io.EOF
+	}
+
+	mem := b.memBuf.bytes()
+	memSize := int64(len(mem))
+
+	// Read from memory region if off is inside it.
+	if off < memSize {
+		start := int(off) // safe: off < len(mem) <= int range by construction
+		n = copy(p, mem[start:])
+		off += int64(n)
+
+		if n == len(p) {
+			return n, nil
 		}
+		// We consumed all memory; continue on disk.
+		p = p[n:]
+	}
+
+	if b.fileBuf == nil {
+		return n, io.EOF
+	}
+
+	diskOff := off - memSize
+	m, e := b.fileBuf.readAt(diskOff, p)
+	n += m
+
+	// If disk read filled remainder, success.
+	if m == len(p) {
+		return n, nil
+	}
+
+	// Otherwise short read; preserve the most relevant error.
+	if e != nil {
+		return n, e
+	}
+	return n, io.EOF
+}
+
+// Peek returns up to n bytes starting at the current read position without advancing it.
+// If fewer than n bytes are available, Peek returns the available bytes and io.EOF.
+func (b *buffer) Peek(n int) ([]byte, error) {
+	if err := b.ensureOpen(); err != nil {
+		return nil, err
+	}
+	if n < 0 {
+		return nil, errNegativeCount
+	}
+	if n == 0 {
+		return []byte{}, nil
+	}
+	if b.Len() == 0 {
+		return []byte{}, io.EOF
+	}
+	if int64(n) > b.Len() {
+		n = int(b.Len())
+		p := make([]byte, n)
+		_, _ = b.ReadAt(p, b.pos)
 		return p, io.EOF
 	}
-	n, err = b.memBuf.read(peekOffset, p)
-	peekOffset += int64(n)
-
-	if err == io.EOF && len(p) > n && b.fileBuf != nil {
-		// Memory buffer exhausted, read from file
-		_, err = b.fileBuf.read(peekOffset-b.memBuf.size(), p[n:])
-	}
+	p := make([]byte, n)
+	_, err := b.ReadAt(p, b.pos)
 	return p, err
 }
 
-// ReadAtOffset reads the next len(p) bytes from the buffer starting at off or until the buffer
-// is drained. The return value n is the number of bytes read. If the
-// buffer has no data to return, err is io.EOF (unless len(p) is zero);
-// otherwise it is nil.
-func (b *buffer) ReadAtOffset(off int64, p []byte) (n int, err error) {
-	if b.Size()-off <= 0 {
-		if len(p) == 0 {
-			return 0, nil
-		}
-		return 0, io.EOF
-	}
-	n, err = b.memBuf.read(off, p)
-	off += int64(n)
-
-	if err == io.EOF && len(p) > n && b.fileBuf != nil {
-		// Memory buffer exhausted, read from file
-		var m int
-		m, err = b.fileBuf.read(off-b.memBuf.size(), p[n:])
-		n += m
-	}
-	return n, err
-}
-
 // ReadByte reads and returns the next byte from the buffer.
 // If no byte is available, it returns error io.EOF.
-func (b *buffer) ReadByte() (c byte, err error) {
-	if b.empty() {
+func (b *buffer) ReadByte() (byte, error) {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
+	}
+	if b.Len() == 0 {
 		return 0, io.EOF
 	}
-	if b.off < b.memBuf.len {
-		c, err = b.memBuf.readByte(b.off)
-		if err != nil {
-			return 0, err
-		}
-	} else {
-		c, err = b.fileBuf.readByte(b.off - b.memBuf.size())
-		if err != nil {
-			return 0, err
-		}
+
+	c, err := b.ReadByteAt(b.pos)
+	if err != nil {
+		return 0, err
 	}
 
-	b.off++
-	return c, err
+	b.pos++
+	return c, nil
 }
 
-// ReadByte reads and returns the next byte from the buffer.
-// If no byte is available, it returns error io.EOF.
-func (b *buffer) ReadByteAt(off int64) (c byte, err error) {
-	if b.empty() {
+// ReadByteAt reads and returns the byte at absolute offset off in the buffer.
+// It does not advance the read position.
+func (b *buffer) ReadByteAt(off int64) (byte, error) {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
+	}
+	if off < 0 {
+		return 0, errInvalidOffset
+	}
+
+	size := b.Size()
+	if off >= size {
 		return 0, io.EOF
 	}
-	if off < b.memBuf.len {
-		c, err = b.memBuf.readByte(off)
-		if err != nil {
-			return 0, err
-		}
-	} else {
-		c, err = b.fileBuf.readByte(off - b.memBuf.size())
-		if err != nil {
-			return 0, err
-		}
+
+	mem := b.memBuf.bytes()
+	memSize := int64(len(mem))
+
+	if off < memSize {
+		// safe: off < memSize <= int range by construction
+		return mem[int(off)], nil
 	}
-	return c, err
+
+	if b.fileBuf == nil {
+		// size says there should be data, but no file buffer exists -> invariant violation
+		return 0, io.EOF
+	}
+	return b.fileBuf.readByteAt(off - memSize)
 }
 
 // ReadBytes reads until the first occurrence of delim in the input,
@@ -345,111 +489,99 @@ func (b *buffer) ReadByteAt(off int64) (c byte, err error) {
 // it returns the data read before the error and the error itself (often io.EOF).
 // ReadBytes returns err != nil if and only if the returned data does not end in
 // delim.
-func (b *buffer) ReadBytes(delim byte) (line []byte, err error) {
-	if b.empty() {
+func (b *buffer) ReadBytes(delim byte) ([]byte, error) {
+	if err := b.ensureOpen(); err != nil {
+		return nil, err
+	}
+	if b.Len() == 0 {
 		return []byte{}, io.EOF
 	}
-	found := false
-	if b.off < b.memBuf.len {
-		i := int64(bytes.IndexByte(b.memBuf.buf[b.off:], delim))
-		end := b.off + i + 1
-		if i < 0 {
-			end = b.memBuf.len
-			if b.memBuf.hasSpace() {
-				err = io.EOF
-			}
-		} else {
-			found = true
+
+	var line []byte
+
+	mem := b.memBuf.bytes()
+	memSize := int64(len(mem))
+
+	if b.pos < memSize {
+		// b.off fits in int because memSize <= mem limit <= int
+		start := int(b.pos)
+
+		if i := bytes.IndexByte(mem[start:], delim); i >= 0 {
+			end := start + i + 1
+			line = append(line, mem[start:end]...)
+			b.pos = int64(end)
+			return line, nil
 		}
-		slice := b.memBuf.buf[b.off:end]
-		// return a copy of slice. The buffer's backing array may
-		// be overwritten by later calls.
-		line = append(line, slice...)
-		b.off = end
+
+		// Delim not found in remaining memory: take all remaining mem.
+		line = append(line, mem[start:]...)
+		b.pos = memSize
 	}
-	// if delim not found in memory, try disk
-	if err == nil && !found {
-		p := make([]byte, 100)
-		off := b.off - b.memBuf.size()
-		for {
-			var n int
-			n, err = b.fileBuf.read(off, p)
-			if n > 0 {
-				i := bytes.IndexByte(p[:n], delim)
+
+	if b.fileBuf == nil || b.pos >= b.Size() {
+		return line, io.EOF
+	}
+
+	diskOff := b.pos - memSize
+	buf := make([]byte, readChunkSize) // chunk size
+
+	for {
+		n, err := b.fileBuf.readAt(diskOff, buf)
+		if n > 0 {
+			if i := bytes.IndexByte(buf[:n], delim); i >= 0 {
 				end := i + 1
-				if i < 0 {
-					line = append(line, p[:n]...)
-					off += int64(n)
-				} else {
-					// found delim
-					line = append(line, p[:end]...)
-					off += int64(end)
-					err = nil
-					break
-				}
+				line = append(line, buf[:end]...)
+				diskOff += int64(end)
+				b.pos = memSize + diskOff
+				return line, nil
 			}
-			if err != nil {
-				break
-			}
+			line = append(line, buf[:n]...)
+			diskOff += int64(n)
 		}
-		b.off = b.memBuf.size() + off
+
+		if err != nil {
+			// io.EOF means we drained disk without finding delim.
+			b.pos = memSize + diskOff
+			return line, err
+		}
 	}
-	return line, err
 }
 
-// ReadString reads until the first occurrence of delim in the input,
-// returning a string containing the data up to and including the delimiter.
-// If ReadString encounters an error before finding a delimiter,
-// it returns the data read before the error and the error itself (often io.EOF).
-// ReadString returns err != nil if and only if the returned data does not end
-// in delim.
-func (b *buffer) ReadString(delim byte) (line string, err error) {
-	slice, err := b.ReadBytes(delim)
-	return string(slice), err
-}
-
+// Seek sets the read position. It follows standard io.Seeker semantics:
+// seeking past end is allowed; subsequent reads at that position return 0, io.EOF.
 func (b *buffer) Seek(offset int64, whence int) (int64, error) {
+	if err := b.ensureOpen(); err != nil {
+		return 0, err
+	}
+
+	var base int64
 	switch whence {
 	case io.SeekStart:
-		b.off = offset
+		base = 0
 	case io.SeekCurrent:
-		b.off += offset
+		base = b.pos
 	case io.SeekEnd:
-		b.off = b.Size() - offset
+		base = b.Size()
+	default:
+		return 0, errWhence
 	}
-	return b.off, nil
+
+	newOff := base + offset
+	if newOff < 0 {
+		return 0, errInvalidOffset
+	}
+
+	b.pos = newOff
+	return b.pos, nil
 }
 
-func (b *buffer) Close() error {
-	return b.fileBuf.close()
-}
-
-// New creates and initializes a new Buffer using sizeHint as the initialsize of the memory buffer
-func New(opts ...Option) Buffer {
-	b := &buffer{
-		opts: defaultOptions(),
+func (b *buffer) remainingTotal() int64 {
+	if b.limit == unlimited {
+		return unlimited
 	}
-	for _, opt := range opts {
-		opt.apply(&b.opts)
+	rem := b.limit - b.Size()
+	if rem < 0 {
+		return 0
 	}
-
-	if b.opts.maxTotalBytes > 0 && b.opts.maxMemBytes > b.opts.maxTotalBytes {
-		b.opts.maxMemBytes = b.opts.maxTotalBytes
-	}
-
-	if b.opts.maxMemBytes > 0 {
-		if b.opts.memBufferSizeHint > b.opts.maxMemBytes {
-			b.opts.memBufferSizeHint = b.opts.maxMemBytes
-		}
-		b.memBuf = newMemBuffer(b.opts.maxMemBytes, b.opts.memBufferSizeHint)
-	}
-
-	if b.opts.maxTotalBytes == 0 {
-		b.max = unlimited
-		//} else if b.opts.maxTotalBytes >= b.opts.maxMemBytes {
-		//	b.bytesLeftFile = b.opts.maxTotalBytes - b.opts.maxMemBytes
-	} else {
-		b.max = b.opts.maxTotalBytes
-	}
-	return b
+	return rem
 }

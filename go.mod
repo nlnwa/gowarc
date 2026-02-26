@@ -1,4 +1,4 @@
-module github.com/nlnwa/gowarc/v2
+module github.com/nlnwa/gowarc/v3
 
 go 1.24.0
 

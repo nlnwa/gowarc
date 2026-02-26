@@ -1,7 +1,7 @@
-![Lint](https://github.com/nlnwa/gowarc/workflows/golangci-lint/badge.svg)
+[![Test](https://github.com/nlnwa/gowarc/actions/workflows/test.yml/badge.svg)](https://github.com/nlnwa/gowarc/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/release/nlnwa/gowarc.svg)](https://github.com/nlnwa/gowarc/releases/latest)
 [![License](https://img.shields.io/github/license/nlnwa/gowarc)](/LICENSE)
-[![PkgGoDev](https://pkg.go.dev/badge/github.com/nlnwa/gowarc)](https://pkg.go.dev/github.com/nlnwa/gowarc)
+[![PkgGoDev](https://pkg.go.dev/badge/github.com/nlnwa/gowarc/v3.svg)](https://pkg.go.dev/github.com/nlnwa/gowarc/v3)
 
 # gowarc
 
@@ -20,7 +20,7 @@ at https://iipc.github.io/warc-specifications/specifications/warc-format/warc-1.
 #### Installation
 
 ```
-$ go get github.com/nlnwa/gowarc
+$ go get github.com/nlnwa/gowarc/v3
 ```
 
 #### Create a new WARC record
@@ -32,7 +32,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/nlnwa/gowarc"
+	"github.com/nlnwa/gowarc/v3"
 )
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 	builder.AddWarcHeader(gowarc.ContentType, "application/http;msgtype=response")
 	builder.AddWarcHeader(gowarc.WarcBlockDigest, "sha1:B285747AD7CC57AA74BCE2E30B453C8D1CB71BA4")
 
-	if wr, v, err := builder.Finalize(); err == nil {
+	if wr, v, err := builder.Build(); err == nil {
 		fmt.Println(wr, v)
 	}
 }
@@ -57,9 +57,9 @@ func main() {
 
 ### godoc
 
-For complete documentation and examples consult the godoc online at: https://pkg.go.dev/github.com/nlnwa/gowarc
+For complete documentation and examples consult the godoc online at: https://pkg.go.dev/github.com/nlnwa/gowarc/v3
 
 
 ## Command line tools
 
-[warchaeology](https://github.com/nlnwa/warchaeology) is a command line tool based on gowarc.
+[warchaeology](https://github.com/nationallibraryofnorway/warchaeology) is a command line tool based on gowarc.

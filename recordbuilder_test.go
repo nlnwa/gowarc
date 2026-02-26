@@ -17,11 +17,14 @@
 package gowarc
 
 import (
+	"fmt"
 	"io"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRecordBuilder(t *testing.T) {
@@ -33,9 +36,9 @@ func TestRecordBuilder(t *testing.T) {
 	}
 	type want struct {
 		headers    *WarcFields
-		blockType  interface{}
+		blockType  any
 		data       string
-		validation *Validation
+		validation []error
 		cached     bool
 	}
 	tests := []struct {
@@ -79,7 +82,7 @@ func TestRecordBuilder(t *testing.T) {
 					"creator: temp-MJFXHZ4S\r\n" +
 					"isPartOf: Temporary%20Collection\r\n" +
 					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -115,7 +118,7 @@ func TestRecordBuilder(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\r\n\r\nThis is the content",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -155,7 +158,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -195,7 +198,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
-				&Validation{errMissingEndOfHeaders},
+				[]error{errMissingEndOfHeaders},
 				true,
 			},
 			false,
@@ -235,7 +238,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			true,
@@ -271,7 +274,7 @@ func TestRecordBuilder(t *testing.T) {
 				"via: http://www.example.com/\r\n" +
 					"hopsFromSeed: P\r\n" +
 					"fetchTimeMs: 47\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -311,7 +314,7 @@ func TestRecordBuilder(t *testing.T) {
 				"<html><head></head>\n" +
 					"<body></body>\n" +
 					"</html>\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -359,7 +362,7 @@ func TestRecordBuilder(t *testing.T) {
 					"Server: Apache/2.0.54 (Ubuntu) PHP/5.0.5-2ubuntu1.4 Connection: Keep-Alive\n" +
 					"Keep-Alive: timeout=15, max=100\n" +
 					"ETag: \"3e45-67e-2ed02ec0\"\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -393,7 +396,7 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"body text\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -433,7 +436,7 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"... last part of data\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -468,7 +471,7 @@ func TestRecordBuilder(t *testing.T) {
 				},
 				&genericBlock{},
 				"content\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			false,
@@ -535,4 +538,239 @@ func TestRecordBuilder_AddWarcHeader(t *testing.T) {
 
 	assert.ElementsMatch(t, []*nameValue(*expected.WarcHeader()), []*nameValue(*record.WarcHeader()))
 	assert.Equal(t, expectedValidation, validation)
+}
+
+func TestRecordBuilder_Write(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    []byte
+		wantLen int
+	}{
+		{"short content", []byte("Hello"), 5},
+		{"empty content", []byte{}, 0},
+		{"binary content", []byte{0x00, 0x01, 0x02}, 3},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rb := NewRecordBuilder(Warcinfo, WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+			rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+			rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+			rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+
+			n, err := rb.Write(tt.data)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantLen, n)
+
+			record, _, err := rb.Build()
+			assert.NoError(t, err)
+			defer func() { assert.NoError(t, record.Close()) }()
+
+			r, err := record.Block().RawBytes()
+			assert.NoError(t, err)
+			content, _ := io.ReadAll(r)
+			assert.Equal(t, tt.data, content)
+		})
+	}
+}
+
+func TestRecordBuilder_ReadFrom(t *testing.T) {
+	tests := []struct {
+		name    string
+		data    string
+		wantLen int64
+	}{
+		{"short string", "Hello World", 11},
+		{"empty string", "", 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rb := NewRecordBuilder(Warcinfo, WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+			rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+			rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+			rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+
+			n, err := rb.ReadFrom(strings.NewReader(tt.data))
+			assert.NoError(t, err)
+			assert.Equal(t, tt.wantLen, n)
+
+			record, _, err := rb.Build()
+			assert.NoError(t, err)
+			defer func() { assert.NoError(t, record.Close()) }()
+
+			r, err := record.Block().RawBytes()
+			assert.NoError(t, err)
+			content, _ := io.ReadAll(r)
+			assert.Equal(t, tt.data, string(content))
+		})
+	}
+}
+
+func TestRecordBuilder_Size(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     string
+		wantSize int64
+	}{
+		{"empty", "", 0},
+		{"five bytes", "Hello", 5},
+		{"longer content", "Hello World!!", 13},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rb := NewRecordBuilder(Warcinfo, WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+			rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+			rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+			rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+
+			assert.Equal(t, int64(0), rb.Size())
+
+			_, _ = rb.WriteString(tt.data)
+			assert.Equal(t, tt.wantSize, rb.Size())
+
+			record, _, err := rb.Build()
+			assert.NoError(t, err)
+			defer func() { assert.NoError(t, record.Close()) }()
+		})
+	}
+}
+
+func TestRecordBuilder_SetRecordType(t *testing.T) {
+	tests := []struct {
+		name       string
+		initial    RecordType
+		override   RecordType
+		wantHeader string
+	}{
+		{"warcinfo to metadata", Warcinfo, Metadata, "metadata"},
+		{"resource to response", Resource, Response, "response"},
+		{"response to request", Response, Request, "request"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rb := NewRecordBuilder(tt.initial, WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+			rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+			rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+			rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+
+			rb.SetRecordType(tt.override)
+
+			record, _, err := rb.Build()
+			assert.NoError(t, err)
+			defer func() { assert.NoError(t, record.Close()) }()
+
+			assert.Equal(t, tt.override, record.Type())
+			assert.Equal(t, tt.wantHeader, record.WarcHeader().Get(WarcType))
+		})
+	}
+}
+
+func TestRecordBuilder_Build_FailedRecordIdFunc(t *testing.T) {
+	rb := NewRecordBuilder(Warcinfo,
+		WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore),
+		WithAddMissingRecordId(true),
+		WithRecordIdFunc(func() (string, error) {
+			return "", fmt.Errorf("id gen failed")
+		}),
+	)
+	rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+	rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+	rb.AddWarcHeader(ContentLength, "0")
+
+	_, _, err := rb.Build()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "id gen failed")
+}
+
+func TestRecordBuilder_Build_ValidationFailure(t *testing.T) {
+	// Missing required WARC-Type when recordType is 0
+	rb := NewRecordBuilder(0,
+		WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail),
+	)
+	rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+	rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+	rb.AddWarcHeader(ContentLength, "0")
+
+	_, _, err := rb.Build()
+	require.Error(t, err)
+}
+
+func TestRecordBuilder_AddWarcHeaderTime_V1_0(t *testing.T) {
+	rb := NewRecordBuilder(Warcinfo,
+		WithVersion(V1_0),
+		WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore),
+	)
+	now := time.Date(2024, 1, 1, 12, 30, 45, 123456789, time.UTC)
+	rb.AddWarcHeaderTime(WarcDate, now)
+	rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+	rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+	rb.AddWarcHeader(ContentLength, "0")
+
+	rec, _, err := rb.Build()
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+
+	// V1_0 should use RFC3339 (no nanoseconds)
+	assert.Equal(t, "2024-01-01T12:30:45Z", rec.WarcHeader().Get(WarcDate))
+}
+
+func TestRecordBuilder_AddWarcHeaderTime_V1_1(t *testing.T) {
+	rb := NewRecordBuilder(Warcinfo,
+		WithVersion(V1_1),
+		WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore),
+	)
+	now := time.Date(2024, 1, 1, 12, 30, 45, 123456789, time.UTC)
+	rb.AddWarcHeaderTime(WarcDate, now)
+	rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+	rb.AddWarcHeader(ContentType, ApplicationWarcFields)
+	rb.AddWarcHeader(ContentLength, "0")
+
+	rec, _, err := rb.Build()
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+
+	// V1_1 should use RFC3339Nano
+	assert.Equal(t, "2024-01-01T12:30:45.123456789Z", rec.WarcHeader().Get(WarcDate))
+}
+
+func TestRecordBuilder_NoRecordType(t *testing.T) {
+	rb := NewRecordBuilder(0,
+		WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore),
+		WithUnknownRecordTypePolicy(ErrIgnore),
+	)
+	rb.AddWarcHeader(WarcRecordID, "<urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>")
+	rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+	rb.AddWarcHeader(ContentLength, "0")
+
+	rec, _, err := rb.Build()
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.Equal(t, RecordType(0), rec.Type())
+}
+
+func TestRecordBuilder_Close(t *testing.T) {
+	rb := NewRecordBuilder(Warcinfo)
+	_, err := rb.WriteString("test")
+	require.NoError(t, err)
+	assert.Equal(t, int64(4), rb.Size())
+	require.NoError(t, rb.Close())
+}
+
+func TestRecordBuilder_Build_RecordIdFuncError(t *testing.T) {
+	// Use a custom recordIdFunc that returns an error
+	rb := NewRecordBuilder(Warcinfo,
+		WithRecordIdFunc(func() (string, error) {
+			return "", fmt.Errorf("id generation failed")
+		}),
+		WithAddMissingRecordId(true),
+	)
+	_, err := rb.WriteString("test")
+	require.NoError(t, err)
+	rb.AddWarcHeader(WarcDate, "2024-01-01T00:00:00Z")
+	rb.AddWarcHeader(ContentType, "application/warc-fields")
+	rb.AddWarcHeader(ContentLength, "4")
+
+	// Build should fail because recordIdFunc errors
+	_, _, err = rb.Build()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "id generation failed")
 }

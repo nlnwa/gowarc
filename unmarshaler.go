@@ -19,27 +19,31 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/klauspost/compress/gzip"
-	"github.com/nlnwa/gowarc/v2/internal/countingreader"
+	"github.com/nlnwa/gowarc/v3/internal/countingreader"
 )
 
-// Unmarshaler is the interface implemented by types that can unmarshal a WARC record. A new instance of Unmarshaler is created by calling [NewUnmarshaler].
-// NewUnmarshaler accepts a number of options that can be used to control the unmarshalling process. See [WarcRecordOption] for details.
+// Unmarshaler is the interface implemented by types that can unmarshal a WARC record.
+// A new instance of Unmarshaler is created by calling [NewUnmarshaler].
+// NewUnmarshaler accepts a number of options that can be used to control the unmarshalling process.
+// See [WarcRecordOption] for details.
 //
 // Unmarshal parses the WARC record from the given reader and returns:
-//   - The parsed WARC record. If an error occurred during the parsing, the returned WARC record might be nil.
-//   - The offset value indicating the number of characters that have been discarded until the start of a new record is found.
-//   - A pointer to a [Validation] object that stores any errors or warnings encountered during the parsing process.
-//     The validation object is only populated if the error specification is set to ErrWarn or ErrFail.
-//   - The standard error object in Go. If no error occurred during the parsing, this object is nil. Otherwise, it contains details about the encountered error.
+//   - record: the parsed [WarcRecord]. May be nil if a fatal error occurred.
+//   - offset: the number of bytes that were discarded before the start of the record was found.
+//   - validation: a slice of non-fatal errors discovered during parsing (populated when
+//     an [ErrorPolicy] is set to [ErrWarn]).
+//   - err: a fatal error, if any. A nil err does not imply the record is fully valid;
+//     check the validation slice for warnings.
 //
 // If the reader contains multiple records, Unmarshal parses the first record and returns.
 // If the reader contains no records, Unmarshal returns an [io.EOF] error.
 type Unmarshaler interface {
-	Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation, error)
+	Unmarshal(b *bufio.Reader) (record WarcRecord, offset int64, validation []error, err error)
 }
 
 // unmarshaler implements the Unmarshaler interface.
@@ -47,6 +51,7 @@ type unmarshaler struct {
 	opts             *warcRecordOptions
 	warcFieldsParser *warcfieldsParser
 	gz               *gzip.Reader // Holds gzip reader for enabling reuse
+	gzBuf            *bufio.Reader
 }
 
 func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
@@ -54,51 +59,56 @@ func NewUnmarshaler(opts ...WarcRecordOption) Unmarshaler {
 
 	u := &unmarshaler{
 		opts:             o,
-		warcFieldsParser: &warcfieldsParser{o},
+		warcFieldsParser: &warcfieldsParser{Options: o},
 	}
 	return u
 }
 
+func isGzipMagic(magic []byte) bool {
+	return len(magic) >= 2 && magic[0] == 0x1f && magic[1] == 0x8b
+}
+
+func isWARCMagic(magic []byte) bool {
+	return len(magic) >= 5 && bytes.Equal(magic[:5], warcMagic)
+}
+
 // Unmarshal implements the Unmarshal method in the Unmarshaler interface.
-func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation, error) {
+func (u *unmarshaler) Unmarshal(b *bufio.Reader) (rec WarcRecord, offset int64, validation []error, err error) {
 	var r *bufio.Reader
-	var offset int64
-	validation := &Validation{}
+	var vErr error
 	isGzip := false
+	var buf []byte
 
-	magic, err := b.Peek(5)
+	buf, err = b.Peek(5)
 	if err != nil {
-		return nil, offset, validation, err
-	}
-
-	isGzipMagic := func(magic []byte) bool {
-		return len(magic) >= 2 && magic[0] == 0x1f && magic[1] == 0x8b
-	}
-	isWARCMagic := func(magic []byte) bool {
-		return len(magic) >= 5 && bytes.Equal(magic[:5], []byte("WARC/"))
+		return
 	}
 
 	// Search for start of new record
-	for !isGzipMagic(magic) && !isWARCMagic(magic) {
+	for !isGzipMagic(buf) && !isWARCMagic(buf) {
 		if u.opts.errSyntax >= ErrFail {
-			return nil, offset, validation, newSyntaxError("expected start of record", &position{})
+			err = newSyntaxError("expected start of record")
+			return
 		}
 		if _, err = b.Discard(1); err != nil {
-			return nil, offset, validation, err
+			return
 		}
 		offset++
-		magic, err = b.Peek(5)
+		buf, err = b.Peek(5)
 		if err != nil {
-			return nil, offset, validation, err
+			if errors.Is(err, io.EOF) && offset > 0 {
+				err = fmt.Errorf("%w: scanned %d bytes without finding WARC magic", ErrNoRecord, offset)
+			}
+			return
 		}
 	}
 	if u.opts.errSyntax >= ErrWarn && offset != 0 {
-		validation.addError(newSyntaxError(
+		validation = append(validation, newSyntaxError(
 			fmt.Sprintf("record was found %d bytes after expected offset",
-				offset), &position{}))
+				offset)))
 	}
 
-	if isGzipMagic(magic) {
+	if isGzipMagic(buf) {
 		isGzip = true
 		if u.gz == nil {
 			u.gz, err = gzip.NewReader(b)
@@ -106,50 +116,86 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 			err = u.gz.Reset(b)
 		}
 		if err != nil {
-			return nil, offset, validation, err
+			return
 		}
 		u.gz.Multistream(false)
-		r = bufio.NewReader(u.gz)
+
+		defer func() {
+			if err != nil {
+				_ = u.gz.Close()
+			}
+		}()
+		if u.gzBuf == nil {
+			u.gzBuf = bufio.NewReader(u.gz)
+		} else {
+			u.gzBuf.Reset(u.gz)
+		}
+		r = u.gzBuf
 	} else {
 		r = b
 	}
 
+	lineNumber := 0
+
 	// Find WARC version
-	pos := &position{}
-	l := make([]byte, 5)
-	i, err := io.ReadFull(r, l)
+	buf, err = r.ReadBytes('\n')
 	if err != nil {
-		return nil, offset, validation, err
+		return
 	}
-	pos.incrLineNumber()
-	if i != 5 || !isWARCMagic(l) {
-		return nil, offset, validation, newSyntaxError("missing record version", pos)
+	lineNumber++
+
+	if !isWARCMagic(buf) {
+		err = newSyntaxErrorAtLine("missing record version", lineNumber)
+		return
 	}
-	l, err = r.ReadBytes('\n')
-	if err != nil {
-		return nil, offset, validation, err
-	}
-	if l[len(l)-2] != '\r' {
-		switch u.opts.errSyntax {
+
+	var version *WarcVersion
+
+	v := buf[5:]
+	if bytes.HasPrefix(v, v1_0) {
+		version = V1_0
+	} else if bytes.HasPrefix(v, v1_1) {
+		version = V1_1
+	} else {
+		version = &WarcVersion{txt: string(bytes.TrimSpace(v))}
+		vErr = fmt.Errorf("unsupported WARC version: %v", version)
+
+		switch u.opts.errSpec {
 		case ErrWarn:
-			validation.addError(newSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos))
+			validation = append(validation, vErr)
 		case ErrFail:
-			return nil, offset, validation, newSyntaxError(fmt.Sprintf("missing carriage return on line '%s'", bytes.Trim(l, sphtcrlf)), pos)
+			err = vErr
+			return
 		}
 	}
-	version, err := u.resolveRecordVersion(string(bytes.Trim(l, sphtcrlf)), validation)
-	if err != nil {
-		return nil, offset, validation, err
+
+	if !bytes.HasSuffix(buf, crlf) && u.opts.errSyntax > ErrIgnore {
+		sErr := newSyntaxErrorAtLine(
+			fmt.Sprintf("missing carriage return on line %q", bytes.TrimSpace(buf)),
+			lineNumber,
+		)
+		if u.opts.errSyntax == ErrFail {
+			err = sErr
+			return
+		}
+		validation = append(validation, sErr)
 	}
 
 	// Parse WARC header
-	wf, err := u.warcFieldsParser.Parse(r, validation, pos)
+	u.warcFieldsParser.lineNumber = lineNumber
+	var wf *WarcFields
+	var parseValidation []error
+	wf, parseValidation, err = u.warcFieldsParser.Parse(r)
+	validation = append(validation, parseValidation...)
 	if err != nil {
-		return nil, offset, validation, err
+		return
 	}
-	rt, err := validateHeader(wf, version, validation, u.opts)
+	var rt RecordType
+	var headerValidation []error
+	rt, headerValidation, err = validateHeader(wf, version, u.opts)
+	validation = append(validation, headerValidation...)
 	if err != nil {
-		return nil, offset, validation, err
+		return
 	}
 
 	record := &warcRecord{
@@ -157,8 +203,6 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		version:    version,
 		headers:    wf,
 		recordType: rt,
-		block:      nil,
-		closer:     nil,
 	}
 
 	record.closer = func() error {
@@ -168,82 +212,77 @@ func (u *unmarshaler) Unmarshal(b *bufio.Reader) (WarcRecord, int64, *Validation
 		return nil
 	}
 
+	defer func() {
+		if err != nil && record != nil {
+			if cerr := record.Close(); cerr != nil {
+				err = errors.Join(err, cerr)
+			}
+		}
+	}()
+
 	length, _ := record.headers.GetInt64(ContentLength)
 	content := countingreader.NewLimited(r, length)
 
-	err = record.parseBlock(bufio.NewReader(content), validation)
+	var blockValidation []error
+	blockValidation, err = record.parseBlock(content)
+	validation = append(validation, blockValidation...)
 	if err != nil {
-		return record, offset, validation, err
+		return
 	}
 
-	err = record.ValidateDigest(validation)
+	var digestValidation []error
+	digestValidation, err = record.ValidateDigest()
+	validation = append(validation, digestValidation...)
 	if err != nil {
-		return record, offset, validation, err
+		return
 	}
 
 	// Discard any remaining bytes in block not read by parseBlock
 	_, err = io.Copy(io.Discard, content)
 	if err != nil {
-		return record, offset, validation, err
+		return
 	}
 
 	// Validate end of record marker
-	buf, err := r.Peek(4)
-	if string(buf) == crlfcrlf {
+	buf, vErr = r.Peek(4)
+	if bytes.Equal(buf, crlfcrlf) {
 		_, _ = r.Discard(4)
 	} else if len(buf) == 0 {
-		err = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		vErr = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, buf)
 	} else if len(buf) == 1 && buf[0] == lf {
-		err = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		vErr = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, buf)
 		_, _ = r.Discard(1)
 	} else if len(buf) == 2 && buf[0] == lf && buf[1] == lf {
-		err = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		vErr = fmt.Errorf("missing carriage return in end of record marker. Expected %q, was %q", crlfcrlf, buf)
 		_, _ = r.Discard(2)
 	} else if len(buf) < 4 {
-		err = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, buf)
+		vErr = fmt.Errorf("too few bytes in end of record marker. Expected %q, was %q", crlfcrlf, buf)
 		_, _ = r.Discard(len(buf))
 	} else if err == io.EOF {
-		err = fmt.Errorf("unexpected end of record. Expected %q, was %q", crlfcrlf, buf)
+		vErr = fmt.Errorf("unexpected end of record. Expected %q, was %q", crlfcrlf, buf)
 		_, _ = r.Discard(len(buf))
 	}
-	if err != nil {
+	if vErr != nil {
 		switch u.opts.errSpec {
 		case ErrFail:
-			return record, offset, validation, err
+			err = vErr
+			return
 		case ErrWarn:
-			validation.addError(err)
+			validation = append(validation, vErr)
 		}
 	}
 	if isGzip {
-		// Empty gzip reader to ensure gzip checksum is validated
+		// Drain gzip reader to ensure gzip checksum is validated
 		_, err = io.Copy(io.Discard, u.gz)
-		if err != io.EOF {
-			_ = u.gz.Close()
-			return record, offset, validation, err
+		if errors.Is(err, io.EOF) {
+			err = nil
 		}
-		if err := u.gz.Close(); err != nil {
-			return record, offset, validation, err
+		if cerr := u.gz.Close(); err != nil || cerr != nil {
+			err = errors.Join(err, cerr)
+			return
 		}
 	}
 
-	return record, offset, validation, nil
-}
-
-func (u *unmarshaler) resolveRecordVersion(s string, validation *Validation) (*WarcVersion, error) {
-	switch s {
-	case V1_0.txt:
-		return V1_0, nil
-	case V1_1.txt:
-		return V1_1, nil
-	default:
-		switch u.opts.errSpec {
-		case ErrWarn:
-			validation.addError(fmt.Errorf("unsupported WARC version: %v", s))
-			return &WarcVersion{txt: s}, nil
-		case ErrFail:
-			return nil, fmt.Errorf("unsupported WARC version: %v", s)
-		default:
-			return &WarcVersion{txt: s}, nil
-		}
-	}
+	rec = record
+	return
 }

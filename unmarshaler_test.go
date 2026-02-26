@@ -19,13 +19,15 @@ package gowarc
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
-	"github.com/klauspost/compress/gzip"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/klauspost/compress/gzip"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_unmarshaler_Unmarshal(t *testing.T) {
@@ -33,9 +35,9 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 		version    *WarcVersion
 		recordType RecordType
 		headers    *WarcFields
-		blockType  interface{}
+		blockType  any
 		content    string
-		validation *Validation
+		validation []error
 		cached     bool
 	}
 	tests := []struct {
@@ -82,7 +84,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"creator: temp-MJFXHZ4S\r\n" +
 					"isPartOf: Temporary%20Collection\r\n" +
 					"json-metadata: {\"title\": \"Temporary Collection\", \"size\": 2865, \"created_at\": 1488772924, \"type\": \"collection\", \"desc\": \"\"}\r\n",
-				validation: &Validation{},
+				validation: []error(nil),
 				cached:     true,
 			},
 			0,
@@ -118,7 +120,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"HTTP/1.1 200 OK\nDate: Tue, 19 Sep 2016 17:18:40 GMT\nServer: Apache/2.0.54 (Ubuntu)\n" +
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the content",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -161,7 +163,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				&genericBlock{},
 				"20191113232334\n" +
 					"ergoterapeutene.org.\t300\tIN\tA\t195.159.29.211\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -203,7 +205,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Referer: http://example.com/foo.html\n" +
 					"Connection: close\n" +
 					"User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/56.0.2924.87 Safari/537.36\n\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -241,7 +243,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"via: http://www.example.com/\r\n" +
 					"hopsFromSeed: P\r\n" +
 					"fetchTimeMs: 47\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -283,7 +285,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				"<html><head></head>\n" +
 					"<body></body>\n" +
 					"</html>\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -333,7 +335,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Server: Apache/2.0.54 (Ubuntu) PHP/5.0.5-2ubuntu1.4 Connection: Keep-Alive\n" +
 					"Keep-Alive: timeout=15, max=100\n" +
 					"ETag: \"3e45-67e-2ed02ec0\"\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -369,7 +371,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&genericBlock{},
 				"body text\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -411,7 +413,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&genericBlock{},
 				"... last part of data\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -447,7 +449,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&genericBlock{},
 				"content\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -476,7 +478,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -506,7 +508,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -536,7 +538,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -566,7 +568,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\r\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -609,7 +611,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\nfood:bar\n",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -653,9 +655,9 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"Foo: bar\r\nFood: bar\r\n",
-				&Validation{
-					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
-					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
+				[]error{
+					&ContentLengthError{Expected: 18, Actual: 21},
+					fmt.Errorf("block: %w", &DigestError{Algorithm: "sha1", Expected: "QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY", Computed: "U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO"}),
 				},
 				true,
 			},
@@ -700,9 +702,9 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"foo: bar\nfood:bar\n",
-				&Validation{
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
+				[]error{
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 1)),
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 2)),
 				},
 				true,
 			},
@@ -748,11 +750,11 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&warcFieldsBlock{},
 				"Foo: bar\r\nFood: bar\r\n",
-				&Validation{
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{1})),
-					newWrappedSyntaxError("error in warc fields block", nil, newSyntaxError("missing carriage return", &position{2})),
-					fmt.Errorf("content length mismatch. header: 18, actual: 21"),
-					fmt.Errorf("block: %w", fmt.Errorf("wrong digest: expected sha1:QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY, computed: sha1:U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO")),
+				[]error{
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 1)),
+					newWrappedSyntaxError("error in warc fields block", newSyntaxErrorAtLine("missing carriage return", 2)),
+					&ContentLengthError{Expected: 18, Actual: 21},
+					fmt.Errorf("block: %w", &DigestError{Algorithm: "sha1", Expected: "QYG3QQJ4ULYPJGSJL34IS3U7VUAJFSKY", Computed: "U2AN4MFP7IITXSOLYH2QTIPVDNJOHBFO"}),
 				},
 				true,
 			},
@@ -788,7 +790,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Last-Modified: Mon, 16 Jun 2013 22:28:51 GMT\nETag: \"3e45-67e-2ed02ec0\"\nAccept-Ranges: bytes\n" +
 					"Content-Length: 19\nConnection: close\nContent-Type: text/plain\n\nThis is the " +
 					"\r\n\r\n",
-				&Validation{},
+				[]error(nil),
 				false,
 			},
 			0,
@@ -836,7 +838,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Referer: http://www.archive.org/\r\n" +
 					"Host: www.archive.org\r\n" +
 					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n",
-				&Validation{errMissingEndOfHeaders},
+				[]error{errMissingEndOfHeaders},
 				true,
 			},
 			0,
@@ -884,7 +886,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					"Referer: http://www.archive.org/\r\n" +
 					"Host: www.archive.org\r\n" +
 					"Cookie: PHPSESSID=009d7bb11022f80605aa87e18224d824\r\n\r\n",
-				&Validation{},
+				[]error(nil),
 				false,
 			},
 			0,
@@ -915,7 +917,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 				},
 				&revisitBlock{},
 				"",
-				&Validation{},
+				[]error(nil),
 				true,
 			},
 			0,
@@ -953,24 +955,284 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 			assert.Equal(tt.want.content, string(content), "Content")
 			assert.Equal(tt.wantOffset, gotOffset, "Offset")
 
-			err2 := gotRecord.ValidateDigest(validation)
+			v2, err2 := gotRecord.ValidateDigest()
 			if !tt.wantErr {
 				require.NoError(err2)
 			}
+			validation = append(validation, v2...)
 
 			err3 := gotRecord.Close()
 			if tt.wantErr {
-				require.Error(multiErr{err1, err2, err3})
+				require.Error(errors.Join(err1, err2, err3))
 			} else {
 				require.NoError(err3)
 			}
 
-			assert.Equal(tt.want.validation, validation, "Want:\n %s\nGot:\n %s", tt.want.validation, validation.String())
+			assert.Equal(tt.want.validation, validation, "Want:\n %s\nGot:\n %s", tt.want.validation, fmt.Sprint(validation))
 		})
 	}
 }
 
-var unmarshallerBenchmarkResult interface{}
+var unmarshallerBenchmarkResult any
+
+func Test_unmarshaler_Unmarshal_GarbageBeforeRecord_ErrFail(t *testing.T) {
+	input := "GARBAGE" +
+		"WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail))
+	data := bufio.NewReader(strings.NewReader(input))
+	_, _, _, err := u.Unmarshal(data)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "expected start of record")
+}
+
+func Test_unmarshaler_Unmarshal_GarbageBeforeRecord_ErrWarn(t *testing.T) {
+	input := "XX" +
+		"WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrWarn))
+	data := bufio.NewReader(strings.NewReader(input))
+	rec, offset, validation, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.Equal(t, int64(2), offset)
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "bytes after expected offset")
+}
+
+func Test_unmarshaler_Unmarshal_UnsupportedVersion_ErrFail(t *testing.T) {
+	input := "WARC/9.9\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail))
+	data := bufio.NewReader(strings.NewReader(input))
+	_, _, _, err := u.Unmarshal(data)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported WARC version")
+}
+
+func Test_unmarshaler_Unmarshal_UnsupportedVersion_ErrWarn(t *testing.T) {
+	input := "WARC/9.9\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrWarn),
+		WithUnknownRecordTypePolicy(ErrIgnore))
+	data := bufio.NewReader(strings.NewReader(input))
+	rec, _, validation, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "unsupported WARC version")
+}
+
+func Test_unmarshaler_Unmarshal_MissingCRLF_ErrFail(t *testing.T) {
+	input := "WARC/1.0\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail))
+	data := bufio.NewReader(strings.NewReader(input))
+	_, _, _, err := u.Unmarshal(data)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "missing carriage return")
+}
+
+func Test_unmarshaler_Unmarshal_MissingCRLF_ErrWarn(t *testing.T) {
+	input := "WARC/1.0\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrWarn))
+	data := bufio.NewReader(strings.NewReader(input))
+	rec, _, validation, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "missing carriage return")
+}
+
+func Test_unmarshaler_Unmarshal_GzipRecord(t *testing.T) {
+	record := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	buf := &bytes.Buffer{}
+	z := gzip.NewWriter(buf)
+	_, err := z.Write([]byte(record))
+	require.NoError(t, err)
+	require.NoError(t, z.Close())
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail))
+	data := bufio.NewReader(bytes.NewReader(buf.Bytes()))
+	rec, _, _, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.Equal(t, V1_0, rec.Version())
+	assert.Equal(t, Warcinfo, rec.Type())
+}
+
+func Test_unmarshaler_Unmarshal_GzipRecord_Reuse(t *testing.T) {
+	record := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	// Create two gzip-compressed records
+	buf := &bytes.Buffer{}
+	z := gzip.NewWriter(buf)
+	_, _ = z.Write([]byte(record))
+	_ = z.Close()
+	z2 := gzip.NewWriter(buf)
+	_, _ = z2.Write([]byte(record))
+	_ = z2.Close()
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail))
+	data := bufio.NewReader(bytes.NewReader(buf.Bytes()))
+
+	// First unmarshal creates gz reader
+	rec1, _, _, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	func() { assert.NoError(t, rec1.Close()) }()
+
+	// Second unmarshal reuses gz reader
+	rec2, _, _, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	func() { assert.NoError(t, rec2.Close()) }()
+}
+
+func Test_unmarshaler_Unmarshal_ShortInput(t *testing.T) {
+	u := NewUnmarshaler()
+	data := bufio.NewReader(strings.NewReader("WA"))
+	_, _, _, err := u.Unmarshal(data)
+	require.Error(t, err)
+}
+
+func Test_unmarshaler_Unmarshal_MissingVersion(t *testing.T) {
+	input := "NOT-WARC\r\n"
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+	// Pad enough bytes so Peek(5) works
+	data := bufio.NewReader(strings.NewReader(input))
+	_, _, _, err := u.Unmarshal(data)
+	require.Error(t, err)
+}
+
+func Test_unmarshaler_Unmarshal_EndOfRecordMarker_Missing(t *testing.T) {
+	input := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n"
+	// Missing \r\n\r\n at the end
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrFail))
+	data := bufio.NewReader(strings.NewReader(input))
+	_, _, _, err := u.Unmarshal(data)
+	require.Error(t, err)
+}
+
+func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFOnly(t *testing.T) {
+	input := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrWarn))
+	data := bufio.NewReader(strings.NewReader(input))
+	rec, _, validation, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "missing carriage return in end of record marker")
+}
+
+func Test_unmarshaler_Unmarshal_EndOfRecordMarker_LFLFOnly(t *testing.T) {
+	input := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\n\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrWarn))
+	data := bufio.NewReader(strings.NewReader(input))
+	rec, _, validation, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "missing carriage return in end of record marker")
+}
+
+func Test_unmarshaler_Unmarshal_EndOfRecordMarker_TooFewBytes(t *testing.T) {
+	input := "WARC/1.0\r\n" +
+		"WARC-Date: 2017-03-06T04:03:53Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:e9a0cecc-0221-11e7-adb1-0242ac120008>\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrWarn))
+	data := bufio.NewReader(strings.NewReader(input))
+	rec, _, validation, err := u.Unmarshal(data)
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.False(t, len(validation) == 0)
+	assert.Contains(t, fmt.Sprint(validation), "too few bytes in end of record marker")
+}
 
 func BenchmarkUnmarshaler_Unmarshal_compressed(b *testing.B) {
 	record := "WARC/1.0\r\n" +
@@ -992,10 +1254,185 @@ func BenchmarkUnmarshaler_Unmarshal_compressed(b *testing.B) {
 	_ = z.Close()
 
 	u := NewUnmarshaler(WithNoValidation())
+	r := bytes.NewReader(recordCompressed.Bytes())
+	data := bufio.NewReader(r)
 
+	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
-		data := bufio.NewReader(bytes.NewReader(recordCompressed.Bytes()))
+		r.Reset(recordCompressed.Bytes())
+		data.Reset(r)
 		gotRecord, _, _, _ := u.Unmarshal(data)
 		unmarshallerBenchmarkResult = gotRecord.Close()
 	}
+}
+
+func Test_Unmarshal_CorruptGzip(t *testing.T) {
+	// Feed valid gzip magic bytes but corrupt body so gzip.NewReader fails
+	corruptGzip := []byte{0x1f, 0x8b, 0x08, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+	_, _, _, err := u.Unmarshal(bufio.NewReader(bytes.NewReader(corruptGzip)))
+	assert.Error(t, err)
+}
+
+func Test_Unmarshal_GzipNonWARCContent(t *testing.T) {
+	// Gzip stream that decompresses to non-WARC content (not starting with "WARC/")
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	_, _ = gz.Write([]byte("NOT A WARC RECORD\r\n\r\n"))
+	_ = gz.Close()
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+	_, _, _, err := u.Unmarshal(bufio.NewReader(&buf))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing record version")
+}
+
+func Test_Unmarshal_MissingCR_ErrFail(t *testing.T) {
+	// Version line with LF only (no CR), and errSyntax=ErrFail should fail
+	record := "WARC/1.1\n" + // LF only, no CR
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSyntaxErrorPolicy(ErrFail))
+	_, _, _, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "missing carriage return")
+}
+
+func Test_Unmarshal_MissingCR_ErrWarn(t *testing.T) {
+	// Version line with LF only (no CR), errSyntax=ErrWarn adds validation error
+	record := "WARC/1.1\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSyntaxErrorPolicy(ErrWarn), WithSpecViolationPolicy(ErrIgnore))
+	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.NotEmpty(t, v) // Should have a validation warning about missing CR
+}
+
+func Test_Unmarshal_EndOfRecordMarker_SingleLF(t *testing.T) {
+	// End-of-record marker is a single LF instead of CRLFCRLF
+	record := "WARC/1.1\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrIgnore))
+	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.NotEmpty(t, v) // validation should flag the bad marker
+}
+
+func Test_Unmarshal_EndOfRecordMarker_DoubleLF(t *testing.T) {
+	// End-of-record marker is \n\n instead of \r\n\r\n
+	record := "WARC/1.1\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\n\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrIgnore))
+	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.NotEmpty(t, v)
+}
+
+func Test_Unmarshal_EndOfRecordMarker_TooFew(t *testing.T) {
+	// End-of-record has fewer than 4 bytes but more than 2 (e.g., 3 bytes like \r\n\r)
+	record := "WARC/1.1\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r" // only 3 bytes
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrWarn), WithSyntaxErrorPolicy(ErrIgnore))
+	rec, _, v, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, rec.Close()) }()
+	assert.NotEmpty(t, v)
+}
+
+func Test_Unmarshal_EndOfRecordMarker_ErrFail(t *testing.T) {
+	// Bad end-of-record marker with ErrFail should return error
+	record := "WARC/1.1\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\n\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrIgnore))
+	_, _, _, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	assert.Error(t, err)
+}
+
+func Test_Unmarshal_GzipReuseReset(t *testing.T) {
+	// First unmarshal a valid gzip record, then a corrupt one. Tests gz.Reset() error path.
+	record := "WARC/1.1\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	var compressed bytes.Buffer
+	gz := gzip.NewWriter(&compressed)
+	_, _ = gz.Write([]byte(record))
+	_ = gz.Close()
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrIgnore), WithSyntaxErrorPolicy(ErrIgnore))
+	// First call initializes u.gz
+	rec, _, _, err := u.Unmarshal(bufio.NewReader(bytes.NewReader(compressed.Bytes())))
+	require.NoError(t, err)
+	_ = rec.Close()
+
+	// Second call with corrupt gzip triggers gz.Reset() error path
+	corruptGzip := []byte{0x1f, 0x8b, 0x08, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff}
+	_, _, _, err = u.Unmarshal(bufio.NewReader(bytes.NewReader(corruptGzip)))
+	assert.Error(t, err)
+}
+
+func Test_Unmarshal_ValidateDigestError(t *testing.T) {
+	// Create a record with wrong block digest — ValidateDigest should produce error with ErrFail
+	record := "WARC/1.1\r\n" +
+		"WARC-Type: warcinfo\r\n" +
+		"WARC-Date: 2006-09-19T17:29:44Z\r\n" +
+		"WARC-Record-ID: <urn:uuid:d7ae5c10-e6b3-4d27-967d-34780c58ba39>\r\n" +
+		"Content-Type: application/warc-fields\r\n" +
+		"WARC-Block-Digest: sha1:0000000000000000000000000000000000000000\r\n" +
+		"Content-Length: 0\r\n" +
+		"\r\n" +
+		"\r\n\r\n"
+
+	u := NewUnmarshaler(WithSpecViolationPolicy(ErrFail), WithSyntaxErrorPolicy(ErrIgnore))
+	_, _, _, err := u.Unmarshal(bufio.NewReader(strings.NewReader(record)))
+	assert.Error(t, err)
 }

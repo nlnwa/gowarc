@@ -240,15 +240,35 @@ func (wf *WarcFields) Sort() {
 }
 
 // Write implements the io.Writer interface.
-func (wf *WarcFields) Write(w io.Writer) (bytesWritten int64, err error) {
-	var n int
+func (wf *WarcFields) Write(w io.Writer) (n int64, err error) {
+	var m int
+
 	for _, field := range *wf {
-		n, err = fmt.Fprintf(w, "%s: %s\r\n", field.Name, field.Value)
-		bytesWritten += int64(n)
+		m, err = io.WriteString(w, field.Name)
+		n += int64(m)
+		if err != nil {
+			return
+		}
+
+		m, err = w.Write(fieldSep)
+		n += int64(m)
+		if err != nil {
+			return
+		}
+
+		m, err = io.WriteString(w, field.Value)
+		n += int64(m)
+		if err != nil {
+			return
+		}
+
+		m, err = w.Write(crlf)
+		n += int64(m)
 		if err != nil {
 			return
 		}
 	}
+
 	return
 }
 

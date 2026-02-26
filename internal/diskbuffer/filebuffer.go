@@ -7,158 +7,118 @@ import (
 	"os"
 )
 
-// A fileBuffer is a variable-sized buffer of bytes with Read and Write methods.
-// The zero value for Buffer is an empty buffer ready to use.
+// fileBuffer is the file-backed portion of a buffer.
+// Data that overflows the in-memory limit is written to a temporary file.
 type fileBuffer struct {
-	diskFile *os.File // content
-	len      int64    // length of data.
-	max      int64    // max allowed size of buf
+	file  *os.File // temporary backing file
+	size  int64    // current number of bytes stored
+	limit int64    // maximum allowed bytes (math.MaxInt64 == unlimited)
 }
 
 func newFileBuffer(maxSize int64, tmpDir string) (*fileBuffer, error) {
-	var err error
 	if maxSize <= 0 {
-		maxSize = 0
+		return nil, errors.New("diskbuffer: file buffer limit must be positive")
 	}
-	b := &fileBuffer{
-		max: maxSize,
-	}
-	if b.diskFile, err = os.CreateTemp(tmpDir, tmpFilePrefix); err != nil {
+
+	file, err := os.CreateTemp(tmpDir, tmpFilePrefix)
+	if err != nil {
 		return nil, err
 	}
 
-	return b, nil
+	return &fileBuffer{
+		limit: maxSize,
+		file:  file,
+	}, nil
 }
 
 func (b *fileBuffer) close() error {
-	if b == nil || b.diskFile == nil {
+	if b.file == nil {
 		return nil
 	}
 
-	b.len = 0
-	err := b.diskFile.Close()
-	if err != nil {
-		if !errors.Is(err, fs.ErrClosed) {
-			return err
-		}
+	f := b.file
+	name := f.Name()
+
+	b.file = nil
+	b.size = 0
+
+	closeErr := f.Close()
+	if errors.Is(closeErr, fs.ErrClosed) {
+		closeErr = nil
 	}
-	if err := os.Remove(b.diskFile.Name()); err != nil {
-		if !errors.Is(err, fs.ErrNotExist) {
-			return err
-		}
+
+	removeErr := os.Remove(name)
+	if errors.Is(removeErr, fs.ErrNotExist) {
+		removeErr = nil
 	}
-	return nil
+
+	if removeErr != nil && closeErr != nil {
+		return errors.Join(closeErr, removeErr)
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	return removeErr
 }
 
-// empty reports whether the buffer is empty.
-func (b *fileBuffer) empty() bool {
-	if b == nil {
-		return true
-	}
-	return b.len == 0
+// Size returns the number of bytes stored in the buffer.
+func (b *fileBuffer) Size() int64 {
+	return b.size
 }
 
-// size returns the number of bytes in the buffer
-func (b *fileBuffer) size() int64 {
-	if b == nil {
-		return 0
-	}
-	return b.len
+// Limit returns the maximum number of bytes the buffer can hold.
+func (b *fileBuffer) Limit() int64 {
+	return b.limit
 }
 
-// cap returns the number of bytes that can be stored in the buffer
-func (b *fileBuffer) cap() int64 {
-	if b == nil {
-		return 0
-	}
-	return b.max
-}
-
-// free returns the number of bytes remaining before the buffer is full
-func (b *fileBuffer) free() int64 {
-	if b == nil {
-		return 0
-	}
-	return b.max - b.len
-}
-
-// hasSpace returns true if buffer has space left
-func (b *fileBuffer) hasSpace() bool {
-	if b == nil {
-		return false
-	}
-	return b.free() > 0
-}
-
-// write appends the contents of p to the file. The return value n is the length written.
+// write appends p to the file. It returns the number of bytes written.
+// If the write would exceed the limit, it writes as much as possible
+// and returns ErrMaxSizeExceeded.
 func (b *fileBuffer) write(p []byte) (n int, err error) {
-	if b.hasSpace() {
-		var e error
-		if int64(len(p)) > b.free() {
-			e = ErrMaxSizeExceeded(b.max)
-			p = p[:b.free()]
-		}
-		n, err = b.diskFile.WriteAt(p, b.len)
-		m := int64(n)
-		b.len += m
-		if err == nil {
-			err = e
-		}
-		return n, err
+	free := b.limit - b.size
+	if free <= 0 {
+		return 0, ErrMaxSizeExceeded(b.limit)
 	}
-	return n, ErrMaxSizeExceeded(b.max)
+
+	var e error
+	if int64(len(p)) > free {
+		p = p[:int(free)]
+		e = ErrMaxSizeExceeded(b.limit)
+	}
+
+	n, err = b.file.Write(p)
+	b.size += int64(n)
+	if err == nil {
+		err = e
+	}
+
+	return n, err
 }
 
-// readFrom reads data from r until EOF and appends it to the buffer, growing
-// the buffer as needed. The return value n is the number of bytes read. Any
-// error encountered during the read is also returned.
-func (b *fileBuffer) readFrom(r io.Reader) (n int64, err error) {
-	if b.hasSpace() {
-		_, err = b.diskFile.Seek(0, io.SeekEnd)
-		if err != nil {
-			return 0, err
-		}
-		n, err = io.CopyN(b.diskFile, r, b.free())
-		b.len += n
-		if err == io.EOF {
-			return n, nil
-		}
-		return n, err
+func (b *fileBuffer) writeToAt(off int64, w io.Writer) (n int64, err error) {
+	if off < 0 || off > b.size {
+		return 0, io.EOF
 	}
-	return n, ErrMaxSizeExceeded(b.max)
+	sr := io.NewSectionReader(b.file, off, b.size-off)
+	return io.Copy(w, sr)
 }
 
-func (b *fileBuffer) writeTo(off int64, w io.Writer) (n int64, err error) {
-	_, err = b.diskFile.Seek(off, io.SeekStart)
-	if err != nil {
-		return
-	}
-	n, err = io.Copy(w, b.diskFile)
-	if err != nil {
-		return n, err
-	}
-	return n, nil
-}
-
-// read reads len(p) bytes starting at off, from the buffer or until the buffer
-// is drained. The return value n is the number of bytes read. If the
-// buffer has no data to return, err is io.EOF (unless len(p) is zero);
-// otherwise it is nil.
-func (b *fileBuffer) read(off int64, p []byte) (n int, err error) {
-	if b.empty() || off >= b.len {
+// readAt reads up to len(p) bytes starting at off from the backing file.
+// Returns io.EOF when the buffer has no data or off is past the end.
+func (b *fileBuffer) readAt(off int64, p []byte) (n int, err error) {
+	if b.size == 0 || off >= b.size {
 		if len(p) == 0 {
-			return 0, nil
+			return
 		}
 		return 0, io.EOF
 	}
-	n, err = b.diskFile.ReadAt(p, off)
-	return n, err
+	return b.file.ReadAt(p, off)
 }
 
 // readByte reads and returns the byte at offset off from the buffer.
 // If no byte is available, it returns error io.EOF.
-func (b *fileBuffer) readByte(off int64) (byte, error) {
-	p := make([]byte, 1)
-	_, err := b.read(off, p)
+func (b *fileBuffer) readByteAt(off int64) (byte, error) {
+	var p [1]byte
+	_, err := b.readAt(off, p[:])
 	return p[0], err
 }

@@ -17,10 +17,11 @@
 package gowarc
 
 import (
+	"errors"
 	"io"
 	"time"
 
-	"github.com/nlnwa/gowarc/v2/internal/diskbuffer"
+	"github.com/nlnwa/gowarc/v3/internal/diskbuffer"
 )
 
 type WarcRecordBuilder interface {
@@ -32,7 +33,7 @@ type WarcRecordBuilder interface {
 	AddWarcHeaderInt(name string, value int)
 	AddWarcHeaderInt64(name string, value int64)
 	AddWarcHeaderTime(name string, value time.Time)
-	Build() (WarcRecord, *Validation, error)
+	Build() (record WarcRecord, validation []error, err error)
 	Size() int64
 	SetRecordType(recordType RecordType)
 }
@@ -108,9 +109,12 @@ func (rb *recordBuilder) SetRecordType(recordType RecordType) {
 	}
 }
 
-func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
-	if rb.opts.addMissingRecordId && !rb.headers.Has(WarcRecordID) {
+func (rb *recordBuilder) Build() (WarcRecord, []error, error) {
+	if !rb.headers.Has(WarcRecordID) {
 		if id, err := rb.opts.recordIdFunc(); err != nil {
+			if cerr := rb.Close(); cerr != nil {
+				err = errors.Join(err, cerr)
+			}
 			return nil, nil, err
 		} else {
 			rb.headers.SetId(WarcRecordID, id)
@@ -129,27 +133,41 @@ func (rb *recordBuilder) Build() (WarcRecord, *Validation, error) {
 
 	validation, err := rb.validate(wr)
 	if err != nil {
-		return wr, validation, err
+		if cerr := rb.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return nil, validation, err
 	}
 
-	err = wr.parseBlock(rb.content, validation)
+	var blockValidation []error
+	blockValidation, err = wr.parseBlock(rb.content)
+	validation = append(validation, blockValidation...)
 	if err != nil {
-		return wr, validation, err
+		if cerr := rb.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return nil, validation, err
 	}
 
-	err = wr.ValidateDigest(validation)
+	digestValidation, err := wr.ValidateDigest()
+	validation = append(validation, digestValidation...)
+	if err != nil {
+		if cerr := rb.Close(); cerr != nil {
+			err = errors.Join(err, cerr)
+		}
+		return nil, validation, err
+	}
 
-	return wr, validation, err
+	return wr, validation, nil
 }
 
-func (rb *recordBuilder) validate(wr *warcRecord) (*Validation, error) {
+func (rb *recordBuilder) validate(wr *warcRecord) ([]error, error) {
 	size := rb.content.Size()
-	if rb.opts.addMissingContentLength && !wr.WarcHeader().Has(ContentLength) {
+	if !wr.WarcHeader().Has(ContentLength) {
 		wr.headers.SetInt64(ContentLength, size)
 	}
 
-	validation := &Validation{}
-	_, err := validateHeader(rb.headers, wr.version, validation, wr.opts)
+	_, validation, err := validateHeader(rb.headers, wr.version, wr.opts)
 	if err != nil {
 		return validation, err
 	}

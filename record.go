@@ -25,13 +25,23 @@ import (
 )
 
 const (
-	sphtcrlf = " \t\r\n"  // Space, Tab, Carriage return, Newline
-	cr       = '\r'       // Carriage return
-	lf       = '\n'       // Newline
-	sp       = ' '        // Space
-	ht       = '\t'       // Tab
-	crlf     = "\r\n"     // Carriage return, Newline
-	crlfcrlf = "\r\n\r\n" // Carriage return, Newline, Carriage return, Newline
+	sphtcrlf = " \t\r\n" // Space, Tab, Carriage return, Newline
+	cr       = '\r'      // Carriage return
+	lf       = '\n'      // Newline
+	sp       = ' '       // Space
+	ht       = '\t'      // Tab
+	// crlf     = "\r\n"     // Carriage return, Newline
+	// crlfcrlf = "\r\n\r\n" // Carriage return, Newline, Carriage return, Newline
+	// fieldSep = ": " // Field separator in WARC header fields
+)
+
+var (
+	crlf      = []byte("\r\n")
+	crlfcrlf  = []byte("\r\n\r\n")
+	fieldSep  = []byte(": ")
+	warcMagic = []byte("WARC/")
+	v1_0      = []byte(V1_0.txt)
+	v1_1      = []byte(V1_1.txt)
 )
 
 // WarcRecord is the interface implemented by types that can represent a WARC record.
@@ -83,16 +93,18 @@ type WarcRecord interface {
 	// ValidateDigest validates block and payload digests if present.
 	//
 	// If option FixDigest is set, an invalid or missing digest will be corrected in the header.
-	// Digest validation requires the whole content block to be read. As a side effect the Content-Length field is also validated
-	// and if option FixContentLength is set, a wrong content length will be corrected in the header.
+	// Digest validation requires the whole content block to be read. As a side effect the
+	// Content-Length field is also validated, and if option FixContentLength is set, a wrong
+	// content length will be corrected in the header.
 	//
-	// If the record is not cached, it might not be possible to read any content from this record after validation.
+	// If the record is not cached, it might not be possible to read any content from this
+	// record after validation.
 	//
-	// The result is dependent on the SpecViolationPolicy option:
-	//   ErrIgnore: only fatal errors are returned.
-	//   ErrWarn: all errors found will be added to the Validation.
-	//   ErrFail: the first error is returned and no more validation is done.
-	ValidateDigest(validation *Validation) error
+	// The returned values depend on the [ErrorPolicy] options:
+	//   - [ErrIgnore]: only fatal errors are returned via err.
+	//   - [ErrWarn]: non-fatal findings are collected in validation; err is nil.
+	//   - [ErrFail]: the first validation failure is returned via err.
+	ValidateDigest() (validation []error, err error)
 }
 
 // WarcVersion represents a WARC specification version.
@@ -263,12 +275,12 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 			h.Set(WarcPayloadDigest, h.Get(WarcBlockDigest))
 		}
 		if !h.Has(WarcPayloadDigest) {
-			return nil, fmt.Errorf("payload digest is required for Identical Payload Digest Profile")
+			return nil, ErrMissingPayloadDigest
 		}
 	case ProfileServerNotModifiedV1_0:
 	case ProfileServerNotModifiedV1_1:
 	default:
-		return nil, fmt.Errorf("unknown revisit profile")
+		return nil, ErrUnknownRevisitProfile
 	}
 
 	h.Set(WarcType, Revisit.String())
@@ -303,7 +315,7 @@ func (wr *warcRecord) ToRevisitRecord(ref *RevisitRef) (WarcRecord, error) {
 
 func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
 	if wr.recordType != Revisit {
-		return nil, fmt.Errorf("not a revisit record")
+		return nil, ErrNotRevisitRecord
 	}
 
 	return &RevisitRef{
@@ -316,7 +328,7 @@ func (wr *warcRecord) RevisitRef() (*RevisitRef, error) {
 
 func (wr *warcRecord) CreateRevisitRef(profile string) (*RevisitRef, error) {
 	if wr.recordType == Revisit {
-		return nil, fmt.Errorf("not allowed to reference a revisit record")
+		return nil, ErrIsRevisitRecord
 	}
 
 	return &RevisitRef{
@@ -329,17 +341,17 @@ func (wr *warcRecord) CreateRevisitRef(profile string) (*RevisitRef, error) {
 
 func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	if wr.headers.Get(WarcSegmentNumber) == "1" {
-		return nil, fmt.Errorf("merging of segmentet records is not implemented")
+		return nil, ErrMergeSegmentedNotImplemented
 	}
 	if wr.recordType != Revisit {
-		return nil, fmt.Errorf("merging is only possible for revisit records or segmentet records")
+		return nil, ErrMergeNotSupported
 	}
 	if len(record) != 1 {
-		return nil, fmt.Errorf("a revisit record must be merged with only one referenced record")
+		return nil, ErrMergeRequiresOneRecord
 	}
 
 	wr.recordType = record[0].Type()
-	wr.headers.Set(WarcType, "response")
+	wr.headers.Set(WarcType, record[0].Type().String())
 	wr.headers.Delete(WarcRefersTo)
 	wr.headers.Delete(WarcRefersToTargetURI)
 	wr.headers.Delete(WarcRefersToDate)
@@ -352,7 +364,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 
 	b, ok := wr.block.(*revisitBlock)
 	if !ok {
-		return nil, fmt.Errorf("the revisit record's has wrong block type. Creation of record must be done with SkipParseBlock set to false")
+		return nil, ErrMergeWrongBlockType
 	}
 
 	switch v := record[0].Block().(type) {
@@ -393,7 +405,7 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 			}
 		}
 	default:
-		return nil, fmt.Errorf("merging of revisits is only implemented for http requests and responses")
+		return nil, ErrMergeUnsupportedBlock
 	}
 	if record[0].Block().IsCached() {
 		wr.headers.Set(WarcBlockDigest, record[0].Block().BlockDigest())
@@ -404,21 +416,21 @@ func (wr *warcRecord) Merge(record ...WarcRecord) (WarcRecord, error) {
 	return wr, nil
 }
 
-func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err error) {
+func (wr *warcRecord) parseBlock(reader io.Reader) (validation []error, err error) {
 	blockDigest, err := newDigestFromField(wr, WarcBlockDigest)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	payloadDigest, err := newDigestFromField(wr, WarcPayloadDigest)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if !wr.opts.skipParseBlock {
 		contentType := strings.ToLower(wr.headers.Get(ContentType))
 		if wr.recordType&(Response|Resource|Request|Conversion|Continuation) != 0 {
 			if strings.HasPrefix(contentType, ApplicationHttp) {
-				wr.block, err = newHttpBlock(wr.opts, wr.headers, reader, blockDigest, payloadDigest, validation)
+				wr.block, validation, err = newHttpBlock(wr.opts, wr.headers, reader, blockDigest, payloadDigest)
 				return
 			}
 		}
@@ -427,7 +439,7 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 			return
 		}
 		if strings.HasPrefix(contentType, ApplicationWarcFields) {
-			wr.block, err = newWarcFieldsBlock(wr.opts, wr.headers, reader, blockDigest, validation)
+			wr.block, validation, err = newWarcFieldsBlock(wr.opts, wr.headers, reader, blockDigest)
 			return
 		}
 	}
@@ -439,33 +451,37 @@ func (wr *warcRecord) parseBlock(reader io.Reader, validation *Validation) (err 
 // ValidateDigest validates block and payload digests if present.
 //
 // If option FixDigest is set, an invalid or missing digest will be corrected in the header.
-// Digest validation requires the whole content block to be read. As a side effect the Content-Length field is also validated
-// and if option FixContentLength is set, a wrong content length will be corrected in the header.
+// Digest validation requires the whole content block to be read. As a side effect the
+// Content-Length field is also validated, and if option FixContentLength is set, a wrong
+// content length will be corrected in the header.
 //
-// If the record is not cached, it might not be possible to read any content from this record after validation.
+// If the record is not cached, it might not be possible to read any content from this
+// record after validation.
 //
-// The result is dependent on the SpecViolationPolicy option:
+// The returned values depend on the [ErrorPolicy] options:
 //
-//	ErrIgnore: only fatal errors are returned.
-//	ErrWarn: all errors found will be added to the Validation.
-//	ErrFail: the first error is returned and no more validation is done.
-func (wr *warcRecord) ValidateDigest(validation *Validation) error {
+//	[ErrIgnore]: only fatal errors are returned via err.
+//	[ErrWarn]: non-fatal findings are collected in validation; err is nil.
+//	[ErrFail]: the first validation failure is returned via err.
+func (wr *warcRecord) ValidateDigest() (validation []error, err error) {
 	if wr.opts.errSpec > ErrIgnore {
-		if err := wr.Block().Cache(); err != nil {
-			return err
+		if err = wr.Block().Cache(); err != nil {
+			return nil, err
 		}
 		wr.Block().BlockDigest()
 
 		size := strconv.FormatInt(wr.block.Size(), 10)
 		if wr.WarcHeader().Has(ContentLength) && size != wr.headers.Get(ContentLength) {
+			headerLen, _ := wr.headers.GetInt64(ContentLength)
+			clErr := &ContentLengthError{Expected: headerLen, Actual: wr.block.Size()}
 			switch wr.opts.errSpec {
 			case ErrWarn:
-				validation.addError(fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size))
+				validation = append(validation, clErr)
 				if wr.opts.fixContentLength {
 					wr.WarcHeader().Set(ContentLength, size)
 				}
 			case ErrFail:
-				return fmt.Errorf("content length mismatch. header: %v, actual: %v", wr.headers.Get(ContentLength), size)
+				return nil, clErr
 			}
 		}
 	}
@@ -500,14 +516,14 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 				switch wr.opts.errSpec {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(fmt.Errorf("block: %w", err))
+					validation = append(validation, fmt.Errorf("block: %w", err))
 					if wr.opts.fixDigest {
 						// Digest validation failed. But if fixDigest option is set, the calculated digest will be set.
 						blockDigest.updateDigest()
 						wr.WarcHeader().Set(WarcBlockDigest, blockDigest.format())
 					}
 				case ErrFail:
-					return fmt.Errorf("block: %w", err)
+					return nil, fmt.Errorf("block: %w", err)
 				}
 			}
 		}
@@ -516,7 +532,7 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 	if wr.Type() == Revisit || wr.WarcHeader().Has(WarcSegmentNumber) {
 		// Can't check payload digest for revisit records or segmented records since the payload digest is a digest of
 		// the original record
-		return nil
+		return validation, nil
 	}
 
 	if payloadDigest != nil {
@@ -530,17 +546,17 @@ func (wr *warcRecord) ValidateDigest(validation *Validation) error {
 				switch wr.opts.errSpec {
 				case ErrIgnore:
 				case ErrWarn:
-					validation.addError(fmt.Errorf("payload: %w", err))
+					validation = append(validation, fmt.Errorf("payload: %w", err))
 					// Digest validation failed. But if fixDigest option is set, the calculated digest will be set.
 					if wr.opts.fixDigest {
 						payloadDigest.updateDigest()
 						wr.WarcHeader().Set(WarcPayloadDigest, payloadDigest.format())
 					}
 				case ErrFail:
-					return fmt.Errorf("payload: %w", err)
+					return nil, fmt.Errorf("payload: %w", err)
 				}
 			}
 		}
 	}
-	return nil
+	return validation, nil
 }
