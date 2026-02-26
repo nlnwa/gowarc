@@ -1,4 +1,4 @@
-![Lint](https://github.com/nlnwa/gowarc/workflows/golangci-lint/badge.svg)
+[![Test](https://github.com/nlnwa/gowarc/actions/workflows/test.yml/badge.svg)](https://github.com/nlnwa/gowarc/actions/workflows/test.yml)
 [![Release](https://img.shields.io/github/release/nlnwa/gowarc.svg)](https://github.com/nlnwa/gowarc/releases/latest)
 [![License](https://img.shields.io/github/license/nlnwa/gowarc)](/LICENSE)
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/nlnwa/gowarc/v3.svg)](https://pkg.go.dev/github.com/nlnwa/gowarc/v3)
