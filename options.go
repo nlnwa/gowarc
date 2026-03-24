@@ -39,6 +39,7 @@ type warcRecordOptions struct {
 	fixWarcFieldsBlockErrors bool
 	defaultDigestAlgorithm   string
 	defaultDigestEncoding    DigestEncoding
+	digestEncodingSet        bool
 	bufferOptions            []diskbuffer.Option
 	urlParserOptions         []url.ParserOption
 }
@@ -64,6 +65,7 @@ func (f WarcRecordOption) apply(o *warcRecordOptions) { f(o) }
 
 func defaultWarcRecordOptions() warcRecordOptions {
 	uuid.EnableRandPool()
+	defaultDigestAlgorithm := normalizeAlgorithmName("sha256")
 	return warcRecordOptions{
 		warcVersion:              V1_1,
 		errSyntax:                ErrWarn,
@@ -75,8 +77,8 @@ func defaultWarcRecordOptions() warcRecordOptions {
 		recordIdFunc:             defaultIdGenerator,
 		addMissingContentLength:  false,
 		addMissingDigest:         false,
-		defaultDigestAlgorithm:   "sha1",
-		defaultDigestEncoding:    Base32,
+		defaultDigestAlgorithm:   defaultDigestAlgorithm,
+		defaultDigestEncoding:    recommendedEncoding(defaultDigestAlgorithm),
 		fixContentLength:         false,
 		fixDigest:                false,
 		fixSyntaxErrors:          false,
@@ -89,6 +91,9 @@ func newOptions(opts ...WarcRecordOption) *warcRecordOptions {
 	o := defaultWarcRecordOptions()
 	for _, opt := range opts {
 		opt.apply(&o)
+	}
+	if !o.digestEncodingSet {
+		o.defaultDigestEncoding = recommendedEncoding(o.defaultDigestAlgorithm)
 	}
 	return &o
 }
@@ -192,10 +197,10 @@ func WithAddMissingDigest(addMissingDigest bool) WarcRecordOption {
 //
 // Valid values: 'md5', 'sha1', 'sha256' and 'sha512'.
 //
-// defaults to sha1
+// defaults to sha256
 func WithDefaultDigestAlgorithm(defaultDigestAlgorithm string) WarcRecordOption {
 	return func(o *warcRecordOptions) {
-		o.defaultDigestAlgorithm = defaultDigestAlgorithm
+		o.defaultDigestAlgorithm = normalizeAlgorithmName(defaultDigestAlgorithm)
 	}
 }
 
@@ -203,10 +208,16 @@ func WithDefaultDigestAlgorithm(defaultDigestAlgorithm string) WarcRecordOption 
 //
 // Valid values: Base16, Base32 and Base64.
 //
-// defaults to Base32
+// Note: Base64 may violate strict WARC digest-value token grammar because
+// Base64 output can contain '/' characters. Generated Base64 digest values
+// are encoded without padding so no '=' characters will be present.
+//
+// By default, the spec-recommended encoding per algorithm is used:
+// SHA-1 uses uppercase Base32, all others use lowercase Base16.
 func WithDefaultDigestEncoding(defaultDigestEncoding DigestEncoding) WarcRecordOption {
 	return func(o *warcRecordOptions) {
 		o.defaultDigestEncoding = defaultDigestEncoding
+		o.digestEncodingSet = true
 	}
 }
 

@@ -34,15 +34,20 @@ import (
 // DigestEncoding represents the encoding used for WARC digest values.
 type DigestEncoding uint8
 
+var (
+	base32NoPaddingEncoding = base32.StdEncoding.WithPadding(base32.NoPadding)
+	base64NoPaddingEncoding = base64.StdEncoding.WithPadding(base64.NoPadding)
+)
+
 func (d DigestEncoding) encode(digest *digest) string {
 	dig := digest.Sum(nil)
 	switch d {
 	case Base16:
 		return strings.ToLower(hex.EncodeToString(dig))
 	case Base32:
-		return base32.StdEncoding.EncodeToString(dig)
+		return base32NoPaddingEncoding.EncodeToString(dig)
 	case Base64:
-		return base64.StdEncoding.EncodeToString(dig)
+		return base64NoPaddingEncoding.EncodeToString(dig)
 	default:
 		return string(dig)
 	}
@@ -53,9 +58,15 @@ func (d DigestEncoding) decode(s string) ([]byte, error) {
 	case Base16:
 		return hex.DecodeString(s)
 	case Base32:
-		return base32.StdEncoding.DecodeString(s)
+		if strings.HasSuffix(s, "=") {
+			return base32.StdEncoding.DecodeString(s)
+		}
+		return base32NoPaddingEncoding.DecodeString(s)
 	case Base64:
-		return base64.StdEncoding.DecodeString(s)
+		if strings.HasSuffix(s, "=") {
+			return base64.StdEncoding.DecodeString(s)
+		}
+		return base64NoPaddingEncoding.DecodeString(s)
 	default:
 		return []byte(s), nil
 	}
@@ -68,13 +79,25 @@ const (
 	Base64  DigestEncoding = 3
 )
 
+// recommendedEncoding returns the WARC spec community-recommended encoding for the
+// given algorithm. SHA-1 uses Base32 (no padding needed). All others use Base16 to
+// avoid the need for padding characters which are forbidden in digest-value tokens.
+func recommendedEncoding(algorithm string) DigestEncoding {
+	switch algorithm {
+	case "sha1":
+		return Base32
+	default:
+		return Base16
+	}
+}
+
 func detectEncoding(algorithm, digest string, defaultEncoding DigestEncoding) DigestEncoding {
 	var algorithmLength int
 	switch algorithm {
 	case "md5":
 		if len(digest) == 32 {
-			// Special handling for md5 where encoded length are the same for base16 and base32.
-			// Distinction can be done on base32 padding
+			// Special handling for md5 where padded base32 encoded length (32) is the same as base16.
+			// Distinction can be done on base32 padding suffix.
 			if strings.HasSuffix(digest, "=") {
 				return Base32
 			} else {
@@ -88,13 +111,15 @@ func detectEncoding(algorithm, digest string, defaultEncoding DigestEncoding) Di
 		algorithmLength = sha256.Size
 	case "sha512":
 		algorithmLength = sha512.Size
+	default:
+		return defaultEncoding
 	}
-	switch len(digest) {
-	case algorithmLength * 2:
+	switch l := len(digest); {
+	case l == algorithmLength*2:
 		return Base16
-	case base32.StdEncoding.EncodedLen(algorithmLength):
+	case l == base32.StdEncoding.EncodedLen(algorithmLength) || l == base32NoPaddingEncoding.EncodedLen(algorithmLength):
 		return Base32
-	case base64.StdEncoding.EncodedLen(algorithmLength):
+	case l == base64.StdEncoding.EncodedLen(algorithmLength) || l == base64NoPaddingEncoding.EncodedLen(algorithmLength):
 		return Base64
 	}
 	return defaultEncoding
@@ -181,12 +206,10 @@ func (d *digest) updateDigest() {
 // The encoding is deduced from the length of the digestValue. In the case where only the algorithm is submitted
 // or the length of the digestValue is of wrong length for the supported encodings, the value of defaultEncoding is used.
 func newDigest(digestString string, defaultEncoding DigestEncoding) (*digest, error) {
-	t := strings.SplitN(digestString, ":", 2)
-	algorithm := t[0]
+	algorithm, hash, _ := strings.Cut(digestString, ":")
 	algorithm = normalizeAlgorithmName(algorithm)
-	var hash string
-	if len(t) > 1 {
-		hash = t[1]
+	if defaultEncoding == unknown {
+		defaultEncoding = recommendedEncoding(algorithm)
 	}
 	encoding := detectEncoding(algorithm, hash, defaultEncoding)
 	switch encoding {
@@ -206,7 +229,7 @@ func newDigest(digestString string, defaultEncoding DigestEncoding) (*digest, er
 	case "sha512":
 		return &digest{sha512.New(), algorithm, hash, 0, encoding}, nil
 	case "":
-		return &digest{sha1.New(), "sha1", hash, 0, encoding}, nil
+		return &digest{sha256.New(), "sha256", hash, 0, encoding}, nil
 	default:
 		return nil, fmt.Errorf("%w: %s", ErrUnsupportedDigestAlgorithm, algorithm)
 	}
@@ -215,13 +238,16 @@ func newDigest(digestString string, defaultEncoding DigestEncoding) (*digest, er
 // newDigestFromField takes a warcRecord and a digest-field name and creates a new digest from it.
 //
 // If the digest-field is missing from the warcRecord a digest is created with the default algorithm and encoding set
-// in the warcRecord's options
+// in the warcRecord's options. If no encoding is configured (unknown), the spec-recommended encoding for the
+// algorithm is used.
 func newDigestFromField(wr *warcRecord, warcDigestField string) (d *digest, err error) {
+	var digestString string
 	if wr.WarcHeader().Has(warcDigestField) {
-		d, err = newDigest(wr.WarcHeader().Get(warcDigestField), wr.opts.defaultDigestEncoding)
+		digestString = wr.WarcHeader().Get(warcDigestField)
 	} else {
-		d, err = newDigest(wr.opts.defaultDigestAlgorithm, wr.opts.defaultDigestEncoding)
+		digestString = wr.opts.defaultDigestAlgorithm
 	}
+	d, err = newDigest(digestString, wr.opts.defaultDigestEncoding)
 	return
 }
 
