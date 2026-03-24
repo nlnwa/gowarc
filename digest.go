@@ -45,9 +45,9 @@ func (d DigestEncoding) encode(digest *digest) string {
 	case Base16:
 		return strings.ToLower(hex.EncodeToString(dig))
 	case Base32:
-		return base32NoPaddingEncoding.EncodeToString(dig)
+		return base32.StdEncoding.EncodeToString(dig)
 	case Base64:
-		return base64NoPaddingEncoding.EncodeToString(dig)
+		return base64.StdEncoding.EncodeToString(dig)
 	default:
 		return string(dig)
 	}
