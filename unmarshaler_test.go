@@ -156,7 +156,7 @@ func Test_unmarshaler_Unmarshal(t *testing.T) {
 					&nameValue{Name: WarcRecordID, Value: "<urn:uuid:ac971c52-f8da-434c-809b-e401d915d945>"},
 					&nameValue{Name: WarcIPAddress, Value: "127.0.0.1"},
 					&nameValue{Name: WarcType, Value: "response"},
-					&nameValue{Name: WarcBlockDigest, Value: "sha1:4C44B5E46JR5DGLKCD7W3IIL2YQNPCZ6"},
+					&nameValue{Name: WarcBlockDigest, Value: "sha256:4942160288663ac380044e7dbb92a446198b923f163e9e22f9a0af2ffbb992ea"},
 					&nameValue{Name: ContentType, Value: "text/dns"},
 					&nameValue{Name: ContentLength, Value: "60"},
 				},
